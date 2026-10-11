@@ -959,6 +959,19 @@ static int read_switched(void) {
 #include "gstance.h"
 #include "precise_trace.h"
 #include "ramp_diag.h"
+#include "overlay_handoff.h"
+
+static int reskate_owns_input(double now) {
+    typedef DWORD (WINAPI* Ownership)(void);
+    static Ownership ownership;
+    static double next_lookup;
+    if (!ownership && now >= next_lookup) {
+        next_lookup = now + 1000.0;
+        HMODULE reskate = GetModuleHandleW(L"ReSkate.dll");
+        if (reskate) ownership = (Ownership)GetProcAddress(reskate,"ReSkateOverlayOwnsInputV1");
+    }
+    return ownership && ownership() != 0;
+}
 static void process_inner(DWORD user, XINPUT_STATE* s) {
     UINT64 now = GetTickCount64();
     {
@@ -995,6 +1008,21 @@ static void process_inner(DWORD user, XINPUT_STATE* s) {
         drain_state_events();
     }
     if (now - g_last_ini_check > 2000) { g_last_ini_check = now; load_config(1); }
+    {
+        static int was_owned;
+        int owned = reskate_owns_input(now);
+        if (owned != was_owned) {
+            log_text(owned ? "reSkate overlay owns input: Dual Stick gestures suspended" : "reSkate overlay released input: Dual Stick controls back");
+            was_owned = owned;
+        }
+        if (owned) {
+            g_cfg.enabled = 0;
+            sc_overlay_suspend(&g_state[user < 4 ? user : 0]);
+            g_ui_open = g_ui_bind_mode = 0;
+            g_ui_req_toggle = g_ui_req_nav = g_ui_req_change = g_ui_req_bound_key = 0;
+            return; /* Keep reSkate's captured/neutral pad exactly as returned. */
+        }
+    }
     g_ui_key = key_from_name(g_menu_key_name);
     ui_start();
     if (!g_seen_state) { g_seen_state = 1; log_text("game is polling the controller through Dual Stick Controls"); dg_start(); gs_start(); }
@@ -1436,7 +1464,7 @@ static void setup(HMODULE self) {
     GetModuleFileNameW(0, exe, 519);
     if (!wieq(wbase(exe), "skate.exe")) return; /* only the game; stay a plain version.dll elsewhere */
 
-    log_text("---- Dual Stick Controls 5.71 TEST loaded (version.dll route)");
+    log_text("---- Dual Stick Controls 5.72 TEST loaded (version.dll route)");
     log_wide("process: ", exe);
     load_config(0);
     if (GetFileAttributesW(g_ini) == 0xFFFFFFFFu) log_text("no session_controls.ini found; using defaults");

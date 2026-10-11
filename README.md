@@ -4,7 +4,7 @@ A two-stick controller mod for [reSkate](https://github.com/Dingo-Shenanigans/Re
 It translates foot inputs into Skate's existing controls, with Session-style and
 XL-style presets, editable settings, custom presets, and optional stock ramp controls.
 
-Current version: **v5.71 TEST**. Ramp detection remains experimental.
+Current version: **v5.72 TEST**. Ramp detection remains experimental.
 
 ## Install on Windows
 
@@ -113,7 +113,11 @@ Run the included control regression tests with:
 
 `integration/reskate/dual-stick-menu.patch` adds a companion settings page under
 reSkate's Mod Options. It is a separate, unsubmitted source patch. It requires
-the standalone mod; it does not bundle the translator or alter controller hooks.
+the standalone mod; it does not bundle the translator. The test integration also
+feeds raw controller navigation to the Insert overlay and exposes an input
+ownership signal. Companion v5.72 respects that signal, stops its generated
+gestures while reSkate owns input, and protects held feet on return. With an older
+ReSkate DLL that lacks the signal, the companion keeps its previous behavior.
 See its README and draft PR description for the base revision and validation.
 
 Building the complete modified reSkate requires its supported Visual Studio C++

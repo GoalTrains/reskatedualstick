@@ -1,3 +1,13 @@
+DUAL STICK CONTROLS v5.72 TEST
+
+- Test integration adds raw controller navigation to reSkate's Insert overlay,
+  using its existing XInput/native PlayStation reader.
+- Companion now respects the test reSkate DLL's explicit overlay/freecam input
+  ownership signal: synthetic gestures stop and the companion menu yields.
+  Held feet are guarded on return so closing a menu cannot cause a fresh pop.
+- Older reSkate DLLs without the signal retain the previous behavior. The
+  controller navigation change is in the test ReSkate.dll, not version.dll alone.
+
 DUAL STICK CONTROLS v5.71 TEST - changes since v5.59
 
 - Session-style preset now defaults one-stick flips to BLOCKED; XL-style

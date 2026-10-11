@@ -5,4 +5,4 @@ No pull request has been submitted. No installed DLL has been changed.
 Apply dual-stick-menu.patch to a clean checkout of the base with git apply.
 Review PR_DESCRIPTION.md and contrib/dual-stick-controls.md before submission.
 This is a source patch, not an installable game update. Full MSVC build and
-in-game testing remain outstanding.
+regression tests passed; in-game testing remains outstanding.

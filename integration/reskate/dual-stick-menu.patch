@@ -1,8 +1,8 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 6b1ac58..f0d1e68 100644
+index 6b1ac58..7a47518 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -26,6 +26,12 @@ if(WIN32)
+@@ -26,6 +26,15 @@ if(WIN32)
  endif()
  
  option(DINGOSDK_BUILD_TESTS "Build logging regression tests" OFF)
@@ -11,6 +11,9 @@ index 6b1ac58..f0d1e68 100644
 +    enable_testing()
 +    add_executable(dingosdk_dual_stick_settings_tests Extension/UI/Overlay/Test/dual_stick_settings_tests.cpp)
 +    add_test(NAME dual_stick_settings COMMAND dingosdk_dual_stick_settings_tests)
++    add_executable(dingosdk_gamepad_navigation_tests Extension/UI/Overlay/Test/gamepad_navigation_tests.cpp)
++    target_link_libraries(dingosdk_gamepad_navigation_tests PRIVATE dingosdk_imgui)
++    add_test(NAME gamepad_navigation COMMAND dingosdk_gamepad_navigation_tests)
 +endif()
  option(DINGOSDK_BUILD_PARK_EDITOR_TESTS "Build park editor regression tests" OFF)
  option(DINGOSDK_BUILD_TRAINER_TESTS "Build the trainer's tools and regression tests" OFF)
@@ -123,6 +126,90 @@ index 0bfb4f0..872ca65 100644
          } else {
              tabs = {{static_cast<int>(Tab::browser), "SERVER BROWSER"}, {static_cast<int>(Tab::host), "HOST LOBBY"}};
              // The session and its voice chat are only there in one.
+diff --git a/Extension/UI/Overlay/input_capture.h b/Extension/UI/Overlay/input_capture.h
+index ce927d2..b7acd27 100644
+--- a/Extension/UI/Overlay/input_capture.h
++++ b/Extension/UI/Overlay/input_capture.h
+@@ -12,6 +12,8 @@ struct OverlayInputAccess {
+ // through GetRawInputData is then not noted a second time.
+ extern thread_local HRAWINPUT noted_raw_input;
+ bool block_polled_input();
++// Raw XInput/native HID navigation for the Insert overlay's ImGui context.
++void update_gamepad_navigation(bool enabled);
+ // How the game read its controllers while a card held its input (prompt_input_active), for the
+ // log when the hold ends: which of the ways the overlay can keep input from it the game used.
+ struct PromptReads {
+diff --git a/Extension/UI/Overlay/overlay_input.cpp b/Extension/UI/Overlay/overlay_input.cpp
+index ff84664..b90f08f 100644
+--- a/Extension/UI/Overlay/overlay_input.cpp
++++ b/Extension/UI/Overlay/overlay_input.cpp
+@@ -3,6 +3,7 @@
+ #include "Extension/Boot/exit_watch.h"
+ #include "overlay_internal.h"
+ #include "input_capture.h"
++#include "gamepad_navigation.h"
+ #include "playstation_input.h"
+ #include "cursor.h"
+ 
+@@ -449,6 +450,16 @@ dingosdk::overlay::FlightInput read_player_flight_controller() {
+ }
+ }
+ 
++namespace dingosdk::overlay::detail {
++void update_gamepad_navigation(bool enabled) {
++    ControllerSample sample{};
++    if (enabled) sample = read_controller_sample();
++    const auto& pad = sample.pad;
++    feed_gamepad_navigation(ImGui::GetIO(),enabled && sample.device != 0,pad.wButtons,
++                            pad.sThumbLX,pad.sThumbLY,pad.bLeftTrigger,pad.bRightTrigger);
++}
++}
++
+ extern "C" void DingoSDKOverlaySetFreecamInputCapture(bool active) {
+     const bool previous = state().freecam_controller_active.exchange(active, std::memory_order_relaxed);
+     if (previous != active)
+@@ -456,6 +467,17 @@ extern "C" void DingoSDKOverlaySetFreecamInputCapture(bool active) {
+             "Freecam controller input capture %s.", active ? "enabled" : "disabled");
+ }
+ 
++// Optional companion DLLs can respect UI/freecam ownership without peeking at
++// internal offsets or guessing from whether the skater is still ticking.
++extern "C" __declspec(dllexport) unsigned long WINAPI ReSkateOverlayOwnsInputV1() {
++    const auto error = GetLastError();
++    const auto& s = state();
++    const unsigned long owns = owns_menu_cursor(s) || s.freecam_controller_active.load(std::memory_order_relaxed) ||
++           s.prompt_input_active.load(std::memory_order_relaxed) ? 1ul : 0ul;
++    SetLastError(error);
++    return owns;
++}
++
+ extern "C" void DingoSDKOverlaySetPromptInputCapture(bool active) {
+     const bool before = state().prompt_input_active.exchange(active, std::memory_order_relaxed);
+     if (before == active) return;
+diff --git a/Extension/UI/Overlay/overlay_render.cpp b/Extension/UI/Overlay/overlay_render.cpp
+index 9631d0d..7b5c96e 100644
+--- a/Extension/UI/Overlay/overlay_render.cpp
++++ b/Extension/UI/Overlay/overlay_render.cpp
+@@ -353,7 +353,7 @@ bool setup_graphics() {
+     ImGui::SetCurrentContext(s.context);
+     ImGui::GetIO().IniFilename = nullptr;
+     ImGui::GetIO().LogFilename = nullptr;
+-    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
++    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_NavEnableGamepad;
+     ImGui::StyleColorsDark();
+     dingosdk::overlay::load_skate_fonts(s.menu);
+     // Thumbnails are read from the game's own data at startup; the read is
+@@ -693,6 +693,10 @@ void render(IDXGISwapChain* presented, UINT flags) {
+     ImGui::GetIO().MouseDrawCursor = owns_menu_cursor(s);
+     ImGui_ImplDX12_NewFrame();
+     { OverlayInputAccess access; ImGui_ImplWin32_NewFrame(); }
++    {
++        const bool menu_input = s.visible.load() && game_window_foreground(s.window.load());
++        update_gamepad_navigation(menu_input);
++    }
+     update_menu_pointer();
+     fit_display_to_buffer(s, frame.buffer.Get());
+     ImGui::NewFrame();
 diff --git a/Extension/UI/Overlay/Test/dual_stick_settings_tests.cpp b/Extension/UI/Overlay/Test/dual_stick_settings_tests.cpp
 new file mode 100644
 index 0000000..a097961
@@ -187,12 +274,76 @@ index 0000000..a097961
 +    assert(GetFileAttributesW(name.data()) == INVALID_FILE_ATTRIBUTES);
 +    std::cout << "Dual Stick settings integration checks passed\n";
 +}
+diff --git a/Extension/UI/Overlay/Test/gamepad_navigation_tests.cpp b/Extension/UI/Overlay/Test/gamepad_navigation_tests.cpp
+new file mode 100644
+index 0000000..a0651f5
+--- /dev/null
++++ b/Extension/UI/Overlay/Test/gamepad_navigation_tests.cpp
+@@ -0,0 +1,58 @@
++#ifdef NDEBUG
++#undef NDEBUG
++#endif
++#include "../gamepad_navigation.h"
++#include <cassert>
++#include <iostream>
++
++static int first_clicks{}, second_clicks{};
++static void frame() {
++    ImGui::NewFrame();
++    ImGui::Begin("Controller navigation");
++    if (ImGui::Button("First")) ++first_clicks;
++    ImGui::SetItemDefaultFocus();
++    if (ImGui::Button("Second")) ++second_clicks;
++    ImGui::End(); ImGui::Render();
++}
++int main() {
++    ImGui::CreateContext();
++    auto& io = ImGui::GetIO();
++    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
++    io.ConfigInputTrickleEventQueue = false;
++    io.DisplaySize = ImVec2(1000,1000); io.DeltaTime = 1.f/60;
++    io.IniFilename = nullptr;
++    unsigned char* pixels{}; int width{},height{};
++    io.Fonts->GetTexDataAsRGBA32(&pixels,&width,&height);
++    using dingosdk::overlay::detail::feed_gamepad_navigation;
++    feed_gamepad_navigation(io,true,0x1002,0,0,0,0); frame();
++    assert(io.BackendFlags & ImGuiBackendFlags_HasGamepad);
++    assert(ImGui::IsKeyDown(ImGuiKey_GamepadFaceDown));
++    assert(ImGui::IsKeyDown(ImGuiKey_GamepadDpadDown));
++    feed_gamepad_navigation(io,true,0,32767,-32768,255,0); frame();
++    assert(!ImGui::IsKeyDown(ImGuiKey_GamepadFaceDown));
++    assert(ImGui::IsKeyDown(ImGuiKey_GamepadLStickRight));
++    assert(ImGui::IsKeyDown(ImGuiKey_GamepadLStickDown));
++    assert(ImGui::IsKeyDown(ImGuiKey_GamepadL2));
++    feed_gamepad_navigation(io,true,0,4000,-4000,20,20); frame();
++    assert(!ImGui::IsKeyDown(ImGuiKey_GamepadLStickRight));
++    assert(!ImGui::IsKeyDown(ImGuiKey_GamepadLStickDown));
++    assert(!ImGui::IsKeyDown(ImGuiKey_GamepadL2));
++    feed_gamepad_navigation(io,true,0x2000,-32768,32767,0,255); frame();
++    assert(ImGui::IsKeyDown(ImGuiKey_GamepadFaceRight));
++    assert(ImGui::IsKeyDown(ImGuiKey_GamepadLStickLeft));
++    feed_gamepad_navigation(io,false,0xffff,-32768,32767,255,255); frame();
++    assert(!(io.BackendFlags & ImGuiBackendFlags_HasGamepad));
++    assert(!ImGui::IsKeyDown(ImGuiKey_GamepadFaceRight));
++    assert(!ImGui::IsKeyDown(ImGuiKey_GamepadLStickLeft));
++    assert(!ImGui::IsKeyDown(ImGuiKey_GamepadR2));
++    first_clicks = second_clicks = 0;
++    ImGui::SetWindowFocus("Controller navigation");
++    for (int i=0;i<3;++i) { feed_gamepad_navigation(io,true,0,0,0,0,0); frame(); }
++    feed_gamepad_navigation(io,true,0x0002,0,0,0,0); frame();
++    for (int i=0;i<2;++i) { feed_gamepad_navigation(io,true,0,0,0,0,0); frame(); }
++    feed_gamepad_navigation(io,true,0x1000,0,0,0,0); frame();
++    feed_gamepad_navigation(io,true,0,0,0,0,0); frame();
++    assert(first_clicks == 0 && second_clicks == 1);
++    ImGui::DestroyContext();
++    std::cout << "Controller navigation: buttons, analog, deadzones, ownership release and D-pad/A widget interaction passed\n";
++}
 diff --git a/Extension/UI/Overlay/dual_stick_settings.h b/Extension/UI/Overlay/dual_stick_settings.h
 new file mode 100644
-index 0000000..6b7b9b6
+index 0000000..9e09986
 --- /dev/null
 +++ b/Extension/UI/Overlay/dual_stick_settings.h
-@@ -0,0 +1,128 @@
+@@ -0,0 +1,129 @@
 +#pragma once
 +#include <Windows.h>
 +#include <array>
@@ -292,8 +443,9 @@ index 0000000..6b7b9b6
 +        return write(entries);
 +    }
 +    bool active(bool xl) const {
-+        return number(L"FrontBackFoot",0) == !xl && number(L"SwitchStance",1) == (xl ? 3 : 1) &&
-+            number(L"PopOnRelease",0) == xl && number(L"StickSteering",0) == xl && number(L"OneFootFlips",0) == xl &&
++        const int flag = xl ? 1 : 0;
++        return number(L"FrontBackFoot",0) == (xl ? 0 : 1) && number(L"SwitchStance",1) == (xl ? 3 : 1) &&
++            number(L"PopOnRelease",0) == flag && number(L"StickSteering",0) == flag && number(L"OneFootFlips",0) == flag &&
 +            number(L"SwitchSource",4) == 4;
 +    }
 +    static std::wstring slot_name(int slot) { return L"CustomPreset" + std::to_wstring(slot); }
@@ -321,12 +473,49 @@ index 0000000..6b7b9b6
 +    }
 +};
 +} // namespace dingosdk::dual_stick
+diff --git a/Extension/UI/Overlay/gamepad_navigation.h b/Extension/UI/Overlay/gamepad_navigation.h
+new file mode 100644
+index 0000000..091fdb8
+--- /dev/null
++++ b/Extension/UI/Overlay/gamepad_navigation.h
+@@ -0,0 +1,31 @@
++#pragma once
++#include <imgui.h>
++#include <algorithm>
++#include <cstdint>
++
++namespace dingosdk::overlay::detail {
++// Feed the existing raw multi-device reader rather than ImGui's slot-zero
++// XInput backend. That backend is disabled; it would also miss native HID pads.
++inline void feed_gamepad_navigation(ImGuiIO& io, bool available, std::uint16_t buttons,
++                                    short lx, short ly, unsigned char lt, unsigned char rt) {
++    if (available) io.BackendFlags |= ImGuiBackendFlags_HasGamepad;
++    else io.BackendFlags &= ~ImGuiBackendFlags_HasGamepad;
++    const auto digital = [&](ImGuiKey key, unsigned mask) { io.AddKeyEvent(key,available && (buttons & mask) != 0); };
++    digital(ImGuiKey_GamepadStart,0x0010); digital(ImGuiKey_GamepadBack,0x0020);
++    digital(ImGuiKey_GamepadFaceDown,0x1000); digital(ImGuiKey_GamepadFaceRight,0x2000);
++    digital(ImGuiKey_GamepadFaceLeft,0x4000); digital(ImGuiKey_GamepadFaceUp,0x8000);
++    digital(ImGuiKey_GamepadDpadUp,0x0001); digital(ImGuiKey_GamepadDpadDown,0x0002);
++    digital(ImGuiKey_GamepadDpadLeft,0x0004); digital(ImGuiKey_GamepadDpadRight,0x0008);
++    digital(ImGuiKey_GamepadL1,0x0100); digital(ImGuiKey_GamepadR1,0x0200);
++    digital(ImGuiKey_GamepadL3,0x0040); digital(ImGuiKey_GamepadR3,0x0080);
++    const auto analog = [&](ImGuiKey key, float value, float low, float high) {
++        const float amount = available ? std::clamp((value-low)/(high-low),0.f,1.f) : 0.f;
++        io.AddKeyAnalogEvent(key,amount > .1f,amount);
++    };
++    analog(ImGuiKey_GamepadL2,lt,30,255); analog(ImGuiKey_GamepadR2,rt,30,255);
++    analog(ImGuiKey_GamepadLStickLeft,-static_cast<float>(lx),7849,32767);
++    analog(ImGuiKey_GamepadLStickRight,lx,7849,32767);
++    analog(ImGuiKey_GamepadLStickUp,ly,7849,32767);
++    analog(ImGuiKey_GamepadLStickDown,-static_cast<float>(ly),7849,32767);
++}
++} // namespace dingosdk::overlay::detail
 diff --git a/contrib/dual-stick-controls.md b/contrib/dual-stick-controls.md
 new file mode 100644
-index 0000000..93996f8
+index 0000000..22abe93
 --- /dev/null
 +++ b/contrib/dual-stick-controls.md
-@@ -0,0 +1,36 @@
+@@ -0,0 +1,50 @@
 +# Dual Stick Controls companion menu
 +
 +Mod Options > Dual Stick manages the optional Dual Stick Controls companion mod's
@@ -356,10 +545,24 @@ index 0000000..93996f8
 +
 +The helper resolves the INI from the process executable path, preserves unknown
 +active keys and unrelated sections, and reports write failures. It introduces
-+no controller, graphics or gameplay hooks and never touches `version.dll`.
++no new controller, graphics or gameplay hooks and never touches `version.dll`.
++
++The Insert overlay also receives ImGui gamepad navigation through ReSkate's
++existing raw multi-device reader (XInput and native PlayStation). ImGui's own
++slot-zero Win32 gamepad backend remains disabled. Navigation is fed only while
++the Insert overlay is visible and the game is foreground; leaving releases all
++navigation buttons and axes. Mouse and keyboard remain supported.
++
++`ReSkateOverlayOwnsInputV1` is a versioned C export (`unsigned long WINAPI(void)`)
++returning 1 while UI, freecam, or a prompt owns the game's input, otherwise 0.
++Companion v5.72 uses it to suspend generated gestures and yield its own menu.
++It guards held feet until release on return. The function does not depend on
++the reader thread's temporary bypass flag. Older companions ignore the export;
++older ReSkate DLLs keep the companion's previous fallback behavior.
 +
 +Configure `DINGOSDK_BUILD_DUAL_STICK_TESTS=ON` to run `dual_stick_settings` with
 +CTest. The test uses a temporary INI; it covers preset defaults, case-insensitive
 +keys, customized Active status, custom round trips, preserved global settings,
-+empty/invalid slots and missing-file writes. The complete overlay still needs a
-+Windows MSVC build and in-game controller/layout validation before release.
++empty/invalid slots and missing/read-only-file writes. `gamepad_navigation`
++checks the ImGui button/analog feed, deadzones and release on ownership loss.
++In-game controller/layout validation is still required before release.
