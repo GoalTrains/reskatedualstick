@@ -4,7 +4,7 @@ A two-stick controller mod for [reSkate](https://github.com/Dingo-Shenanigans/Re
 It translates foot inputs into Skate's existing controls, with Session-style and
 XL-style presets, editable settings, custom presets, and optional stock ramp controls.
 
-Current version: **v5.72 TEST**. Ramp detection remains experimental.
+Current version: **v5.73 TEST**. Ramp detection remains experimental.
 
 ## Install on Windows
 
@@ -35,6 +35,15 @@ The menu opens on startup once controller input begins. Press **End** to reopen
 it by default. Navigate with the D-pad or arrow keys, select with A or Enter,
 and go back with B. The main menu lets you change its hotkey, size, and startup
 display. Select **Controls** for the diagrams, or **Advanced** for individual options.
+
+When ReSkate is loaded, the companion menu uses a separate window instead of
+installing competing graphics hooks. This applies even with `MenuInGame=1` in an
+older INI. ReSkate retains its Insert menu, mod manager and map browser. If the
+separate window is hidden by exclusive fullscreen, use borderless/windowed mode.
+The companion yields input while the official ReSkate Insert menu is visible;
+its status API is polled on the menu worker, avoiding a render-thread mutex call.
+This standalone update does not add the proposed Dual Stick page to stock
+ReSkate. That remains a separate, unsubmitted upstream integration.
 
 Five custom preset slots let you save and load your own settings. Saving over an
 occupied slot requires a second press. Holding L3 and R3 together for three

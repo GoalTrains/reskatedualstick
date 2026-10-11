@@ -208,6 +208,9 @@ static HRESULT ov_present1(void* sc, UINT sync, UINT flags, const void* params) 
 
 /* find DXGI's Present through a throwaway D3D12 swap chain and hook it */
 static int ov_hook(void) {
+    /* Never create a probe swapchain or replace shared DXGI vtables while
+     * ReSkate owns them, including existing INIs with MenuInGame=1. */
+    if (!sc_allow_menu_graphics_hook(1, GetModuleHandleW(L"ReSkate.dll") != 0)) return 0;
     HMODULE d12 = LoadLibraryW(L"d3d12.dll"), dx = LoadLibraryW(L"dxgi.dll");
     if (!d12 || !dx) return 0;
     HRESULT (WINAPI* mkdev)(void*, UINT, const SC_GUID*, void**) = (HRESULT (WINAPI*)(void*, UINT, const SC_GUID*, void**))GetProcAddress(d12, "D3D12CreateDevice");

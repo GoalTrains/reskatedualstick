@@ -30,7 +30,7 @@ static DWORD WINAPI rd_worker(void* unused) {
     (void)unused;WCHAR path[560];path[0]=0;wcat(path,560,g_dir);wcat(path,560,L"\\session_controls_ramp.bin");
     HANDLE f=CreateFileW(path,4,1|2|4,0,4,0x80,0);
     if(f==INVALID_HANDLE_VALUE){rd_failed=1;log_text("ramp diagnostics: could not open snapshot file");return 0;}
-    struct {char magic[8];DWORD size,version;} header={{'S','C','R','A','M','P','0','1'},sizeof(rd_record),572};
+    struct {char magic[8];DWORD size,version;} header={{'S','C','R','A','M','P','0','1'},sizeof(rd_record),573};
     if(!pt_send(f,(const char*)&header,sizeof header))goto failed;
     log_text("ramp diagnostics: labelled checked snapshots in session_controls_ramp.bin; no ramp values inferred yet");
     for(;;) {

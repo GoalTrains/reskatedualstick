@@ -56,7 +56,9 @@ static volatile int g_ui_req_toggle, g_ui_req_nav, g_ui_req_change; /* from the 
 static int g_ui_key = 0x23;                /* VK_END */
 static HWND g_ui_hwnd;
 static int g_ui_started;
+#include "reskate_compat.h"
 #include "ingame.h"
+static volatile int g_reskate_menu_visible;
 
 
 /* v5.12: PURE only. Trick input and Kick / heel sides rows removed; Menu size moved to the bottom. */
@@ -490,6 +492,25 @@ static INT64 WINAPI ui_proc(HWND h, UINT msg, UINT64 wp, INT64 lp) {
 
 static int key_edge(int vk, int* prev) { int d = (GetAsyncKeyState(vk) & 0x8000) != 0; int e = d && !*prev; *prev = d; return e; }
 
+static void ui_reskate_status_poll(void) {
+    typedef void (*GetStatus)(sc_reskate_status*);
+    static GetStatus get_status;
+    static double next_lookup;
+    if (!get_status && ov_now() >= next_lookup) {
+        next_lookup = ov_now() + 1000.0;
+        HMODULE reskate = GetModuleHandleW(L"ReSkate.dll");
+        if (reskate) get_status = (GetStatus)GetProcAddress(reskate, "DingoSDKOverlayGetStatus");
+        if (get_status) log_text("reSkate compatibility: official menu status detected; controller input yields while Insert is open");
+    }
+    sc_reskate_status status = {0};
+    if (get_status) get_status(&status);
+    g_reskate_menu_visible = sc_reskate_menu_visible(&status);
+    if (g_reskate_menu_visible) {
+        g_ui_open = g_ui_bind_mode = 0;
+        g_ui_req_toggle = g_ui_req_nav = g_ui_req_change = g_ui_req_bound_key = 0;
+    }
+}
+
 static DWORD WINAPI ui_thread(void* arg) {
     (void)arg;
     SC_WNDCLASS wc; memset(&wc, 0, sizeof wc);
@@ -499,7 +520,7 @@ static DWORD WINAPI ui_thread(void* arg) {
      * it before reSkate's own overlay set up made reSkate ignore the swap chain ("Swapchain hook setup
      * incomplete; candidate ignored" in ReSkate.log), so its mod manager (Insert) never opened. */
     int hooked = 0, hook_tried = 0; double hook_t = 0;
-    log_text(g_ov_enabled ? "in-game menu: will hook the game's drawing when you first open the menu" : "in-game menu: off (MenuInGame=0), the menu uses its own window");
+    log_text(GetModuleHandleW(L"ReSkate.dll") ? "menu compatibility: separate menu window; ReSkate keeps its graphics hooks" : g_ov_enabled ? "in-game menu: will hook the game's drawing when you first open the menu" : "in-game menu: off (MenuInGame=0), the menu uses its own window");
     int w = UI_W * g_ui_scale / 100, h = ui_height() * g_ui_scale / 100, cur_scale = g_ui_scale;
     g_ui_hwnd = CreateWindowExW(0x00000008 /*TOPMOST*/ | 0x08000000 /*NOACTIVATE*/ | 0x00000080 /*TOOLWINDOW*/ | 0x00080000 /*LAYERED*/,
                                 L"DualStickControlsMenu", L"Dual Stick Controls", 0x80000000 /*WS_POPUP*/, 40, 40, w, h, 0, 0, g_self, 0);
@@ -509,6 +530,7 @@ static DWORD WINAPI ui_thread(void* arg) {
     for (;;) {
         SC_MSG m;
         while (PeekMessageW(&m, 0, 0, 0, 1 /*PM_REMOVE*/)) { TranslateMessage(&m); DispatchMessageW(&m); }
+        ui_reskate_status_poll();
         if(g_ui_hotkey_sync) {pk=(GetAsyncKeyState(g_ui_key)&0x8000)!=0;g_ui_hotkey_sync=0;}
         if(g_ui_bind_mode) ui_capture_keys();
         else {
@@ -526,7 +548,7 @@ static DWORD WINAPI ui_thread(void* arg) {
         static double open_t; static int was_open;
         if (g_ui_open && !was_open) open_t = ov_now();
         was_open = g_ui_open;
-        if (g_ui_open && !hook_tried && g_ov_enabled) {
+        if (g_ui_open && !hook_tried && sc_allow_menu_graphics_hook(g_ov_enabled, GetModuleHandleW(L"ReSkate.dll") != 0)) {
             hook_tried = 1; hooked = ov_hook(); hook_t = ov_now();
             log_text(hooked ? "in-game menu: ready (drawn inside the game)" : "in-game menu: not available, the menu uses its own window");
         }
