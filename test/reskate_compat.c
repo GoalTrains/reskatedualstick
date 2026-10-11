@@ -9,7 +9,10 @@ int main(void) {
     assert(!sc_allow_menu_graphics_hook(1,1));
     assert(!sc_allow_menu_graphics_hook(0,1));
     assert(!sc_allow_menu_graphics_hook(0,0));
-    assert(sc_allow_menu_graphics_hook(1,0));
+    assert(!sc_allow_menu_graphics_hook(1,0)); /* ReSkate not yet injected */
+    assert(sc_menu_has_focus(123,123));
+    assert(!sc_menu_has_focus(456,123));
+    assert(!sc_menu_has_focus(0,123));
     sc_reskate_status s = {0};
     assert(!sc_reskate_menu_visible(&s));
     s.started = s.bound = s.ready = 1;
@@ -18,5 +21,5 @@ int main(void) {
     s.visible = 0; assert(!sc_reskate_menu_visible(&s));
     s.visible = 1; s.stopping = 1; assert(!sc_reskate_menu_visible(&s));
     s.stopping = 0; s.failed = 1; assert(!sc_reskate_menu_visible(&s));
-    puts("PASS: official ReSkate status ABI, menu open/close/failure and graphics-hook compatibility");
+    puts("PASS: official ReSkate status ABI, menu open/close/failure; no graphics hook before/after host injection; foreground process isolation");
 }

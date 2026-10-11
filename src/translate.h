@@ -147,6 +147,7 @@ typedef struct {
     int tr_down[2], rv_block, rv_hold, rv_both; /* v4.7 rv_hold: 1 = LT / 2 = RT of a revert still held: no steering from it */ double tr_press[2], tr_rel[2]; /* LT / RT double taps */
     int g_down[2], g_grab[2]; double g_press[2], g_rel[2], g_pulse[2]; /* LB / RB: handplant / dark catch / grab */
     int switched;         /* set by the caller: riding the other way round from the spawn */
+    int game_switch_known, game_switch; /* native input frame can reset separately on remount */
     int feet_map_ok, feet_map_left; /* v5.45: which physical stick owns each foot history */
     int sw_lat, sw_lat_ok; /* v5.42: the switch turn-round in use on the game stick (kept while it is held) */
     int sw_prev; double sw_blend_until, sw_t; float sw_x, sw_y; /* easing across a stance change */
@@ -241,7 +242,7 @@ static float sc_ovr_ms[SC_TRICK_COUNT];   /* recorded duration of the motion */
 static float sc_abs(float v) { return v < 0 ? -v : v; }
 /* v4.3: does riding switch turn the flick stick round? Regular: yes. Goofy: no - your goofy switch
  * test had ollie / nollie the wrong way round with it (the game already handles it for goofy). */
-#define SC_SWFLIP(c, s) ((s)->switched && (c)->switch_flip && ((c)->switch_flip != 3 || (c)->front_back) && (!(c)->goofy || (c)->switch_goofy_flip))
+#define SC_SWFLIP(c, s) (((s)->game_switch_known ? (s)->game_switch : (s)->switched) && (c)->switch_flip && ((c)->switch_flip != 3 || (c)->front_back) && (!(c)->goofy || (c)->switch_goofy_flip))
 #define SC_MMAX(c) ((c)->manual_max > 0.2f && (c)->manual_max < 0.95f ? (c)->manual_max : 0.85f)
 static float sc_sqrt(float v) { return v <= 0 ? 0 : __builtin_sqrtf(v); }
 static float sc_sin_deg(float d) { /* small, freestanding */

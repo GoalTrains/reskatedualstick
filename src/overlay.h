@@ -1,6 +1,6 @@
 /* v0.24 in-game settings menu.
  * Open / close with the MenuKey (End by default, rebindable in session_controls.ini).
- * A small always-on-top window that never takes focus away from the game. While it is open the
+ * A game-owned window that never takes focus away from the game. While it is open the
  * controller drives it (D-pad up / down = choose, D-pad left / right or A = change, B = close)
  * and the game gets no controller input. Arrow keys / Enter work too. Every change is written to
  * session_controls.ini, so it sticks. Included by version_proxy.c after the config code. */
@@ -28,6 +28,12 @@ __declspec(dllimport) int WINAPI DrawTextW(HDC, const WCHAR*, int, SC_RECT*, UIN
 __declspec(dllimport) short WINAPI GetAsyncKeyState(int);
 __declspec(dllimport) BOOL WINAPI SetLayeredWindowAttributes(HWND, DWORD, BYTE, DWORD);
 __declspec(dllimport) BOOL WINAPI SetWindowPos(HWND, HWND, int, int, int, int, UINT);
+__declspec(dllimport) HWND WINAPI GetForegroundWindow(void);
+__declspec(dllimport) DWORD WINAPI GetWindowThreadProcessId(HWND,DWORD*);
+__declspec(dllimport) DWORD WINAPI GetCurrentProcessId(void);
+__declspec(dllimport) BOOL WINAPI IsWindow(HWND);
+__declspec(dllimport) BOOL WINAPI GetWindowRect(HWND,SC_RECT*);
+__declspec(dllimport) INT64 WINAPI SetWindowLongPtrW(HWND,int,INT64);
 __declspec(dllimport) HGDIOBJ WINAPI CreateFontW(int, int, int, int, int, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, DWORD, const WCHAR*);
 __declspec(dllimport) HGDIOBJ WINAPI SelectObject(HDC, HGDIOBJ);
 __declspec(dllimport) DWORD WINAPI SetTextColor(HDC, DWORD);
@@ -52,32 +58,39 @@ __declspec(dllimport) HGDIOBJ WINAPI GetStockObject(int);
 
 static volatile int g_ui_open, g_ui_sel, g_ui_dirty = 1;
 /* g_ui_scale (percent) lives in version_proxy.c: MenuScale in the ini */
-static volatile int g_ui_req_toggle, g_ui_req_nav, g_ui_req_change; /* from the keyboard thread */
+static volatile int g_ui_req_toggle, g_ui_req_nav, g_ui_req_change, g_ui_req_cards; /* from the keyboard thread */
 static int g_ui_key = 0x23;                /* VK_END */
 static HWND g_ui_hwnd;
 static int g_ui_started;
 #include "reskate_compat.h"
 #include "ingame.h"
 static volatile int g_reskate_menu_visible;
+static HWND ui_foreground_game(void) {
+    HWND foreground=GetForegroundWindow();DWORD pid=0;
+    if(foreground)GetWindowThreadProcessId(foreground,&pid);
+    return sc_menu_has_focus(pid,GetCurrentProcessId()) ? foreground : 0;
+}
 
 
 /* v5.12: PURE only. Trick input and Kick / heel sides rows removed; Menu size moved to the bottom. */
-enum { UI_PRESET_SESSION, UI_PRESET_XL, UI_SESSION, UI_STANCE, UI_LAYOUT, UI_SWITCH, UI_POPSTYLE, UI_ONEFOOT, UI_STEER, UI_REVERTS, UI_WINDUP, UI_FLIPS, UI_AIR, UI_SLIDES, UI_BUMP, UI_HELP, UI_SIZE, UI_CLOSE, UI_ADVANCED, UI_BACK, UI_CUSTOM, UI_SLOT, UI_SAVE, UI_LOAD, UI_STARTUP, UI_HOTKEY, UI_STOCKAIR, UI_RAMPDIAG, UI_COUNT };
+enum { UI_PRESET_SESSION, UI_PRESET_XL, UI_SESSION, UI_STANCE, UI_LAYOUT, UI_SWITCH, UI_POPSTYLE, UI_ONEFOOT, UI_STEER, UI_REVERTS, UI_WINDUP, UI_FLIPS, UI_AIR, UI_SLIDES, UI_BUMP, UI_SIZE, UI_CLOSE, UI_ADVANCED, UI_BACK, UI_CUSTOM, UI_SLOT, UI_SAVE, UI_LOAD, UI_STARTUP, UI_HOTKEY, UI_STOCKAIR, UI_RAMPDIAG, UI_COUNT };
 /* v5.8: wider menu, an explanation box for the highlighted line, and a controls page */
-#define UI_W 700
+#define UI_SETTINGS_W 700
+#define UI_CONTROLS_W 700
+#define UI_CONTROLS_X (UI_SETTINGS_W + 8)
+#define UI_W (UI_CONTROLS_X + UI_CONTROLS_W)
 #define UI_INFO 104
 #define UI_HS (48 + 14 * 30 + 10 + UI_INFO + 34)
 #define UI_CARDS_PER_PAGE 6
 #define UI_HC (66 + 3 * 232 + 54)
 #define UI_H (UI_HS > UI_HC ? UI_HS : UI_HC)
 static volatile int g_ui_page;   /* 0 = presets/settings, 1 = controls, 2 = advanced, 3 = custom presets */
-static int ui_height(void) {
-    int rows=g_ui_page==3?4:g_ui_page==2?(g_cfg.front_back?13:14):11;
-    return g_ui_page==1?UI_HC:48+rows*30+10+UI_INFO+34;
-}
+static int ui_height(void) { return UI_HC; }
+static volatile int g_ui_draw_scale=100;
+#include "menu_controls.h"
 static int g_ui_controls_page;   /* six large cards per page */
 
-static const int k_ui_main[] = {UI_PRESET_SESSION, UI_PRESET_XL, UI_CUSTOM, UI_SESSION, UI_STANCE, UI_HELP, UI_ADVANCED, UI_STARTUP, UI_HOTKEY, UI_SIZE, UI_CLOSE};
+static const int k_ui_main[] = {UI_PRESET_SESSION, UI_PRESET_XL, UI_CUSTOM, UI_SESSION, UI_STANCE, UI_ADVANCED, UI_STARTUP, UI_HOTKEY, UI_SIZE, UI_CLOSE};
 static const int k_ui_advanced[] = {UI_LAYOUT, UI_SWITCH, UI_POPSTYLE, UI_ONEFOOT, UI_STEER, UI_REVERTS, UI_WINDUP, UI_FLIPS, UI_AIR, UI_SLIDES, UI_BUMP, UI_STOCKAIR, UI_RAMPDIAG, UI_BACK};
 static int g_ui_slot = 1, g_ui_overwrite;
 static int g_ui_startup_input_sync;
@@ -89,7 +102,7 @@ static const WCHAR* ui_slot_section(void) {
 }
 static int ui_slot_filled(void) { return GetPrivateProfileIntW(ui_slot_section(),L"PresetSaved",0,g_ini)==1; }
 static const int k_ui_custom[] = {UI_SLOT, UI_SAVE, UI_LOAD, UI_BACK};
-static int ui_row_count(void) { return g_ui_page == 3 ? 4 : g_ui_page == 2 ? (g_cfg.front_back?13:14) : 11; }
+static int ui_row_count(void) { return g_ui_page == 3 ? 4 : g_ui_page == 2 ? (g_cfg.front_back?13:14) : (int)(sizeof k_ui_main/sizeof k_ui_main[0]); }
 static const WCHAR* ui_reopen_text(int welcome) {
     static WCHAR texts[2][360];WCHAR* text=texts[welcome?1:0];unsigned n=0;
     const WCHAR* a=welcome?L"Welcome! Choose a preset, or customize in Advanced settings and save a custom preset. Use arrows / D-pad and A / Enter. B closes this menu. Press ":L"A / Enter: apply or open    B: close    Press ";
@@ -148,13 +161,12 @@ static void ui_value(int item, WCHAR* out) {
     case UI_SLIDES: v = g_cfg.powerslide ? "ON" : "OFF"; break;
     case UI_BUMP: v = g_cfg.bump_ms > 0 ? "ON" : "OFF"; break;
     case UI_FLIPS: v = g_cfg.body_flips ? "ON" : "OFF"; break;
-    case UI_HELP: v = "OPEN"; break;
     }
     int n = 0; while (v[n] && n < 15) { out[n] = (WCHAR)v[n]; ++n; } out[n] = 0;
 }
 static const WCHAR* const k_ui_labels[UI_COUNT] = {
     L"Session-style preset", L"XL-style preset", L"Dual Stick controls", L"Stance", L"Stick layout", L"Switch stance", L"Pop style", L"One-stick flips", L"Stick steering", L"Reverts", L"Spin wind-up",
-    L"Body flips", L"Air controls", L"Powerslides", L"Grind bump-out", L"Controls list", L"Menu size", L"Close", L"Advanced settings", L"Back to presets", L"Custom presets", L"Custom slot", L"Save current settings", L"Load saved settings", L"Show menu on startup", L"Menu hotkey", L"Stock ramp controls", L"Ramp diagnostic recording"};
+    L"Body flips", L"Air controls", L"Powerslides", L"Grind bump-out", L"Menu size", L"Close", L"Advanced settings", L"Back to presets", L"Custom presets", L"Custom slot", L"Save current settings", L"Load saved settings", L"Show menu on startup", L"Menu hotkey", L"Stock ramp controls", L"Ramp diagnostic recording"};
 static const WCHAR* const k_ui_help[UI_COUNT] = {
     L"Applies FRONT/BACK FOOT, FLICK pop, steering OFF and one-stick flips BLOCKED. Left = front, right = back in every stance. These translate Skate controls across two sticks; inputs differ from Session.",
     L"Applies LEFT/RIGHT FOOT, TRUE FOOT, RELEASE pop, steering ON and one-stick flips ALLOWED. Sticks stay with physical feet; jobs swap in switch. These translate Skate controls across two sticks; inputs differ from XL.",
@@ -171,8 +183,7 @@ static const WCHAR* const k_ui_help[UI_COUNT] = {
     L"In the air and on rails, each foot moves its board end. On a rail or lip stall, pull front UP or back DOWN firmly, then flick the other foot. A pop foot already held in the stall can also prepare the trick; flick the opposite foot.",
     L"Push both sticks sideways: towards each other = toe-side powerslide, apart = heel-side. No activation delay. Tilt both sticks up/down while held to adjust the angle for a coping approach.",
     L"Rail / lip exit: tilt a stick DOWN or UP and click it. Centred L3 = left, R3 = right.",
-    L"Stick pictures for your stance. A opens; arrows / D-pad or A change pages; B goes back.",
-    L"Size of this menu (75-250 %).",
+    L"Preferred menu size (75-250 %). The two panels automatically shrink to fit the game window.",
     L"Close this menu (your menu hotkey or B also closes it).",
     L"Customize individual options. Changing layout, switch handling, pop or steering can take you outside a preset. Both presets translate two-stick inputs into Skate's controls.",
     L"Return to the two presets and main settings. Your custom options are kept.",
@@ -190,15 +201,18 @@ static const WCHAR* const k_ui_help[UI_COUNT] = {
  * 1 dot (hold), 2 dot, thin (light lean). Coordinates in hundredths, y up. */
 typedef struct { BYTE stick, kind; short a, b, c, d; BYTE step, end; } UI_STROKE;
 typedef struct { const WCHAR* title; const WCHAR* note; int n; UI_STROKE s[4]; } UI_CARD;
+enum { UI_CARD_OLLIE=0, UI_CARD_NOLLIE=1, UI_CARD_PUMP=11, UI_CARD_REVERT=13, UI_CARD_GRAB=16, UI_CARD_SLIDE=14, UI_CARD_EXIT=17, UI_CARD_TOGGLE=18 };
 static const UI_CARD k_cards[] = {
     {L"OLLIE", L"Hold back down; flick front up", 2, {{1,0, 0,0,0,-85, 1,1}, {0,0, 0,0,0,85, 2,0}}},
     {L"NOLLIE", L"Hold front up; flick back down", 2, {{0,0, 0,0,0,85, 1,1}, {1,0, 0,0,0,-85, 2,0}}},
     {L"KICKFLIP", L"Hold back down; flick front diagonally", 2, {{1,0, 0,0,0,-85, 1,1}, {0,0, 0,0,-62,62, 2,0}}},
     {L"HEELFLIP", L"Hold back down; flick front diagonally", 2, {{1,0, 0,0,0,-85, 1,1}, {0,0, 0,0,62,62, 2,0}}},
     {L"SHOVE-IT", L"further round = 360", 2, {{1,0, 0,0,0,-85, 1,1}, {1,1, 85,180,90,0, 2,0}}},
-    {L"VARIAL FLIPS", L"scoop, then flick", 3, {{1,0, 0,0,0,-85, 1,1}, {1,1, 85,180,90,0, 2,0}, {0,0, 0,0,-62,62, 3,0}}},
-    {L"360 FLIP", L"start at the side", 3, {{1,0, 0,0,85,0, 1,1}, {1,1, 85,90,180,0, 2,1}, {0,0, 0,0,-62,62, 3,0}}},
-    {L"LASER FLIP", L"start at the side", 3, {{1,0, 0,0,-85,0, 1,1}, {1,1, 85,270,180,0, 2,1}, {0,0, 0,0,62,62, 3,0}}},
+    {L"VARIAL KICKFLIP", L"Back: diagonal to down; hold\nThen flick front up-diagonal", 3, {{1,0, 0,0,60,-60, 1,1}, {1,1, 85,135,180,0, 2,1}, {0,0, 0,0,-62,62, 3,0}}},
+    {L"HARDFLIP", L"Back: diagonal to down; hold\nThen flick front up-diagonal", 3, {{1,0, 0,0,-60,-60, 1,1}, {1,1, 85,225,180,0, 2,1}, {0,0, 0,0,-62,62, 3,0}}},
+    {L"360 FLIP", L"Back: side, round bottom across\nThen flick front diagonally", 3, {{1,0, 0,0,85,0, 1,1}, {1,1, 85,90,270,0, 2,1}, {0,0, 0,0,-62,62, 3,0}}},
+    {L"LASER FLIP", L"Back: side, round bottom across\nThen flick front diagonally", 3, {{1,0, 0,0,-85,0, 1,1}, {1,1, 85,270,90,0, 2,1}, {0,0, 0,0,62,62, 3,0}}},
+    {L"360 HARDFLIP", L"Back: side, round bottom across\nThen flick front up-diagonal", 3, {{1,0, 0,0,-85,0, 1,1}, {1,1, 85,270,90,0, 2,1}, {0,0, 0,0,-62,62, 3,0}}},
     {L"MANUALS", L"Back down: manual\nFront up: nose manual", 2, {{1,0, 0,0,0,-45, 0,2}, {0,0, 0,0,0,45, 0,2}}},
     {L"PUMP CROUCH", L"hold R3, release to rise", 1, {{1,2, 0,0,0,0, 0,0}}},
     {L"SPIN WIND-UP", L"crouch + hold LT / RT", 1, {{1,0, 0,0,0,-85, 1,1}}},
@@ -211,8 +225,17 @@ static const UI_CARD k_cards[] = {
 #define UI_NCARDS ((int)(sizeof k_cards / sizeof k_cards[0]))
 static void ui_stick_pt(int cx, int cy, int r, float x, float y, int* px, int* py) { *px = cx + (int)(x * r); *py = cy - (int)(y * r); }
 static void ui_draw_card(HDC dc, const UI_CARD* cd, int x0, int y0, int w, int h, int k, HGDIOBJ small, HGDIOBJ bold, int goofy) {
+    int physical = cd==&k_cards[UI_CARD_PUMP] || cd==&k_cards[UI_CARD_SLIDE] || cd==&k_cards[UI_CARD_EXIT] || cd==&k_cards[UI_CARD_TOGGLE];
+    int swap_feet = !physical && (goofy != !!g_cfg.feet_swapped);
+    int mirror_x = !physical && goofy;
+    UI_CARD option;
+    if(cd==&k_cards[UI_CARD_REVERT]) {
+        option=*cd;option.note=g_cfg.revert_input==2?L"squeeze LT + RT":g_cfg.revert_input==1?L"double-tap LT or RT":L"Reverts disabled in settings";cd=&option;
+    } else if(cd==&k_cards[UI_CARD_GRAB] && g_cfg.stock_grab_air) {
+        option=*cd;option.note=L"LB / RB normally; stock ramp mode: LT / RT grab";cd=&option;
+    }
     UI_CARD release;
-    if(g_cfg.pop_on_release && (cd==&k_cards[0] || cd==&k_cards[1])) {
+    if(g_cfg.pop_on_release && (cd==&k_cards[UI_CARD_OLLIE] || cd==&k_cards[UI_CARD_NOLLIE])) {
         release=*cd;release.note=L"hold, then release";release.n=2;
         release.s[1]=release.s[0];release.s[1].a=release.s[0].c;release.s[1].b=release.s[0].d;
         release.s[1].c=release.s[1].d=0;release.s[1].step=2;release.s[1].end=0;
@@ -234,13 +257,13 @@ static void ui_draw_card(HDC dc, const UI_CARD* cd, int x0, int y0, int w, int h
         Ellipse(dc, cxs[i] - r, cy - r, cxs[i] + r, cy + r);
         SC_RECT lr = {cxs[i] - r - SS(20), cy + r + SS(5), cxs[i] + r + SS(20), cy + r + SS(27)};
         /* v5.10: front / back foot follow the stance: regular L = front, goofy L = back */
-        const WCHAR* cap = i ? (goofy ? L"R front" : L"R back") : (goofy ? L"L back" : L"L front");
+        const WCHAR* cap = physical ? (i ? L"R stick" : L"L stick") : i ? (swap_feet ? L"R front" : L"R back") : (swap_feet ? L"L back" : L"L front");
         SelectObject(dc, small); SetTextColor(dc, RGB3(225, 230, 238)); DrawTextW(dc, cap, -1, &lr, 0x20 | 0x01);
     }
     for (int i = 0; i < cd->n; ++i) {
         UI_STROKE sv = cd->s[i]; const UI_STROKE* st = &sv;
-        if (goofy && cd != &k_cards[9]) {   /* Pump is physical R3 in either stance. */
-            sv.stick = (BYTE)!sv.stick;
+        if (swap_feet) sv.stick = (BYTE)!sv.stick;
+        if (mirror_x) {   /* Preserve the existing normal-stance sideways mapping. */
             if (sv.kind == 0) { sv.a = (short)-sv.a; sv.c = (short)-sv.c; }
             else if (sv.kind == 1) { sv.b = (short)(360 - sv.b); sv.c = (short)(360 - sv.c); }
         }
@@ -303,7 +326,7 @@ static void ui_change(int item, int dir) {
     switch (item) {
     case UI_HOTKEY:
         if(dir<0) {ui_hotkey_apply(0x23);return;}
-        g_ui_req_toggle=g_ui_req_nav=g_ui_req_change=0;g_ui_req_bound_key=0;
+        g_ui_req_cards=g_ui_req_toggle=g_ui_req_nav=g_ui_req_change=0;g_ui_req_bound_key=0;
         g_ui_bind_mode=1;g_ui_overwrite=0;
         g_ui_preset_status=L"Release any held keys, then press the new menu key. Use a letter, digit, F1-F12 or a navigation key such as Home. Escape or controller B cancels.";
         g_ui_dirty=1;return;
@@ -348,7 +371,7 @@ static void ui_change(int item, int dir) {
         break;
     }
     case UI_ADVANCED: g_ui_page = 2; g_ui_sel = 0; g_ui_dirty = 1; return;
-    case UI_BACK: g_ui_sel = g_ui_page == 3 ? 2 : 6; g_ui_page = 0; g_ui_dirty = 1; return;
+    case UI_BACK: g_ui_sel = g_ui_page == 3 ? 2 : 5; g_ui_page = 0; g_ui_dirty = 1; return;
     case UI_SIZE: {
         int sc = g_ui_scale + (dir < 0 ? -25 : 25);
         if (sc > 250) sc = 75; if (sc < 75) sc = 250;
@@ -377,17 +400,49 @@ static void ui_change(int item, int dir) {
     case UI_SLIDES: ui_set(L"Powerslides", g_cfg.powerslide ? L"0" : L"1"); break;
     case UI_BUMP: ui_set(L"GrindBumpMs", g_cfg.bump_ms > 0 ? L"0" : L"250"); break;
     case UI_FLIPS: ui_set(L"BodyFlips", g_cfg.body_flips ? L"0" : L"1"); break;
-    case UI_HELP: g_ui_controls_page = 0; g_ui_page = 1; break;
     case UI_CLOSE: g_ui_open = 0; break;
     }
-    if (item != UI_SESSION && item != UI_CLOSE && item != UI_HELP) { load_config(1); log_text("menu: setting changed and saved"); }
+    if (item != UI_SESSION && item != UI_CLOSE) { load_config(1); log_text("menu: setting changed and saved"); }
     g_ui_dirty = 1;
+}
+
+static void ui_draw_controls(HDC dc,int k) {
+    #define S(v) ((int)(v)*k/100)
+    SC_RECT title={S(UI_CONTROLS_X+16),S(12),S(UI_W-16),S(40)};
+    static HGDIOBJ title_font;static int title_scale;
+    if(!title_font || title_scale!=k) {if(title_font)DeleteObject(title_font);title_font=CreateFontW(-S(19),0,0,0,800,0,0,0,0,0,0,5,0,L"Segoe UI");title_scale=k;}
+    SelectObject(dc,title_font);SetTextColor(dc,RGB3(242,242,240));
+    DrawTextW(dc,g_cfg.front_back?L"CONTROLS - FRONT / BACK FOOT":g_cfg.goofy?L"CONTROLS - GOOFY":L"CONTROLS - REGULAR",-1,&title,0x20);
+            static HGDIOBJ small, cbold; static int sk;
+            if (!small || sk != k) {
+                if (small) { DeleteObject(small); DeleteObject(cbold); }
+                small = CreateFontW(-S(18), 0, 0, 0, 500, 0, 0, 0, 0, 0, 0, 5, 0, L"Segoe UI");
+                cbold = CreateFontW(-S(18), 0, 0, 0, 800, 0, 0, 0, 0, 0, 0, 5, 0, L"Segoe UI"); sk = k;
+            }
+            SelectObject(dc,small);
+            SC_RECT sub = {S(UI_CONTROLS_X+16), S(40), S(UI_W-16), S(64)};
+            SetTextColor(dc, RGB3(215, 220, 228));
+            DrawTextW(dc, L"Normal stance shown. L / R = physical sticks; front / back = foot jobs.", -1, &sub, 0x20);
+            int cols = 2, gap = S(8), cw = (S(UI_CONTROLS_W) - S(16) - gap * (cols - 1)) / cols, ch = S(224);
+            int first = g_ui_controls_page * UI_CARDS_PER_PAGE;
+            for (int i = first; i < UI_NCARDS && i < first + UI_CARDS_PER_PAGE; ++i) {
+                int slot = i - first;
+                int cx0 = S(UI_CONTROLS_X+8) + (slot % cols) * (cw + gap), cy0 = S(66) + (slot / cols) * (ch + gap);
+                ui_draw_card(dc, &k_cards[i], cx0, cy0, cw, ch, k, small, cbold, g_cfg.goofy && !g_cfg.front_back);
+            }
+
+    WCHAR legend[]=L"PAGE 1 / 4    LB: previous    RB: next    PgUp / PgDn\n1, 2, 3 = order    Arrow = flick    End dot = hold    Centre dot = click";
+    legend[5]=(WCHAR)(L'1'+g_ui_controls_page);
+    legend[9]=(WCHAR)(L'0'+(UI_NCARDS+UI_CARDS_PER_PAGE-1)/UI_CARDS_PER_PAGE);
+    SC_RECT footer={S(UI_CONTROLS_X+16),S(UI_HC-52),S(UI_W-16),S(UI_HC-4)};
+    SetTextColor(dc,RGB3(215,220,228));DrawTextW(dc,legend,-1,&footer,0x10);
+    #undef S
 }
 
 static void ui_paint(HDC dc) {
     {
         static HBRUSH bg, hi; static HGDIOBJ font, bold; static int font_scale;
-        int k = g_ui_scale;
+        int k = g_ui_draw_scale;
         #define S(v) ((int)(v) * k / 100)
         if (!bg) { bg = CreateSolidBrush(RGB3(22, 23, 25)); hi = CreateSolidBrush(RGB3(26, 124, 255)); }
         if (!font || font_scale != k) {
@@ -399,41 +454,23 @@ static void ui_paint(HDC dc) {
         FillRect(dc, &all, bg);
         SetBkMode(dc, 1 /*TRANSPARENT*/);
         SelectObject(dc, bold); SetTextColor(dc, RGB3(242, 242, 240));
-        SC_RECT t = {S(16), S(12), S(UI_W - 16), S(40)};
+        SC_RECT t = {S(16), S(12), S(UI_SETTINGS_W - 16), S(40)};
         DrawTextW(dc, g_ui_page == 3 ? L"DUAL STICK CONTROLS  -  CUSTOM PRESETS" : g_ui_page == 2 ? L"DUAL STICK CONTROLS  -  ADVANCED" : g_ui_page == 1 ? (g_cfg.front_back ? L"DUAL STICK CONTROLS  -  CONTROLS (FRONT / BACK FOOT)" : g_cfg.goofy ? L"DUAL STICK CONTROLS  -  CONTROLS (GOOFY)" : L"DUAL STICK CONTROLS  -  CONTROLS (REGULAR)") : L"DUAL STICK CONTROLS", -1, &t, 0x20 /*SINGLELINE*/);
         SelectObject(dc, font);
-        if (g_ui_page == 1) {
-            static HGDIOBJ small, cbold; static int sk;
-            if (!small || sk != k) {
-                if (small) { DeleteObject(small); DeleteObject(cbold); }
-                small = CreateFontW(-S(18), 0, 0, 0, 500, 0, 0, 0, 0, 0, 0, 5, 0, L"Segoe UI");
-                cbold = CreateFontW(-S(18), 0, 0, 0, 800, 0, 0, 0, 0, 0, 0, 5, 0, L"Segoe UI"); sk = k;
-            }
-            SC_RECT sub = {S(16), S(40), S(UI_W - 16), S(64)};
-            SetTextColor(dc, RGB3(215, 220, 228));
-            DrawTextW(dc, L"Normal stance shown. L / R = physical sticks; front / back = foot jobs.", -1, &sub, 0x20);
-            int cols = 2, gap = S(8), cw = (S(UI_W) - S(16) - gap * (cols - 1)) / cols, ch = S(224);
-            int first = g_ui_controls_page * UI_CARDS_PER_PAGE;
-            for (int i = first; i < UI_NCARDS && i < first + UI_CARDS_PER_PAGE; ++i) {
-                int slot = i - first;
-                int cx0 = S(8) + (slot % cols) * (cw + gap), cy0 = S(66) + (slot / cols) * (ch + gap);
-                ui_draw_card(dc, &k_cards[i], cx0, cy0, cw, ch, k, small, cbold, g_cfg.goofy && !g_cfg.front_back);
-            }
-            SelectObject(dc, font);
-        } else {
+        {
             int rows = ui_row_count();
             for (int i = 0; i < rows; ++i) {
                 int item = ui_item_for_row(i);
-                SC_RECT r = {S(8), S(48 + i * 30), S(UI_W - 8), S(48 + i * 30 + 28)};
+                SC_RECT r = {S(8), S(48 + i * 30), S(UI_SETTINGS_W - 8), S(48 + i * 30 + 28)};
                 if (i == g_ui_sel) FillRect(dc, &r, hi);
                 SetTextColor(dc, RGB3(242, 242, 240));
-                SC_RECT l = {S(18), r.top, S(UI_W - 190), r.bottom}; DrawTextW(dc, k_ui_labels[item], -1, &l, 0x20 | 0x04 /*VCENTER*/);
+                SC_RECT l = {S(18), r.top, S(UI_SETTINGS_W - 190), r.bottom}; DrawTextW(dc, k_ui_labels[item], -1, &l, 0x20 | 0x04 /*VCENTER*/);
                 WCHAR v[16]; ui_value(item, v);
-                SC_RECT vr = {S(UI_W - 200), r.top, S(UI_W - 18), r.bottom}; DrawTextW(dc, v, -1, &vr, 0x20 | 0x04 | 0x02 /*RIGHT*/);
+                SC_RECT vr = {S(UI_SETTINGS_W - 200), r.top, S(UI_SETTINGS_W - 18), r.bottom}; DrawTextW(dc, v, -1, &vr, 0x20 | 0x04 | 0x02 /*RIGHT*/);
             }
             /* explanation of the highlighted line */
             static HBRUSH box; if (!box) box = CreateSolidBrush(RGB3(34, 36, 40));
-            SC_RECT b = {S(8), S(48 + rows * 30 + 10), S(UI_W - 8), S(48 + rows * 30 + 10 + UI_INFO)};
+            SC_RECT b = {S(8), S(48 + rows * 30 + 10), S(UI_SETTINGS_W - 8), S(48 + rows * 30 + 10 + UI_INFO)};
             FillRect(dc, &b, box);
             SC_RECT bt = {b.left + S(12), b.top + S(8), b.right - S(12), b.bottom - S(6)};
             SetTextColor(dc, RGB3(215, 220, 228));
@@ -441,16 +478,10 @@ static void ui_paint(HDC dc) {
             DrawTextW(dc, g_ui_preset_status[0] ? g_ui_preset_status : k_ui_help[sel], -1, &bt, 0x10 /*WORDBREAK*/);
         }
         SetTextColor(dc, RGB3(150, 155, 160));
-        SC_RECT f = {S(16), S(ui_height() - 32), S(UI_W - 16), S(ui_height() - 4)};
+        SC_RECT f = {S(16), S(ui_height() - 32), S(UI_SETTINGS_W - 16), S(ui_height() - 4)};
+        DrawTextW(dc, g_ui_page >= 2 ? L"D-pad / arrows: settings    A: change    B: back" : ui_reopen_text(0), -1, &f, 0x20 | 0x04);
+        ui_draw_controls(dc,k);
         #undef S
-        if (g_ui_page == 1) {
-            static WCHAR legend[] = L"PAGE 1 / 3    Arrows / D-pad / A: next page    B: back\n1, 2, 3 = order    Arrow = flick    End dot = hold    Centre dot = click";
-            legend[5]=(WCHAR)(L'1'+g_ui_controls_page);
-            legend[9]=(WCHAR)(L'0'+(UI_NCARDS+UI_CARDS_PER_PAGE-1)/UI_CARDS_PER_PAGE);
-            f.top=(ui_height()-52)*k/100;
-            SetTextColor(dc, RGB3(215, 220, 228));
-            DrawTextW(dc, legend, -1, &f, 0x10);
-        } else DrawTextW(dc, g_ui_page >= 2 ? L"D-pad / arrows: choose and change    A / Enter: change    B: back" : ui_reopen_text(0), -1, &f, 0x20 | 0x04);
     }
 }
 /* v4.0: draw the menu into memory for the in-game copy */
@@ -507,10 +538,25 @@ static void ui_reskate_status_poll(void) {
     g_reskate_menu_visible = sc_reskate_menu_visible(&status);
     if (g_reskate_menu_visible) {
         g_ui_open = g_ui_bind_mode = 0;
-        g_ui_req_toggle = g_ui_req_nav = g_ui_req_change = g_ui_req_bound_key = 0;
+        g_ui_req_cards = g_ui_req_toggle = g_ui_req_nav = g_ui_req_change = g_ui_req_bound_key = 0;
     }
 }
 
+static void ui_window_bounds(HWND owner,int* x,int* y,int* w,int* h,int* scale) {
+    SC_RECT bounds={0};*x=*y=40;
+    int k=g_ui_scale;
+    if(owner && GetWindowRect(owner,&bounds)) {
+        *x=bounds.left+40;*y=bounds.top+40;
+        k=sc_menu_fit_scale(k,bounds.right-bounds.left,bounds.bottom-bounds.top,UI_W,UI_HC);
+    }
+    *scale=k;*w=UI_W*k/100;*h=UI_HC*k/100;
+}
+static HWND ui_create_owned_window(HWND owner,int w,int h) {
+    HWND window=CreateWindowExW(SC_MENU_EX_STYLE,L"DualStickControlsMenu",L"Dual Stick Controls",
+                               0x80000000 /*WS_POPUP*/,40,40,w,h,owner,0,g_self,0);
+    if(window)SetLayeredWindowAttributes(window,0,235,2 /*LWA_ALPHA*/);
+    return window;
+}
 static DWORD WINAPI ui_thread(void* arg) {
     (void)arg;
     SC_WNDCLASS wc; memset(&wc, 0, sizeof wc);
@@ -520,22 +566,57 @@ static DWORD WINAPI ui_thread(void* arg) {
      * it before reSkate's own overlay set up made reSkate ignore the swap chain ("Swapchain hook setup
      * incomplete; candidate ignored" in ReSkate.log), so its mod manager (Insert) never opened. */
     int hooked = 0, hook_tried = 0; double hook_t = 0;
-    log_text(GetModuleHandleW(L"ReSkate.dll") ? "menu compatibility: separate menu window; ReSkate keeps its graphics hooks" : g_ov_enabled ? "in-game menu: will hook the game's drawing when you first open the menu" : "in-game menu: off (MenuInGame=0), the menu uses its own window");
-    int w = UI_W * g_ui_scale / 100, h = ui_height() * g_ui_scale / 100, cur_scale = g_ui_scale;
-    g_ui_hwnd = CreateWindowExW(0x00000008 /*TOPMOST*/ | 0x08000000 /*NOACTIVATE*/ | 0x00000080 /*TOOLWINDOW*/ | 0x00080000 /*LAYERED*/,
-                                L"DualStickControlsMenu", L"Dual Stick Controls", 0x80000000 /*WS_POPUP*/, 40, 40, w, h, 0, 0, g_self, 0);
+    log_text("menu compatibility: game-owned menu window; no graphics hooks regardless of ReSkate load order");
+    int w=0,h=0,x=40,y=40,cur_scale=0;
+    /* Wait for the game to be foreground before creating its owned popup.
+     * An independent topmost window could cover another app or disturb an
+     * exclusive-fullscreen launch even when SW_SHOWNOACTIVATE is used. */
+    HWND owner=0;
+    while(!(owner=ui_foreground_game()))Sleep(15);
+    ui_window_bounds(owner,&x,&y,&w,&h,&cur_scale);g_ui_draw_scale=cur_scale;
+    g_ui_hwnd = ui_create_owned_window(owner,w,h);
     if (!g_ui_hwnd) { log_text("menu: could not create the menu window"); return 0; }
-    SetLayeredWindowAttributes(g_ui_hwnd, 0, 235, 2 /*LWA_ALPHA*/);
-    int shown = 0, pk = 0, pu = 0, pd = 0, pl = 0, pr = 0, pe = 0;
+
+    int shown = 0, pk = 0, pu = 0, pd = 0, pl = 0, pr = 0, pe = 0, pprev=0, pnext=0, was_focused=0;
     for (;;) {
         SC_MSG m;
         while (PeekMessageW(&m, 0, 0, 0, 1 /*PM_REMOVE*/)) { TranslateMessage(&m); DispatchMessageW(&m); }
+        HWND foreground_game=ui_foreground_game();
+        int focused=foreground_game!=0;
+        if(!focused) {
+            g_ui_req_cards=g_ui_req_toggle=g_ui_req_nav=g_ui_req_change=g_ui_req_bound_key=0;
+            if(shown){ShowWindow(g_ui_hwnd,0);shown=0;}
+            if(g_ui_bind_mode)g_ui_bind_mode=1;
+            was_focused=0;
+            Sleep(15);continue;
+        }
+        /* A startup splash can be replaced by the real game window. Windows
+         * destroys owned popups with their owner; recreate rather than keeping
+         * a dead handle. Reattach when the foreground game window changes. */
+        if(!IsWindow(g_ui_hwnd)) {
+            owner=foreground_game;g_ui_hwnd=ui_create_owned_window(owner,w,h);
+            shown=0;g_ui_dirty=1;
+            if(!g_ui_hwnd){Sleep(15);continue;}
+        } else if(foreground_game!=owner && foreground_game!=g_ui_hwnd) {
+            SetWindowLongPtrW(g_ui_hwnd,-8 /*GWLP_HWNDPARENT*/,(INT64)foreground_game);
+            owner=foreground_game;
+        }
+        if(!was_focused) {
+            /* Keys held while returning from another app are not new presses. */
+            pk=(GetAsyncKeyState(g_ui_key)&0x8000)!=0;
+            pu=(GetAsyncKeyState(0x26)&0x8000)!=0;pd=(GetAsyncKeyState(0x28)&0x8000)!=0;
+            pl=(GetAsyncKeyState(0x25)&0x8000)!=0;pr=(GetAsyncKeyState(0x27)&0x8000)!=0;
+            pe=(GetAsyncKeyState(0x0D)&0x8000)!=0;
+            pprev=(GetAsyncKeyState(0x21)&0x8000)!=0;pnext=(GetAsyncKeyState(0x22)&0x8000)!=0;was_focused=1;
+        }
         ui_reskate_status_poll();
         if(g_ui_hotkey_sync) {pk=(GetAsyncKeyState(g_ui_key)&0x8000)!=0;g_ui_hotkey_sync=0;}
         if(g_ui_bind_mode) ui_capture_keys();
         else {
         if (key_edge(g_ui_key, &pk)) g_ui_req_toggle = 1;
         if (g_ui_open) {
+            if (key_edge(0x21,&pprev))g_ui_req_cards=-1;
+            if (key_edge(0x22,&pnext))g_ui_req_cards=1;
             if (key_edge(0x26, &pu)) g_ui_req_nav = -1;
             if (key_edge(0x28, &pd)) g_ui_req_nav = 1;
             if (key_edge(0x25, &pl)) g_ui_req_change = -1;
@@ -560,12 +641,12 @@ static DWORD WINAPI ui_thread(void* arg) {
         if (want != shown) {
             shown = want;
             ShowWindow(g_ui_hwnd, shown ? 4 /*SW_SHOWNOACTIVATE*/ : 0);
-            if (shown) { SetWindowPos(g_ui_hwnd, (HWND)(INT64)-1 /*TOPMOST*/, 40, 40, w, h, 0x0010 /*NOACTIVATE*/); g_ui_dirty = 1; }
+            if (shown) { SetWindowPos(g_ui_hwnd, 0, x, y, w, h, SC_MENU_POSITION_FLAGS); g_ui_dirty = 1; }
         }
-        if (cur_scale != g_ui_scale || h != ui_height() * g_ui_scale / 100) {
-            cur_scale = g_ui_scale; w = UI_W * cur_scale / 100; h = ui_height() * cur_scale / 100;
-            SetWindowPos(g_ui_hwnd, (HWND)(INT64)-1, 40, 40, w, h, 0x0010);
-            g_ui_dirty = 1;
+        int nx,ny,nw,nh,nk;ui_window_bounds(owner,&nx,&ny,&nw,&nh,&nk);
+        if(cur_scale!=nk || w!=nw || h!=nh || x!=nx || y!=ny) {
+            cur_scale=nk;g_ui_draw_scale=nk;w=nw;h=nh;x=nx;y=ny;
+            SetWindowPos(g_ui_hwnd,0,x,y,w,h,SC_MENU_POSITION_FLAGS);g_ui_dirty=1;
         }
         if (g_ui_dirty && shown) { g_ui_dirty = 0; InvalidateRect(g_ui_hwnd, 0, 0); }
         Sleep(15);
@@ -584,31 +665,27 @@ static int ui_poll(XINPUT_STATE* s) {
     static WORD prev;
     WORD b = s->Gamepad.buttons, dn = (WORD)(b & ~prev);
     prev = b;
+    if(!ui_foreground_game()) {
+        g_ui_req_cards=g_ui_req_toggle=g_ui_req_nav=g_ui_req_change=g_ui_req_bound_key=0;
+        g_ui_startup_input_sync=1;
+        return 0;
+    }
     if(g_ui_startup_input_sync) {dn=0;g_ui_startup_input_sync=0;}
     if(g_ui_bind_mode) {
-        g_ui_req_toggle=g_ui_req_nav=g_ui_req_change=0;
+        g_ui_req_cards=g_ui_req_toggle=g_ui_req_nav=g_ui_req_change=0;
         int key=g_ui_req_bound_key;g_ui_req_bound_key=0;
         if(dn&0x2000)ui_hotkey_apply(-1);
         else if(key)ui_hotkey_apply(key);
         memset(&s->Gamepad,0,sizeof s->Gamepad);return 1;
     }
-    if (g_ui_req_toggle) { g_ui_req_toggle = 0; if (g_ui_open && g_ui_page) { g_ui_sel = g_ui_page == 3 ? 2 : g_ui_page == 2 ? 6 : 5; g_ui_page = 0; } else { g_ui_open = !g_ui_open; g_ui_page = 0; g_ui_sel = 0; } g_ui_dirty = 1; if (g_ui_open) log_text("menu opened"); }
+    if (g_ui_req_toggle) { g_ui_req_toggle = 0; if (g_ui_open && g_ui_page) { g_ui_sel = g_ui_page == 3 ? 2 : g_ui_page == 2 ? 5 : 0; g_ui_page = 0; } else { g_ui_open = !g_ui_open; g_ui_page = 0; g_ui_sel = 0; } g_ui_dirty = 1; if (g_ui_open) log_text("menu opened"); }
     if (!g_ui_open) return 0;
     if(g_ui_page!=1 && (g_ui_sel<0 || g_ui_sel>=ui_row_count())) {g_ui_sel=0;g_ui_dirty=1;}
-    if (g_ui_page == 1) {
-        int ch2 = g_ui_req_change, nav2 = g_ui_req_nav;
-        g_ui_req_change = 0; g_ui_req_nav = 0;
-        if (dn & (0x0001 | 0x0004)) ch2 = -1;
-        if (dn & (0x0002 | 0x0008 | 0x1000)) ch2 = 1;
-        if (!ch2) ch2 = nav2;
-        if (ch2) {
-            int pages = (UI_NCARDS + UI_CARDS_PER_PAGE - 1) / UI_CARDS_PER_PAGE;
-            g_ui_controls_page = (g_ui_controls_page + (ch2 < 0 ? -1 : 1) + pages) % pages;
-            g_ui_dirty = 1;
-        }
-        if (dn & 0x2000) { g_ui_page = 0; g_ui_sel = 5; g_ui_dirty = 1; }
-        memset(&s->Gamepad, 0, sizeof s->Gamepad);
-        return 1;
+    int cards=g_ui_req_cards;g_ui_req_cards=0;
+    int bumpers=sc_controls_bumper_direction(dn);if(bumpers)cards=bumpers;
+    if(cards) {
+        g_ui_controls_page=sc_controls_next_page(g_ui_controls_page,cards,UI_NCARDS,UI_CARDS_PER_PAGE);
+        g_ui_dirty=1;
     }
     int nav = g_ui_req_nav; g_ui_req_nav = 0;
     if (dn & 0x0001) nav = -1;            /* D-pad up */
@@ -618,7 +695,7 @@ static int ui_poll(XINPUT_STATE* s) {
     if (dn & 0x0004) ch = -1;                 /* D-pad left */
     if (dn & (0x0008 | 0x1000)) ch = 1;       /* D-pad right / A */
     if (ch) ui_change(ui_item_for_row(g_ui_sel), ch);
-    if (dn & 0x2000) { if (g_ui_page >= 2) { g_ui_sel = g_ui_page == 3 ? 2 : 6; g_ui_page = 0; } else g_ui_open = 0; g_ui_dirty = 1; }   /* B closes */
+    if (dn & 0x2000) { if (g_ui_page >= 2) { g_ui_sel = g_ui_page == 3 ? 2 : 5; g_ui_page = 0; } else g_ui_open = 0; g_ui_dirty = 1; }   /* B closes */
     /* the game sees an idle controller while the menu is open */
     memset(&s->Gamepad, 0, sizeof s->Gamepad);
     return 1;

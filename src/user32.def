@@ -15,3 +15,8 @@ EXPORTS
     GetAsyncKeyState
     SetLayeredWindowAttributes
     SetWindowPos
+    GetForegroundWindow
+    GetWindowThreadProcessId
+    IsWindow
+    SetWindowLongPtrW
+    GetWindowRect

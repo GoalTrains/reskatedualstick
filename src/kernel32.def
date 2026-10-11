@@ -19,6 +19,7 @@ EXPORTS
     VirtualAlloc
     FlushInstructionCache
     GetCurrentProcess
+    GetCurrentProcessId
     WritePrivateProfileStringW
     GetPrivateProfileSectionW
     WritePrivateProfileSectionW

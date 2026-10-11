@@ -10,6 +10,7 @@
 #include "translate.h"
 #include "tricks_all.h"
 #include "stance_track.h"
+#include "motion_stance.h"
 
 typedef unsigned char BYTE;
 typedef unsigned short WORD;
@@ -80,6 +81,8 @@ static WORD g_board_button;
 static int g_debug;
 static int g_precise_log = 1;
 static int g_ramp_diag;
+static int g_remount_diag;
+static int g_motion_stance;
 static volatile int g_ramp_diag_reset;
 static int g_board_detect;
 static int g_scoop_logged, g_mode_logged, g_stock_log = 1, g_ov_enabled = 1;
@@ -260,6 +263,8 @@ static void load_config(int keep_runtime) {
     g_cfg.manual_max = ini_percent(L"ManualMaxPercent", 85);
     g_cfg.stock_grab_air = ini_int(L"StockGrabAir", 0) != 0;
     g_cfg.stock_transition_ground = ini_int(L"StockTransitionGround", 0) != 0;
+    g_remount_diag = ini_int(L"RemountDiagnostics", 0) != 0;
+    g_motion_stance = ini_int(L"RemountStanceMotion", 1) != 0;
     g_ramp_diag = ini_int(L"RampDiagnostics", 0); if(g_ramp_diag<0 || g_ramp_diag>2)g_ramp_diag=0;
     g_cfg.air_controls = ini_int(L"AirControls", 1) != 0;
     g_cfg.grind_sensitivity = ini_percent(L"GrindSensitivityPercent", 120);
@@ -1069,8 +1074,32 @@ static void process_inner(DWORD user, XINPUT_STATE* s) {
     st->game_known = g_sel_status == 2 && g_local >= 0;
     st->game_crouch = (g_sel_status == 2 && g_local >= 0) ? (g_slots[g_local].state == 103) : -1;
     st->sw_raw = (g_sel_status == 2 && g_local >= 0) ? read_switch_b() : -1;   /* v2.6: facing now, for landing manuals */
+    st->game_switch_known=0;
     if (g_sel_status == 2 && g_cfg.switch_flip) {
         int sw = read_switched();
+        int native_sw=sw;
+        int motion_sw = -1;
+        static sc_motion_stance motion;
+        static int motion_slot=-2, motion_enabled=-1;
+        if (motion_slot!=g_local || motion_enabled!=g_motion_stance) {
+            sc_motion_stance zero={0}; motion=zero;
+            motion_slot=g_local; motion_enabled=g_motion_stance;
+        }
+        if (g_motion_stance && g_switch_src==4 && !g_cfg.goofy && g_local>=0) {
+            float position[3]={0}, facing[3]={0};
+            UINT64 first=rd_pointer(g_slots[g_local].sel+0x10);
+            UINT64 orientation=first?rd_pointer(first+0x10):0;
+            int valid=orientation && rd_copy(orientation+0x100,position,sizeof position) &&
+                      rd_copy(orientation+0x150,facing,sizeof facing);
+            int old_valid=motion.bias_valid,old_pending=motion.remount_pending;
+            motion_sw=sc_motion_stance_step(&motion,(int)g_slots[g_local].state,valid,
+                position[0],position[2],facing[0],facing[2],sw,g_now_ms);
+            if (old_pending && !old_valid && motion.bias_valid) {
+                if(!motion.candidate_valid)log_text("remount stance: calibration cancelled by takeoff or timeout; keeping native frame");
+                else log_text(motion.bias ? "experimental stance: backwards remount reference established from aligned ground motion" :
+                                           "experimental stance: normal remount reference established from aligned ground motion");
+            }
+        }
         /* v5.45 test: use one takeoff-relative decision. Probe c was allowed to
          * overwrite this after landing, which produced normal -> switch -> normal
          * under the same held stick. It is still logged, but never changes stance. */
@@ -1090,6 +1119,13 @@ static void process_inner(DWORD user, XINPUT_STATE* s) {
          * one turn relative to takeoff because its d resets on the ground. */
         sw = sc_resolve_stance(&tracking,g_switch_src,g_cfg.goofy,g_cfg.switch_flip,
                                g_cfg.front_back,state,sw,spawned,g_switched,g_now_ms);
+        if (motion_sw >= 0) {
+            sw=motion_sw;
+            /* The game's turn flag resets at remount. Use the corrected
+             * riding direction for feet, but the native flag for its input
+             * frame, so a fakie input does not become a switch ollie. */
+            if (native_sw >= 0) {st->game_switch_known=1;st->game_switch=native_sw;}
+        }
         if (g_state_log && tracking.landing_turn_ms >= 0)
             log_num("  stance turned in the air, ms before landing: ", (UINT64)tracking.landing_turn_ms);
         if (g_state_log && tracking.late_turn_ms >= 0)
@@ -1307,7 +1343,7 @@ static void process(DWORD user, XINPUT_STATE* s) {
     sc_pad raw=s->Gamepad; UINT64 start=0;
     if(tracing) { pt_start(); tracing=!pt_failed; start=pt_time(); }
     process_inner(user,s);
-    if(g_ramp_diag)rd_capture(GetTickCount64());
+    if(g_ramp_diag || g_remount_diag)rd_capture(GetTickCount64());
     if(tracing) {
         sc_state* st=&g_state[user<4?user:0]; sc_pad out=s->Gamepad;
         pt_record r={0}; r.start_us=start; r.end_us=pt_time();
@@ -1464,7 +1500,7 @@ static void setup(HMODULE self) {
     GetModuleFileNameW(0, exe, 519);
     if (!wieq(wbase(exe), "skate.exe")) return; /* only the game; stay a plain version.dll elsewhere */
 
-    log_text("---- Dual Stick Controls 5.73 TEST loaded (version.dll route)");
+    log_text("---- Dual Stick Controls 5.84 REMOUNT VALIDATION FIX loaded (version.dll route)");
     log_wide("process: ", exe);
     load_config(0);
     if (GetFileAttributesW(g_ini) == 0xFFFFFFFFu) log_text("no session_controls.ini found; using defaults");

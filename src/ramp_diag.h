@@ -3,7 +3,7 @@
  * At most 2400 samples per launch, 10 Hz. File I/O is on a background thread. */
 __declspec(dllimport) BOOL WINAPI ReadProcessMemory(HANDLE,const void*,void*,UINT64,UINT64*);
 #define RD_CAP 16
-#define RD_BYTES 1024
+#define RD_BYTES 2048
 #define RD_BLOCKS 8
 typedef struct {
     UINT64 time_us, selector;
@@ -27,12 +27,12 @@ static int rd_copy(UINT64 address,void* out,UINT64 size) {
 }
 static UINT64 rd_pointer(UINT64 address) {UINT64 value=0;rd_copy(address,&value,8);return value;}
 static DWORD WINAPI rd_worker(void* unused) {
-    (void)unused;WCHAR path[560];path[0]=0;wcat(path,560,g_dir);wcat(path,560,L"\\session_controls_ramp.bin");
+    (void)unused;WCHAR path[560];path[0]=0;wcat(path,560,g_dir);wcat(path,560,g_remount_diag ? L"\\session_controls_remount.bin" : L"\\session_controls_ramp.bin");
     HANDLE f=CreateFileW(path,4,1|2|4,0,4,0x80,0);
     if(f==INVALID_HANDLE_VALUE){rd_failed=1;log_text("ramp diagnostics: could not open snapshot file");return 0;}
-    struct {char magic[8];DWORD size,version;} header={{'S','C','R','A','M','P','0','1'},sizeof(rd_record),573};
+    struct {char magic[8];DWORD size,version;} header={{'S','C','R','A','M','P','0','1'},sizeof(rd_record),576};
     if(!pt_send(f,(const char*)&header,sizeof header))goto failed;
-    log_text("ramp diagnostics: labelled checked snapshots in session_controls_ramp.bin; no ramp values inferred yet");
+    log_text(g_remount_diag ? "remount diagnostics: checked snapshots in session_controls_remount.bin; four-minute recording limit; stance mapping unchanged" : "ramp diagnostics: labelled checked snapshots in session_controls_ramp.bin; no ramp values inferred yet");
     for(;;) {
         static rd_record record;int have=0;
         if(!__sync_lock_test_and_set(&rd_lock,1)) {
@@ -45,7 +45,7 @@ static DWORD WINAPI rd_worker(void* unused) {
 failed:rd_failed=1;CloseHandle(f);log_text("ramp diagnostics: write failed; recording incomplete");return 0;
 }
 static void rd_capture(UINT64 now) {
-    if(!g_ramp_diag || rd_failed || (rd_samples>=2400 && !g_ramp_diag_reset) || now-rd_last<100 || g_local<0 || !g_slots[g_local].sel)return;
+    if((!g_ramp_diag && !g_remount_diag) || rd_failed || (rd_samples>=2400 && !g_ramp_diag_reset) || now-rd_last<100 || g_local<0 || !g_slots[g_local].sel)return;
     if(__sync_lock_test_and_set(&rd_lock,1))return;
     if(g_ramp_diag_reset){rd_samples=0;g_ramp_diag_reset=0;}
     rd_last=now;
@@ -56,7 +56,7 @@ static void rd_capture(UINT64 now) {
     if(rd_failed){__sync_lock_release(&rd_lock);return;}
     if(rd_write-rd_read>=RD_CAP){rd_dropped++;__sync_lock_release(&rd_lock);return;}
     rd_record* r=&rd_queue[rd_write%RD_CAP];memset(r,0,sizeof *r);
-    r->time_us=rd_time();r->selector=g_slots[g_local].sel;r->state=g_slots[g_local].state;r->label=g_ramp_diag;r->dropped=rd_dropped;
+    r->time_us=rd_time();r->selector=g_slots[g_local].sel;r->state=g_slots[g_local].state;r->label=g_remount_diag ? (g_walking ? 4 : 3) : g_ramp_diag;r->dropped=rd_dropped;
     UINT64 root=rd_pointer(r->selector),p=rd_pointer(r->selector+0x10);
     r->address[0]=r->selector;r->address[1]=root;
     r->address[2]=rd_pointer(root+0x60);r->address[3]=rd_pointer(root+0x78);
