@@ -66,3 +66,24 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+
+# Dual Stick Controls local files
+/build/
+/out/
+/.vs/
+/.vscode/
+__pycache__/
+*.pyc
+*.obj
+*.o
+*.lib
+*.exp
+*.pdb
+*.dll
+*.exe
+*.zip
+*.log
+*.csv
+*.bin
+/session_controls.ini
+/CMakeUserPresets.json

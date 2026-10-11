@@ -1,0 +1,17 @@
+LIBRARY user32.dll
+EXPORTS
+    RegisterClassExW
+    CreateWindowExW
+    DefWindowProcW
+    ShowWindow
+    PeekMessageW
+    TranslateMessage
+    DispatchMessageW
+    InvalidateRect
+    BeginPaint
+    EndPaint
+    FillRect
+    DrawTextW
+    GetAsyncKeyState
+    SetLayeredWindowAttributes
+    SetWindowPos

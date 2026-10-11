@@ -1,0 +1,365 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 6b1ac58..f0d1e68 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -26,6 +26,12 @@ if(WIN32)
+ endif()
+ 
+ option(DINGOSDK_BUILD_TESTS "Build logging regression tests" OFF)
++option(DINGOSDK_BUILD_DUAL_STICK_TESTS "Build companion Dual Stick settings tests" OFF)
++if(DINGOSDK_BUILD_DUAL_STICK_TESTS AND WIN32)
++    enable_testing()
++    add_executable(dingosdk_dual_stick_settings_tests Extension/UI/Overlay/Test/dual_stick_settings_tests.cpp)
++    add_test(NAME dual_stick_settings COMMAND dingosdk_dual_stick_settings_tests)
++endif()
+ option(DINGOSDK_BUILD_PARK_EDITOR_TESTS "Build park editor regression tests" OFF)
+ option(DINGOSDK_BUILD_TRAINER_TESTS "Build the trainer's tools and regression tests" OFF)
+ if(DINGOSDK_BUILD_PARK_EDITOR_TESTS)
+diff --git a/Extension/UI/Overlay/hub_page.cpp b/Extension/UI/Overlay/hub_page.cpp
+index 0bfb4f0..872ca65 100644
+--- a/Extension/UI/Overlay/hub_page.cpp
++++ b/Extension/UI/Overlay/hub_page.cpp
+@@ -2,6 +2,7 @@
+ #include "skate_style.h"
+ #include "cursor.h"
+ #include "input_capture.h"
++#include "dual_stick_settings.h"
+ #include "Extension/UI/NativeMenu/native_menu_view.h"
+ #include "Extension/UI/NativeMenu/native_tools_view.h"
+ #include "Extension/Boot/discord_presence.h"
+@@ -885,7 +886,7 @@ void failed_page(Ui &ui, ImVec2 a, ImVec2 z) {
+ 
+ // ---------------------------------------------------------------- Mod Options
+ 
+-enum ToolsTab : int { official_tab, custom_tab, world_tab, parks_tab, player_tab, online_tab, visuals_tab, binds_tab };
++enum ToolsTab : int { official_tab, custom_tab, world_tab, parks_tab, player_tab, online_tab, visuals_tab, binds_tab, dual_stick_tab };
+ 
+ // The next (or the one before) of a setting's steps from where it is now; it stops at the ends.
+ template<std::size_t N> float stepped(float current, const std::array<float, N> &steps, int direction) {
+@@ -1035,6 +1036,77 @@ void tools_page(Ui &ui, ImVec2 a, ImVec2 z) {
+     };
+ 
+     switch (h.tools_tab) {
++    case dual_stick_tab: {
++        static const dual_stick::Settings settings(dual_stick::Settings::game_path());
++        static int slot = 1, overwrite_slot = 0;
++        Column list(ui, hash("dual-stick"), a, ImVec2(a.x + column_width, z.y));
++        list.heading("DUAL STICK CONTROLS");
++        const bool installed = settings.available();
++        const auto apply = [&](bool success) {
++            overwrite_slot = 0;
++            say(h, success ? "Saved. The companion mod picks up gameplay settings within two seconds."
++                           : "Couldn't save session_controls.ini. Check that the file is writable.");
++        };
++        if (!installed) {
++            list.note("Install the Dual Stick Controls companion mod (v5.71 or later) beside Skate.exe first. This page manages its settings; ReSkate does not include the control translator.");
++            list.end();
++            break;
++        }
++        if (list.setting("Session-style preset", settings.active(false) ? "Active" : "Apply", true)) apply(settings.preset(false));
++        if (list.setting("XL-style preset", settings.active(true) ? "Active" : "Apply", true)) apply(settings.preset(true));
++        list.note("Both presets translate Skate controls across two sticks. Their inputs differ from Session and Skater XL.");
++        list.note("Session: front/back feet, flick pop, trigger steering, one-stick flips blocked. XL: left/right feet, True Foot, release pop, stick steering, one-stick flips allowed.");
++        if (const int way = list.adjust("Custom slot", std::to_string(slot), true)) {
++            slot = std::clamp(slot + way, 1, 5);
++            overwrite_slot = 0;
++        }
++        if (list.setting("Load custom controls", settings.filled(slot) ? "Load" : "Empty", settings.filled(slot))) apply(settings.load(slot));
++        if (list.setting("Save custom controls", overwrite_slot == slot ? "Confirm overwrite" : "Save", true)) {
++            if (settings.filled(slot) && overwrite_slot != slot) {
++                overwrite_slot = slot;
++                say(h, "Press Save custom controls again to replace this slot.");
++            } else apply(settings.save(slot));
++        }
++        list.note("Custom slots share the companion mod's five slots. Loading here restores the controls below; menu preferences and other tuning stay unchanged.");
++        list.title("YOUR SETTINGS");
++        const int stance = settings.number(L"AutoStance",1) ? 0 : _wcsicmp(settings.text(L"Stance",L"regular").c_str(),L"goofy") == 0 ? 2 : 1;
++        if (list.setting("Stance", stance == 0 ? "Automatic" : stance == 1 ? "Regular" : "Goofy", true)) {
++            dual_stick::Section entries;
++            if (settings.read(entries)) {
++                const int next = (stance + 1) % 3;
++                entries[L"AutoStance"] = next == 0 ? L"1" : L"0";
++                if (next) entries[L"Stance"] = next == 2 ? L"goofy" : L"regular";
++                apply(settings.write(entries));
++            } else apply(false);
++        }
++        for (const auto& c : dual_stick::choices) {
++            if (std::wcscmp(c.key,L"SwitchStance") == 0 && settings.number(L"FrontBackFoot",0)) continue;
++            const int value = settings.number(c.key,c.fallback);
++            int index = -1;
++            for (int i = 0; i < c.count; ++i) if (c.values[static_cast<std::size_t>(i)] == value) index = i;
++            const std::string label = index < 0 ? "Custom (" + std::to_string(value) + ")" : c.labels[static_cast<std::size_t>(index)];
++            if (list.setting(c.label,label,true)) apply(settings.set(c.key,c.values[static_cast<std::size_t>((index + 1) % c.count)]));
++        }
++        const int ramp = settings.number(L"StockGrabAir",0) ? settings.number(L"StockTransitionGround",0) ? 2 : 1 : 0;
++        if (list.setting("Stock ramp controls", ramp == 0 ? "Off" : ramp == 1 ? "Air only" : "Early on ramp",true)) {
++            dual_stick::Section entries;
++            if (settings.read(entries)) {
++                const int next = (ramp + 1) % 3;
++                entries[L"StockGrabAir"] = next ? L"1" : L"0";
++                entries[L"StockTransitionGround"] = next == 2 ? L"1" : L"0";
++                apply(settings.write(entries));
++            } else apply(false);
++        }
++        list.note("Stock ramp controls are experimental. Qualified transitions use physical Skate stick controls and trigger grabs; flat tricks keep foot controls. Pumping stays on R3.");
++        if (list.setting("Dual Stick on next launch",on_off(settings.number(L"EnabledAtStart",1) != 0),true)) {
++            if (settings.set(L"EnabledAtStart",!settings.number(L"EnabledAtStart",1))) say(h,"Saved for the next launch. Use the companion menu to toggle controls now.");
++            else apply(false);
++        }
++        list.note("The companion menu remains available on its configured hotkey (End by default), including control diagrams and additional tuning.");
++        list.note(h.notice);
++        list.end();
++        break;
++    }
+     case official_tab: levels(false, "FIND YOUR SPOT", "Waiting for available levels...", ""); break;
+     case custom_tab: levels(true, "CUSTOM MAPS", "No custom maps installed.", "Custom maps from the Mods folder appear here."); break;
+     case world_tab: {
+@@ -1499,7 +1571,7 @@ void draw_hub_page() {
+         int &open = tools ? h.tools_tab : multiplayer_tab;
+         if (tools) {
+             tabs = {{official_tab, "OFFICIAL MAPS"}, {custom_tab, "CUSTOM MAPS"}, {world_tab, "WORLD"}, {parks_tab, "PARKS"},
+-                    {player_tab, "PLAYER"}, {online_tab, "ONLINE"}, {visuals_tab, "VISUALS"}, {binds_tab, "BINDS"}};
++                    {player_tab, "PLAYER"}, {online_tab, "ONLINE"}, {visuals_tab, "VISUALS"}, {binds_tab, "BINDS"}, {dual_stick_tab, "DUAL STICK"}};
+         } else {
+             tabs = {{static_cast<int>(Tab::browser), "SERVER BROWSER"}, {static_cast<int>(Tab::host), "HOST LOBBY"}};
+             // The session and its voice chat are only there in one.
+diff --git a/Extension/UI/Overlay/Test/dual_stick_settings_tests.cpp b/Extension/UI/Overlay/Test/dual_stick_settings_tests.cpp
+new file mode 100644
+index 0000000..a097961
+--- /dev/null
++++ b/Extension/UI/Overlay/Test/dual_stick_settings_tests.cpp
+@@ -0,0 +1,58 @@
++#include "../dual_stick_settings.h"
++// Keep assertions (including file operations) enabled in Release test builds.
++#ifdef NDEBUG
++#undef NDEBUG
++#endif
++#include <cassert>
++#include <iostream>
++
++int main() {
++    using namespace dingosdk::dual_stick;
++    std::array<wchar_t, MAX_PATH> temp{}, name{};
++    assert(GetTempPathW(static_cast<DWORD>(temp.size()),temp.data()));
++    assert(GetTempFileNameW(temp.data(),L"dsc",0,name.data()));
++    Settings settings(name.data());
++    Section initial{{L"onefootflips",L"1"},{L"UnknownFutureTuning",L"123"},{L"ShowMenuOnStartup",L"0"},
++                    {L"MenuKey",L"F8"},{L"RampDiagnostics",L"2"},{L"AirControls",L"1"}};
++    assert(settings.write(initial));
++    assert(settings.preset(false));
++    assert(settings.active(false));
++    assert(settings.number(L"OneFootFlips",-1) == 0);
++    assert(settings.number(L"UnknownFutureTuning",-1) == 123);
++    assert(settings.text(L"MenuKey",L"") == L"F8");
++    assert(settings.preset(true));
++    assert(settings.active(true));
++    assert(settings.number(L"SwitchStance",-1) == 3);
++    assert(settings.number(L"OneFootFlips",-1) == 1);
++    assert(settings.set(L"OneFootFlips",0));
++    assert(!settings.active(true));
++    assert(settings.save(1));
++    assert(settings.filled(1));
++    assert(settings.set(L"StockGrabAir",1));
++    assert(settings.set(L"StockTransitionGround",1));
++    assert(settings.save(5));
++    assert(settings.set(L"AirControls",0));
++    assert(settings.set(L"RampDiagnostics",0));
++    assert(settings.set(L"UnknownFutureTuning",456));
++    assert(settings.load(1));
++    assert(settings.number(L"AirControls",-1) == 1);
++    assert(settings.number(L"RampDiagnostics",-1) == 0);
++    assert(settings.number(L"UnknownFutureTuning",-1) == 456);
++    assert(settings.number(L"StockGrabAir",-1) == 0);
++    assert(settings.load(5));
++    assert(settings.number(L"StockTransitionGround",-1) == 1);
++    assert(!settings.load(2));
++    assert(!settings.save(0) && !settings.save(6));
++    Section readback;
++    assert(settings.read(readback));
++    assert(readback.count(L"OneFootFlips") == 1);
++    assert(SetFileAttributesW(name.data(),FILE_ATTRIBUTE_READONLY));
++    assert(!settings.set(L"OneFootFlips",1));
++    assert(!settings.preset(false));
++    assert(SetFileAttributesW(name.data(),FILE_ATTRIBUTE_NORMAL));
++    assert(DeleteFileW(name.data()));
++    assert(!settings.available());
++    assert(!settings.set(L"OneFootFlips",1) && !settings.preset(false) && !settings.save(1));
++    assert(GetFileAttributesW(name.data()) == INVALID_FILE_ATTRIBUTES);
++    std::cout << "Dual Stick settings integration checks passed\n";
++}
+diff --git a/Extension/UI/Overlay/dual_stick_settings.h b/Extension/UI/Overlay/dual_stick_settings.h
+new file mode 100644
+index 0000000..6b7b9b6
+--- /dev/null
++++ b/Extension/UI/Overlay/dual_stick_settings.h
+@@ -0,0 +1,128 @@
++#pragma once
++#include <Windows.h>
++#include <array>
++#include <map>
++#include <string>
++#include <cwchar>
++#include <utility>
++
++// Optional companion mod settings. Never install hooks or create a configuration
++// when the mod is absent. Resolve beside Skate.exe, independently of working dir.
++namespace dingosdk::dual_stick {
++inline constexpr wchar_t section[] = L"SessionControls";
++struct Choice {
++    const wchar_t* key;
++    const char* label;
++    int fallback;
++    std::array<int, 4> values;
++    std::array<const char*, 4> labels;
++    int count;
++};
++inline constexpr std::array choices{
++    Choice{L"FrontBackFoot", "Foot layout", 0, {0,1}, {"Left / right foot","Front / back foot"},2},
++    Choice{L"SwitchStance", "Switch behavior", 1, {0,1,3,2}, {"Off","On","True Foot","On + mirror"},4},
++    Choice{L"PopOnRelease", "Pop style", 0, {0,1}, {"Flick","Release"},2},
++    Choice{L"OneFootFlips", "One-stick flips", 0, {0,1}, {"Blocked","Allowed"},2},
++    Choice{L"StickSteering", "Stick steering", 0, {0,1}, {"Off","On"},2},
++    Choice{L"RevertInput", "Reverts", 2, {0,1,2}, {"Off","Double tap","Both triggers"},3},
++    Choice{L"SpinWindUp", "Spin wind-up", 1, {0,1}, {"Off","On"},2},
++    Choice{L"BodyFlips", "Body flips", 1, {0,1}, {"Off","On"},2},
++    Choice{L"AirControls", "Air controls", 1, {0,1}, {"Off","On"},2},
++    Choice{L"Powerslides", "Powerslides", 1, {0,1}, {"Off","On"},2},
++    Choice{L"GrindBumpMs", "Grind bump", 250, {0,250}, {"Off","On"},2}
++};
++struct KeyLess {
++    bool operator()(const std::wstring& a, const std::wstring& b) const { return _wcsicmp(a.c_str(), b.c_str()) < 0; }
++};
++using Section = std::map<std::wstring, std::wstring, KeyLess>;
++class Settings {
++    std::wstring path_;
++public:
++    explicit Settings(std::wstring path) : path_(std::move(path)) {}
++    static std::wstring game_path() {
++        std::array<wchar_t, 32768> buffer{};
++        const DWORD n = GetModuleFileNameW(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
++        if (!n || n >= buffer.size()) return {};
++        std::wstring path(buffer.data(), n);
++        const auto slash = path.find_last_of(L"\\/");
++        if (slash == std::wstring::npos) return {};
++        return path.substr(0, slash + 1) + L"session_controls.ini";
++    }
++    bool available() const {
++        if (path_.empty()) return false;
++        const DWORD a = GetFileAttributesW(path_.c_str());
++        return a != INVALID_FILE_ATTRIBUTES && !(a & FILE_ATTRIBUTE_DIRECTORY);
++    }
++    int number(const wchar_t* key, int fallback, const wchar_t* from = section) const {
++        return static_cast<int>(GetPrivateProfileIntW(from, key, fallback, path_.c_str()));
++    }
++    std::wstring text(const wchar_t* key, const wchar_t* fallback, const wchar_t* from = section) const {
++        std::array<wchar_t, 256> buffer{};
++        GetPrivateProfileStringW(from, key, fallback, buffer.data(), static_cast<DWORD>(buffer.size()), path_.c_str());
++        return buffer.data();
++    }
++    bool read(Section& entries, const wchar_t* from = section) const {
++        std::array<wchar_t, 32768> buffer{};
++        const DWORD n = GetPrivateProfileSectionW(from, buffer.data(), static_cast<DWORD>(buffer.size()), path_.c_str());
++        if (n >= buffer.size() - 2) return false;
++        entries.clear();
++        for (const wchar_t* p = buffer.data(); *p; p += std::wcslen(p) + 1) {
++            const wchar_t* eq = std::wcschr(p, L'=');
++            if (eq) entries.emplace(std::wstring(p, eq), eq + 1);
++        }
++        return true;
++    }
++    bool write(const Section& entries, const wchar_t* to = section) const {
++        if (!available()) return false;
++        std::wstring buffer;
++        for (const auto& [key, value] : entries) {
++            buffer += key + L"=" + value;
++            buffer.push_back(L'\0');
++        }
++        buffer.push_back(L'\0');
++        if (entries.empty()) buffer.push_back(L'\0');
++        if (buffer.size() >= 32766) return false;
++        return WritePrivateProfileSectionW(to, buffer.c_str(), path_.c_str()) != FALSE;
++    }
++    bool set(const wchar_t* key, int value) const {
++        return available() && WritePrivateProfileStringW(section, key, std::to_wstring(value).c_str(), path_.c_str());
++    }
++    bool preset(bool xl) const {
++        Section entries;
++        if (!available() || !read(entries)) return false;
++        entries[L"FrontBackFoot"] = xl ? L"0" : L"1";
++        entries[L"SwitchStance"] = xl ? L"3" : L"1";
++        for (const auto* key : {L"PopOnRelease", L"StickSteering", L"OneFootFlips"}) entries[key] = xl ? L"1" : L"0";
++        entries[L"SwitchSource"] = L"4";
++        return write(entries);
++    }
++    bool active(bool xl) const {
++        return number(L"FrontBackFoot",0) == !xl && number(L"SwitchStance",1) == (xl ? 3 : 1) &&
++            number(L"PopOnRelease",0) == xl && number(L"StickSteering",0) == xl && number(L"OneFootFlips",0) == xl &&
++            number(L"SwitchSource",4) == 4;
++    }
++    static std::wstring slot_name(int slot) { return L"CustomPreset" + std::to_wstring(slot); }
++    bool filled(int slot) const { return slot >= 1 && slot <= 5 && number(L"PresetSaved",0,slot_name(slot).c_str()) == 1; }
++    bool save(int slot) const {
++        Section entries;
++        if (slot < 1 || slot > 5 || !available() || !read(entries)) return false;
++        for (const auto& c : choices) entries[c.key] = std::to_wstring(number(c.key,c.fallback));
++        for (const auto* key : {L"AutoStance",L"StockGrabAir",L"StockTransitionGround"})
++            entries[key] = std::to_wstring(number(key, std::wcscmp(key,L"AutoStance") == 0 ? 1 : 0));
++        entries[L"Stance"] = text(L"Stance",L"regular");
++        entries[L"SwitchSource"] = std::to_wstring(number(L"SwitchSource",4));
++        entries[L"PresetSaved"] = L"1";
++        return write(entries,slot_name(slot).c_str());
++    }
++    bool load(int slot) const {
++        Section current, saved;
++        if (!available() || !filled(slot) || !read(current) || !read(saved,slot_name(slot).c_str())) return false;
++        // Gameplay only: menu, recording and launch preferences remain global.
++        // Merge the supported keys so unrelated tuning and unknown future keys survive.
++        for (const auto& c : choices) if (saved.contains(c.key)) current[c.key] = saved[c.key];
++        for (const auto* key : {L"AutoStance",L"Stance",L"SwitchSource",L"StockGrabAir",L"StockTransitionGround"})
++            if (saved.contains(key)) current[key] = saved[key];
++        return write(current);
++    }
++};
++} // namespace dingosdk::dual_stick
+diff --git a/contrib/dual-stick-controls.md b/contrib/dual-stick-controls.md
+new file mode 100644
+index 0000000..93996f8
+--- /dev/null
++++ b/contrib/dual-stick-controls.md
+@@ -0,0 +1,36 @@
++# Dual Stick Controls companion menu
++
++Mod Options > Dual Stick manages the optional Dual Stick Controls companion mod's
++`session_controls.ini` beside `Skate.exe`. It does not bundle or load that mod.
++Use companion v5.71 or later for the documented preset and ramp behavior.
++If the INI is absent, the page explains installation and does not create files.
++An INI's presence does not prove its DLL is loaded.
++
++Session-style uses front/back feet, flick pop, trigger steering and blocked
++one-stick flips. XL-style uses left/right feet, True Foot, release pop, stick
++steering and allowed one-stick flips. Both translate Skate's controls and have
++different inputs from their namesake games. Other settings are retained when
++applying either preset. Edited values change the preset's Active indication.
++
++Gameplay settings are read by the companion's existing two-second configuration
++refresh. The enabled-on-next-launch choice deliberately does not claim to toggle
++the active translator; use the companion menu's hotkey for that. Its menu,
++control diagrams and advanced tuning remain available.
++
++The five custom slots use the companion's `CustomPreset1` through
++`CustomPreset5` sections. Saving an occupied slot requires a second press.
++Saving captures the INI and materializes this page's gameplay defaults. Loading
++restores only settings exposed by this page plus the switch source. Menu,
++recording, launch preferences, runtime foot-swap overrides, and other tuning
++remain unchanged. Those runtime overrides are not observable through the INI.
++The companion's own full preset loader still has its existing behavior.
++
++The helper resolves the INI from the process executable path, preserves unknown
++active keys and unrelated sections, and reports write failures. It introduces
++no controller, graphics or gameplay hooks and never touches `version.dll`.
++
++Configure `DINGOSDK_BUILD_DUAL_STICK_TESTS=ON` to run `dual_stick_settings` with
++CTest. The test uses a temporary INI; it covers preset defaults, case-insensitive
++keys, customized Active status, custom round trips, preserved global settings,
++empty/invalid slots and missing-file writes. The complete overlay still needs a
++Windows MSVC build and in-game controller/layout validation before release.

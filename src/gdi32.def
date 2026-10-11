@@ -1,0 +1,18 @@
+LIBRARY gdi32.dll
+EXPORTS
+    CreateFontW
+    SelectObject
+    SetTextColor
+    SetBkMode
+    CreateSolidBrush
+    DeleteObject
+    CreateCompatibleDC
+    CreateDIBSection
+    DeleteDC
+    GdiFlush
+    Ellipse
+    MoveToEx
+    LineTo
+    Polygon
+    CreatePen
+    GetStockObject
