@@ -1,7 +1,7 @@
 Add companion Dual Stick settings and controller navigation
 
 Players currently need a separate hotkey to find the companion mod's settings.
-This adds a controller-friendly Mod Options > Dual Stick page using the existing
+This adds Insert > Dual Stick and pause menu > Mod Options > Dual Stick pages using the existing
 session_controls.ini beside Skate.exe. The companion v5.71+ DLL remains required.
 ReSkate does not bundle or install the translator.
 
@@ -12,6 +12,10 @@ foreground. Release navigation state when it closes. This adds no input hooks.
 A versioned ReSkateOverlayOwnsInputV1 C export also lets companion v5.72 suspend
 its generated gestures during UI/freecam/prompt ownership and guard held feet
 when gameplay returns, without relying on pause-state guesses.
+The Insert sidebar, tabs and option tiles explicitly enable controller focus;
+their focus outlines draw above the tile backgrounds. B/Circle closes the menu
+unless a popup or binding capture is active. Navigation tests exercise the same
+custom InvisibleButton widgets used by the menu.
 
 Session-style and XL-style presets appear first, followed by five shared custom
 slots and editable gameplay options. Session blocks one-stick flips; XL allows

@@ -47,3 +47,15 @@ version.dll  F17C9978D2AFD496CE762E88D393BCED40EBC050538B93B24255F0D41E2F2B23
 
 Both DLLs are required for the new menu ownership behavior. The standalone
 companion preserves its previous fallback when used with an older ReSkate DLL.
+
+Insert menu correction, 11 October 2026:
+- Dual Stick now appears as a dedicated Insert sidebar page, with both presets,
+  five shared custom slots and editable gameplay settings.
+- Insert sidebar, category tabs and option tiles now enable controller focus.
+  Focus outlines draw above tile backgrounds; B/Circle closes when no popup is open.
+- Full MSVC Release build and both CTest regressions passed. The controller test
+  now navigates and activates custom InvisibleButton tiles, matching the menu.
+- Installed ReSkate.dll SHA256: 9865D5B2184CCF76051E1FD60E8267D4B46C0692E263C8B2D0D026F21B0FD665.
+- Official launcher updates are disabled during testing, since it otherwise
+  replaces the patched runtime. Original launcher settings are backed up locally.
+- Controls INI and companion DLL are unchanged. In-game confirmation remains pending.
