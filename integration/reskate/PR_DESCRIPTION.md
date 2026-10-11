@@ -13,9 +13,10 @@ A versioned ReSkateOverlayOwnsInputV1 C export also lets companion v5.72 suspend
 its generated gestures during UI/freecam/prompt ownership and guard held feet
 when gameplay returns, without relying on pause-state guesses.
 The Insert sidebar, tabs and option tiles explicitly enable controller focus;
-their focus outlines draw above the tile backgrounds. B/Circle closes the menu
-unless a popup or binding capture is active. Navigation tests exercise the same
-custom InvisibleButton widgets used by the menu.
+their focus outlines draw above the tile backgrounds. A/Cross enters the right
+panel; B/Circle backs out one edit, popup or nested panel at a time to the sidebar.
+Back at the sidebar keeps the menu open; Insert closes it. The X close tile is
+removed. Navigation tests exercise actual custom tiles and panel/popup Back.
 
 Session-style and XL-style presets appear first, followed by five shared custom
 slots and editable gameplay options. Session blocks one-stick flips; XL allows

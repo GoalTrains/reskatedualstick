@@ -187,10 +187,18 @@ index ff84664..b90f08f 100644
      const bool before = state().prompt_input_active.exchange(active, std::memory_order_relaxed);
      if (before == active) return;
 diff --git a/Extension/UI/Overlay/overlay_render.cpp b/Extension/UI/Overlay/overlay_render.cpp
-index 9631d0d..7b5c96e 100644
+index 9631d0d..a9adfde 100644
 --- a/Extension/UI/Overlay/overlay_render.cpp
 +++ b/Extension/UI/Overlay/overlay_render.cpp
-@@ -353,7 +353,7 @@ bool setup_graphics() {
+@@ -7,6 +7,7 @@
+ #include "park_previews.h"
+ #include "chat_emotes.h"
+ #include "input_capture.h"
++#include "menu_navigation.h"
+ #include "cursor.h"
+ #include <dxgi1_6.h>
+ #include <imgui_internal.h>
+@@ -353,7 +354,7 @@ bool setup_graphics() {
      ImGui::SetCurrentContext(s.context);
      ImGui::GetIO().IniFilename = nullptr;
      ImGui::GetIO().LogFilename = nullptr;
@@ -199,7 +207,7 @@ index 9631d0d..7b5c96e 100644
      ImGui::StyleColorsDark();
      dingosdk::overlay::load_skate_fonts(s.menu);
      // Thumbnails are read from the game's own data at startup; the read is
-@@ -693,6 +693,10 @@ void render(IDXGISwapChain* presented, UINT flags) {
+@@ -693,8 +694,13 @@ void render(IDXGISwapChain* presented, UINT flags) {
      ImGui::GetIO().MouseDrawCursor = owns_menu_cursor(s);
      ImGui_ImplDX12_NewFrame();
      { OverlayInputAccess access; ImGui_ImplWin32_NewFrame(); }
@@ -209,20 +217,24 @@ index 9631d0d..7b5c96e 100644
 +    }
      update_menu_pointer();
      fit_display_to_buffer(s, frame.buffer.Get());
++    menu::claim_menu_back(s.visible.load() && !s.editor_visible.load());
      ImGui::NewFrame();
+     if (menu_frame) {
+         draw_menu();
 diff --git a/Extension/UI/Overlay/skate_menu.cpp b/Extension/UI/Overlay/skate_menu.cpp
-index c03b0f4..67fa679 100644
+index c03b0f4..36b4772 100644
 --- a/Extension/UI/Overlay/skate_menu.cpp
 +++ b/Extension/UI/Overlay/skate_menu.cpp
-@@ -3,6 +3,7 @@
+@@ -3,6 +3,8 @@
  #include "skate_menu.h"
  #include "modding_menu.h"
  #include "skate_style.h"
 +#include "dual_stick_settings.h"
++#include "menu_navigation.h"
  #include "Extension/UI/skate_theme.h"
  
  #include <Windows.h>
-@@ -176,19 +177,19 @@ bool choice(SkateMenu& menu, const char* id, int& selected, std::initializer_lis
+@@ -176,19 +178,19 @@ bool choice(SkateMenu& menu, const char* id, int& selected, std::initializer_lis
          const auto at = ImGui::GetCursorScreenPos();
          ImGui::PushID(i);
          ImGui::BeginDisabled(!enabled);
@@ -245,7 +257,7 @@ index c03b0f4..67fa679 100644
          const char* label = options.begin()[i];
          const auto size = menu.bold->CalcTextSizeA(px(14), FLT_MAX, 0, label);
          draw->PushClipRect(at, ImVec2(at.x + width, at.y + height), true);
-@@ -235,17 +236,17 @@ void category_tabs(SkateMenu& menu, int& selected, std::initializer_list<const c
+@@ -235,17 +237,17 @@ void category_tabs(SkateMenu& menu, int& selected, std::initializer_list<const c
          if (i) ImGui::SameLine(0, gap);
          const auto at = ImGui::GetCursorScreenPos();
          ImGui::PushID(i);
@@ -266,7 +278,7 @@ index c03b0f4..67fa679 100644
          const char* label = tabs.begin()[i];
          const auto size = menu.bold->CalcTextSizeA(px(15), FLT_MAX, 0, label);
          draw->PushClipRect(at, ImVec2(at.x + tab_width, at.y + height), true);
-@@ -276,13 +277,76 @@ ImFont* embedded_font(const wchar_t* name, float size, const ImWchar* ranges) {
+@@ -276,13 +278,76 @@ ImFont* embedded_font(const wchar_t* name, float size, const ImWchar* ranges) {
          &config, ranges);
  }
  
@@ -346,22 +358,42 @@ index c03b0f4..67fa679 100644
  }
  
  void load_skate_fonts(SkateMenu& menu) {
-@@ -321,7 +385,7 @@ void draw_skate_menu(SkateMenu& menu, const Model& model, const CallbacksV3& cal
-     if (!visible || !on_voice || menu.last_menu_frame + 1 != ImGui::GetFrameCount()) menu.voice_bind_capture = 0;
-     // Esc closes the menu, unless it is busy with something else: typing in a
-     // field, an open popup, or recording a key or controller binding.
--    if (visible && ImGui::IsKeyPressed(ImGuiKey_Escape, false) && !ImGui::GetIO().WantTextInput &&
-+    if (visible && (ImGui::IsKeyPressed(ImGuiKey_Escape, false) || ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight, false)) && !ImGui::GetIO().WantTextInput &&
-         !menu.recording_bind && !menu.voice_bind_capture &&
-         !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId | ImGuiPopupFlags_AnyPopupLevel))
-         visible = false;
-@@ -384,12 +448,13 @@ void draw_skate_menu(SkateMenu& menu, const Model& model, const CallbacksV3& cal
+@@ -315,6 +380,11 @@ void load_skate_fonts(SkateMenu& menu) {
+ 
+ void draw_skate_menu(SkateMenu& menu, const Model& model, const CallbacksV3& callbacks,
+                      bool& visible) {
++    static ImGuiContext* navigation_context{};
++    if (navigation_context != ImGui::GetCurrentContext()) {
++        navigation_context = ImGui::GetCurrentContext();
++        menu.navigation_sidebar = menu.navigation_content = nullptr;
++    }
+     const bool on_controls = menu.page == settings && menu.settings_tab == 0;
+     const bool on_voice = menu.page == multiplayer && menu.multiplayer_tab == multiplayer_voice_tab;
+     if (!visible || !on_controls || menu.last_menu_frame + 1 != ImGui::GetFrameCount()) menu.recording_bind = 0;
+@@ -347,6 +417,8 @@ void draw_skate_menu(SkateMenu& menu, const Model& model, const CallbacksV3& cal
+     ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarRounding, 0);
+     const int colours = skate_theme::push_widget_colours();
+     if (ImGui::Begin("ReSkate###skate-menu", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar)) {
++        menu_back(menu.navigation_sidebar, menu.navigation_content);
++        bool enter_content = false;
+         const auto size = ImGui::GetWindowSize();
+         const auto current = ImGui::GetWindowPos();
+         const ImVec2 bounded(std::clamp(current.x, 0.0f, std::max(0.0f, io.DisplaySize.x - size.x)),
+@@ -378,18 +450,21 @@ void draw_skate_menu(SkateMenu& menu, const Model& model, const CallbacksV3& cal
+         if (hidden(menu.page)) menu.page = map;
+         ImGui::SetCursorPos(ImVec2(px(10), px(96)));
+         ImGui::BeginChild("navigation", ImVec2(sidebar - px(20), size.y - px(140)), ImGuiChildFlags_None);
++        menu.navigation_sidebar = ImGui::GetCurrentWindow();
+         const float tab_height = px(40);
+         for (int i = 0; i < static_cast<int>(page_count); ++i) {
+             if (hidden(i)) continue;
              const auto at = ImGui::GetCursorScreenPos();
              const bool selected = menu.page == i;
              ImGui::PushID(i);
 -            if (ImGui::InvisibleButton("##page", ImVec2(sidebar - px(20), tab_height)) && !selected) {
-+            if (ImGui::InvisibleButton("##page", ImVec2(sidebar - px(20), tab_height), ImGuiButtonFlags_EnableNav) && !selected) {
++            if (ImGui::InvisibleButton("##page", ImVec2(sidebar - px(20), tab_height), ImGuiButtonFlags_EnableNav)) {
                  menu.page = i;
++                enter_content = true;
                  menu.recording_bind = 0;
                  menu.voice_bind_capture = 0;
                  menu.feedback.clear();
@@ -370,7 +402,28 @@ index c03b0f4..67fa679 100644
              const bool hovered = ImGui::IsItemHovered();
              auto* nav = ImGui::GetWindowDrawList();
              const ImVec2 end(at.x + sidebar - px(20), at.y + tab_height - px(4));
-@@ -442,6 +507,7 @@ void draw_skate_menu(SkateMenu& menu, const Model& model, const CallbacksV3& cal
+@@ -403,6 +478,7 @@ void draw_skate_menu(SkateMenu& menu, const Model& model, const CallbacksV3& cal
+         ImGui::EndChild();
+         // Keycap-style hint, like the game's "Esc Back" prompt.
+         {
++            draw->AddText(menu.body, px(12), ImVec2(origin.x + px(16), origin.y + size.y - px(56)), muted, "A Select   B Back");
+             static const auto label = dingosdk::launcher::key_cap(dingosdk::launcher::overlay_keys().menu);
+             keycap(draw, menu.bold, ui_scale, ImVec2(origin.x + px(16), origin.y + size.y - px(34)), label.c_str(), "Close");
+         }
+@@ -417,10 +493,10 @@ void draw_skate_menu(SkateMenu& menu, const Model& model, const CallbacksV3& cal
+             skate_theme::rotate_since(draw, start, -3.0f, ImVec2(at.x + extent.x * .5f, at.y + extent.y * .5f));
+             draw->AddText(menu.body, px(14), ImVec2(at.x + extent.x + px(18), at.y + px(22)), muted, page_subtitles[menu.page]);
+         }
+-        ImGui::SetCursorPos(ImVec2(size.x - px(44), px(16)));
+-        if (ImGui::Button("X", ImVec2(px(28), px(28)))) visible = false;
+         ImGui::SetCursorPos(ImVec2(sidebar + px(20), px(76)));
+         ImGui::BeginChild("page", ImVec2(size.x - sidebar - px(40), size.y - px(96)), ImGuiChildFlags_None);
++        menu.navigation_content = ImGui::GetCurrentWindow();
++        if (enter_content) focus_menu_panel(menu.navigation_content, true);
+         switch (menu.page) {
+         case map: map_page(menu, model, callbacks); break;
+         case world: world_page(menu, model, callbacks); break;
+@@ -442,6 +518,7 @@ void draw_skate_menu(SkateMenu& menu, const Model& model, const CallbacksV3& cal
          case settings: settings_page(menu, model, callbacks); break;
          case special: special_page(menu, model, callbacks); break;
          case developer: developer_page(menu, model, callbacks); break;
@@ -378,6 +431,27 @@ index c03b0f4..67fa679 100644
          }
          if (!menu.feedback.empty() && ImGui::GetTime() < menu.feedback_until) {
              // The feedback line sits in a dark strip with a blue edge, like the game's toasts.
+diff --git a/Extension/UI/Overlay/skate_menu.h b/Extension/UI/Overlay/skate_menu.h
+index 99feff1..8cefab4 100644
+--- a/Extension/UI/Overlay/skate_menu.h
++++ b/Extension/UI/Overlay/skate_menu.h
+@@ -6,6 +6,7 @@
+ #include <imgui.h>
+ #include <optional>
+ #include <map>
++struct ImGuiWindow;
+ 
+ namespace dingosdk::overlay {
+ struct AtmosphereEdit {
+@@ -68,6 +69,8 @@ struct SkateMenu {
+     ControllerComboCapture bind_capture;
+     double bind_capture_until = 0;
+     int last_menu_frame = -1;
++    ImGuiWindow* navigation_sidebar{};
++    ImGuiWindow* navigation_content{};
+     // Live while the scale slider is held; the saved value is authoritative otherwise.
+     float scale = default_menu_scale;
+     bool scale_editing{};
 diff --git a/Extension/UI/Overlay/Test/dual_stick_settings_tests.cpp b/Extension/UI/Overlay/Test/dual_stick_settings_tests.cpp
 new file mode 100644
 index 0000000..a097961
@@ -444,18 +518,45 @@ index 0000000..a097961
 +}
 diff --git a/Extension/UI/Overlay/Test/gamepad_navigation_tests.cpp b/Extension/UI/Overlay/Test/gamepad_navigation_tests.cpp
 new file mode 100644
-index 0000000..2ac479c
+index 0000000..96d37a7
 --- /dev/null
 +++ b/Extension/UI/Overlay/Test/gamepad_navigation_tests.cpp
-@@ -0,0 +1,60 @@
+@@ -0,0 +1,111 @@
 +#ifdef NDEBUG
 +#undef NDEBUG
 +#endif
 +#include "../gamepad_navigation.h"
++#include "../menu_navigation.h"
 +#include <cassert>
 +#include <iostream>
 +
 +static int first_clicks{}, second_clicks{};
++static ImGuiWindow* sidebar{}, *content{}, *nested{};
++static bool enter_nested{}, open_options{}, focus_sidebar{};
++static void menu_frame() {
++    using namespace dingosdk::overlay::menu;
++    claim_menu_back(true);
++    ImGui::NewFrame();
++    ImGui::Begin("Back navigation");
++    menu_back(sidebar, content);
++    ImGui::BeginChild("Sidebar", ImVec2(180, 400));
++    sidebar = ImGui::GetCurrentWindow();
++    if (focus_sidebar) { focus_menu_panel(sidebar,true); focus_sidebar = false; }
++    const bool enter = ImGui::InvisibleButton("Page", ImVec2(160,40), ImGuiButtonFlags_EnableNav);
++    ImGui::SetItemDefaultFocus();
++    ImGui::EndChild(); ImGui::SameLine();
++    ImGui::BeginChild("Content", ImVec2(400,400));
++    content = ImGui::GetCurrentWindow();
++    if (enter) focus_menu_panel(content,true);
++    ImGui::Button("Page tab");
++    ImGui::BeginChild("Nested options", ImVec2(300,200));
++    nested = ImGui::GetCurrentWindow();
++    if (enter_nested) { focus_menu_panel(nested,true); enter_nested = false; }
++    ImGui::Button("Setting");
++    if (open_options) { ImGui::OpenPopup("Options"); open_options = false; }
++    if (ImGui::BeginPopup("Options")) { ImGui::Button("Popup option"); ImGui::EndPopup(); }
++    ImGui::EndChild(); ImGui::EndChild(); ImGui::End(); ImGui::Render();
++}
 +static void frame() {
 +    ImGui::NewFrame();
 +    ImGui::Begin("Controller navigation");
@@ -505,6 +606,30 @@ index 0000000..2ac479c
 +    feed_gamepad_navigation(io,true,0x1000,0,0,0,0); frame();
 +    feed_gamepad_navigation(io,true,0,0,0,0,0); frame();
 +    assert(first_clicks == 0 && second_clicks == 1);
++    ImGui::SetWindowFocus(nullptr);
++    for (int i=0;i<3;++i) { feed_gamepad_navigation(io,true,0,0,0,0,0); menu_frame(); }
++    focus_sidebar = true;
++    menu_frame(); menu_frame();
++    assert(ImGui::GetCurrentContext()->NavWindow == sidebar);
++    feed_gamepad_navigation(io,true,0x1000,0,0,0,0); menu_frame();
++    feed_gamepad_navigation(io,true,0,0,0,0,0); menu_frame();
++    assert(ImGui::GetCurrentContext()->NavWindow == content);
++    enter_nested = true; menu_frame(); menu_frame();
++    assert(ImGui::GetCurrentContext()->NavWindow == nested);
++    open_options = true; menu_frame(); menu_frame();
++    assert(!ImGui::GetCurrentContext()->OpenPopupStack.empty());
++    feed_gamepad_navigation(io,true,0x2000,0,0,0,0); menu_frame();
++    assert(ImGui::GetCurrentContext()->OpenPopupStack.empty());
++    assert(ImGui::GetCurrentContext()->NavWindow == nested);
++    feed_gamepad_navigation(io,true,0,0,0,0,0); menu_frame();
++    feed_gamepad_navigation(io,true,0x2000,0,0,0,0); menu_frame();
++    assert(ImGui::GetCurrentContext()->NavWindow == content);
++    feed_gamepad_navigation(io,true,0,0,0,0,0); menu_frame();
++    feed_gamepad_navigation(io,true,0x2000,0,0,0,0); menu_frame();
++    assert(ImGui::GetCurrentContext()->NavWindow == sidebar);
++    feed_gamepad_navigation(io,true,0,0,0,0,0); menu_frame();
++    feed_gamepad_navigation(io,true,0x2000,0,0,0,0); menu_frame();
++    assert(ImGui::GetCurrentContext()->NavWindow == sidebar);
 +    ImGui::DestroyContext();
 +    std::cout << "Controller navigation: buttons, analog, deadzones, ownership release and D-pad/A widget interaction passed\n";
 +}
@@ -680,12 +805,62 @@ index 0000000..091fdb8
 +    analog(ImGuiKey_GamepadLStickDown,-static_cast<float>(ly),7849,32767);
 +}
 +} // namespace dingosdk::overlay::detail
+diff --git a/Extension/UI/Overlay/menu_navigation.h b/Extension/UI/Overlay/menu_navigation.h
+new file mode 100644
+index 0000000..cdfe139
+--- /dev/null
++++ b/Extension/UI/Overlay/menu_navigation.h
+@@ -0,0 +1,44 @@
++#pragma once
++#include <imgui_internal.h>
++
++namespace dingosdk::overlay::menu {
++// Own cancel before NewFrame so ImGui cannot cancel a child/popup and then
++// let the menu interpret the same press as another Back action.
++inline void claim_menu_back(bool enabled) {
++    if (enabled) ImGui::SetKeyOwner(ImGuiKey_GamepadFaceRight, ImHashStr("ReSkate menu back"));
++}
++inline void focus_menu_panel(ImGuiWindow* window, bool initialize = false) {
++    if (!window) return;
++    ImGui::FocusWindow(window);
++    ImGui::NavInitWindow(window, initialize);
++    ImGui::SetNavCursorVisibleAfterMove();
++}
++inline void menu_back(ImGuiWindow* sidebar, ImGuiWindow* content) {
++    auto& g = *ImGui::GetCurrentContext();
++    if (!ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight, false)) return;
++    if (g.ActiveId) { ImGui::ClearActiveID(); return; }
++    if (!g.OpenPopupStack.empty()) {
++        const auto* popup = g.OpenPopupStack.back().Window;
++        if (popup && !(popup->Flags & ImGuiWindowFlags_Modal))
++            ImGui::ClosePopupToLevel(g.OpenPopupStack.Size - 1, true);
++        return;
++    }
++    auto* window = g.NavWindow;
++    if (window && content && window != content) {
++        for (auto* parent = window->ParentWindow; parent; parent = parent->ParentWindow) {
++            if (parent == content) {
++                // Back out of one nested panel to its parent/tab controls.
++                auto* target = window->ParentWindow;
++                ImGui::FocusWindow(target);
++                ImGui::SetNavID(window->ChildId, ImGuiNavLayer_Main, target->NavRootFocusScopeId,
++                               ImGui::WindowRectAbsToRel(target, window->Rect()));
++                ImGui::SetNavCursorVisibleAfterMove();
++                return;
++            }
++        }
++    }
++    // The right-hand page is the outermost panel. Back returns to its sidebar
++    // selection; another Back there leaves the menu open.
++    focus_menu_panel(sidebar);
++}
++} // namespace dingosdk::overlay::menu
 diff --git a/contrib/dual-stick-controls.md b/contrib/dual-stick-controls.md
 new file mode 100644
-index 0000000..dc1b389
+index 0000000..6fa4d55
 --- /dev/null
 +++ b/contrib/dual-stick-controls.md
-@@ -0,0 +1,53 @@
+@@ -0,0 +1,55 @@
 +# Dual Stick Controls companion menu
 +
 +Insert > Dual Stick and pause menu > Mod Options > Dual Stick manage the optional Dual Stick Controls companion mod's
@@ -724,7 +899,9 @@ index 0000000..dc1b389
 +navigation buttons and axes. Mouse and keyboard remain supported.
 +Sidebar tiles, category tabs and option tiles explicitly allow controller focus,
 +with a visible outline drawn above their backgrounds. D-pad/left stick navigate,
-+A/Cross selects, and B/Circle closes the Insert menu when no popup is open.
++A/Cross enters the selected sidebar page's right panel. B/Circle cancels editing,
++closes a popup, or backs out one nested panel at a time to the sidebar; Back at
++the sidebar keeps the menu open. Insert closes it. No X close tile is shown.
 +
 +`ReSkateOverlayOwnsInputV1` is a versioned C export (`unsigned long WINAPI(void)`)
 +returning 1 while UI, freecam, or a prompt owns the game's input, otherwise 0.
