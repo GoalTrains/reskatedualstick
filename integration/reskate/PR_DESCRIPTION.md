@@ -4,6 +4,7 @@ Players currently need a separate hotkey to find the companion mod's settings.
 This adds Insert > Dual Stick and pause menu > Mod Options > Dual Stick pages using the existing
 session_controls.ini beside Skate.exe. The companion v5.71+ DLL remains required.
 ReSkate does not bundle or install the translator.
+The Insert sidebar places Dual Stick directly below Trainer.
 
 The Insert overlay enables keyboard navigation but disables ImGui's slot-zero
 gamepad backend without providing a gamepad feed. Feed ImGui from ReSkate's

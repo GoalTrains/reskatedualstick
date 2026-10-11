@@ -60,3 +60,4 @@ Insert menu correction, 11 October 2026:
   replaces the patched runtime. Original launcher settings are backed up locally.
 - Controls INI and companion DLL are unchanged. In-game confirmation remains pending.
 Controller Back revision: A/Cross enters the right panel, B/Circle cancels one edit/popup/panel and returns to the sidebar without closing. Removed X close tile; Insert closes. Full MSVC build and both CTest tests passed, including actual hierarchical panel and popup interaction. Installed for testing; gameplay mapping is unchanged.
+Sidebar order revision: Dual Stick now sits immediately below Trainer in the Insert menu. MSVC Release build and both menu regressions passed. Installed locally for in-game testing.
