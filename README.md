@@ -4,7 +4,7 @@ A two-stick controller mod for [reSkate](https://github.com/Dingo-Shenanigans/Re
 It translates foot inputs into Skate's existing controls, with Session-style and
 XL-style presets, editable settings, custom presets, and optional stock ramp controls.
 
-Current version: **v5.84 TEST**. Ramp detection remains experimental.
+Current version: **v5.85 TEST**. Ramp detection remains experimental.
 
 ## Install on Windows
 
@@ -28,6 +28,15 @@ WINEDLLOVERRIDES="version=n,b" %command%
 
 This is a Windows DLL loaded through Proton, not a native Linux library.
 Linux/Proton gameplay has not been independently tested with this build.
+
+## DualSense troubleshooting
+
+For native DualSense controls, set `PlayStationPads=2`, disable Steam Input,
+and restart the game. Mode 1 reads the controller directly and presents Xbox
+input; mode 0 leaves controller routing to an external mapper. USB is the
+simplest first test. v5.85 validates USB batch/padding framing rather than
+interpreting long reads as Bluetooth simple reports. Unknown framing is skipped
+and logged. The affected player's hardware still needs to confirm this fix.
 
 ## Menu
 

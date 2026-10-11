@@ -75,43 +75,13 @@ static HANDLE WINAPI hook_cfa(const char* name, DWORD acc, DWORD share, void* sa
     return g_real_cfa(name, acc, share, sa, disp, flags, tmpl);
 }
 
-static short ps_axis(BYTE v) { int a = ((int)v - 128) * 256; if (a > 32767) a = 32767; if (a < -32768) a = -32768; return (short)a; }
-static short ps_axis_inv(BYTE v) { int a = (127 - (int)v) * 256; if (a > 32767) a = 32767; if (a < -32768) a = -32768; return (short)a; }
-
-/* Common layout once the report id is skipped: lx ly rx ry, then either (DualSense) l2 r2 cnt b0 b1 b2,
- * or (DualShock 4) b0 b1 b2 l2 r2. b0 = hat (low 4 bits) + square / cross / circle / triangle. */
-static void ps_decode(const BYTE* r, int ds) {
-    BYTE lx = r[0], ly = r[1], rx = r[2], ry = r[3], l2, r2, b0, b1;
-    if (ds) { l2 = r[4]; r2 = r[5]; b0 = r[7]; b1 = r[8]; }
-    else { b0 = r[4]; b1 = r[5]; l2 = r[7]; r2 = r[8]; }
-    WORD bt = 0;
-    static const WORD hat[8] = {0x0001, 0x0001 | 0x0008, 0x0008, 0x0002 | 0x0008, 0x0002, 0x0002 | 0x0004, 0x0004, 0x0001 | 0x0004};
-    if ((b0 & 0x0F) < 8) bt |= hat[b0 & 0x0F];
-    if (b0 & 0x10) bt |= 0x4000;   /* square   -> X */
-    if (b0 & 0x20) bt |= 0x1000;   /* cross    -> A */
-    if (b0 & 0x40) bt |= 0x2000;   /* circle   -> B */
-    if (b0 & 0x80) bt |= 0x8000;   /* triangle -> Y */
-    if (b1 & 0x01) bt |= 0x0100;   /* L1 -> LB */
-    if (b1 & 0x02) bt |= 0x0200;   /* R1 -> RB */
-    if (b1 & 0x10) bt |= 0x0020;   /* create / share -> Back */
-    if (b1 & 0x20) bt |= 0x0010;   /* options -> Start */
-    if (b1 & 0x40) bt |= 0x0040;   /* L3 */
-    if (b1 & 0x80) bt |= 0x0080;   /* R3 */
-    sc_pad p; p.buttons = bt; p.lt = l2; p.rt = r2;
-    p.lx = ps_axis(lx); p.ly = ps_axis_inv(ly); p.rx = ps_axis(rx); p.ry = ps_axis_inv(ry);
-    g_ps_state = p;
-    g_ps_seq++;
+#include "ps_reports.h"
+static void ps_decode(const BYTE* r,int ds) {
+    g_ps_state=sc_ps_decode(r,ds);g_ps_seq++;
 }
-static void ps_report(const BYTE* b, DWORD n, int kind) {
-    if (n < 10) return;
-    if (kind == 1) {
-        if (b[0] == 0x01 && n >= 11 && n <= 64) ps_decode(b + 1, 1);       /* USB */
-        else if (b[0] == 0x31 && n >= 12) ps_decode(b + 2, 1);             /* Bluetooth, full mode */
-        else if (b[0] == 0x01) ps_decode(b + 1, 0);                        /* Bluetooth, simple mode */
-    } else {
-        if (b[0] == 0x01) ps_decode(b + 1, 0);                             /* USB / simple */
-        else if (b[0] == 0x11 && n >= 13) ps_decode(b + 3, 0);             /* Bluetooth */
-    }
+static void ps_report(const BYTE* b,DWORD n,int kind) {
+    sc_ps_frames f=sc_ps_frame(b,n,kind);
+    for(unsigned i=0;i<f.count;i++)ps_decode(b+i*f.size+f.offset,f.dualsense);
 }
 
 static HANDLE ps_open(int* kind_out) {
@@ -257,29 +227,36 @@ static void psn_patch(HANDLE h, BYTE* b, DWORD n) {
     int kind = psn_kind(h);
     if (!kind || !b || n < 10) return;
     while (__sync_lock_test_and_set(&g_psn_lock, 1)) Sleep(0);
-    int bt_crc = 0;
-    /* v5.59: native mode must use the same minimum USB payload length
-     * as ps_report(). A 10-byte 0x01 report is Bluetooth simple mode:
-     * its hat is at byte 5, not byte 8. Misreading it invents L2=8 and
-     * D-pad Up, continuously activating radial-menu passthrough. */
+    sc_ps_frames f=sc_ps_frame(b,n,kind);
+    if(!f.count) {
+        static int skipped;
+        __sync_lock_release(&g_psn_lock);
+        if(!skipped++) {
+            log_text("PlayStation native report: unsupported framing left untouched");
+            log_num("  report id: ",b[0]);log_num("  input report bytes: ",n);
+        }
+        return;
+    }
     static unsigned formats_seen;
-    unsigned format = kind == 1 ? (b[0] == 0x01 ? (n == 10 || n > 64 ? 1u : 2u) : b[0] == 0x31 ? 4u : 0u) : 8u;
-    if (format && !(formats_seen & format)) {
-        formats_seen |= format;
-        log_text(format == 1 ? "PlayStation native report: DualSense Bluetooth simple" : format == 2 ? "PlayStation native report: DualSense USB" : format == 4 ? "PlayStation native report: DualSense Bluetooth full" : "PlayStation native report: DualShock 4");
-        log_num("  input report bytes: ", n);
+    unsigned format=kind==1?(f.dualsense?(f.crc?4u:2u):1u):8u;
+    if(!(formats_seen&format)) {
+        formats_seen|=format;
+        log_text(format==1?"PlayStation native report: DualSense Bluetooth simple":format==2?"PlayStation native report: DualSense USB":format==4?"PlayStation native report: DualSense Bluetooth full":"PlayStation native report: DualShock 4");
+        log_num("  input report bytes: ",n);
     }
-    if (kind == 1) {
-        if (b[0] == 0x01 && n >= 11 && n <= 64) psn_patch_layout(b + 1, 1); /* USB; excludes 10-byte Bluetooth simple */
-        else if (b[0] == 0x31 && n >= 78) { psn_patch_layout(b + 2, 1); bt_crc = 1; }   /* Bluetooth */
-        else if (b[0] == 0x01) psn_patch_layout(b + 1, 0);                  /* Bluetooth, simple */
-    } else {
-        if (b[0] == 0x01) psn_patch_layout(b + 1, 0);
-        else if (b[0] == 0x11 && n >= 78) { psn_patch_layout(b + 3, 0); bt_crc = 1; }
+    if(f.count>1) {
+        static int batch_logged;
+        if(!batch_logged++)log_num("PlayStation native USB reports per read: ",f.count);
     }
-    if (bt_crc) {   /* Bluetooth input reports end in a CRC32 over 0xA1 + the report */
-        BYTE seed = 0xA1; UINT c = psn_crc32(&seed, 1, 0xFFFFFFFFu); c = psn_crc32(b, 74, c) ^ 0xFFFFFFFFu;
-        b[74] = (BYTE)c; b[75] = (BYTE)(c >> 8); b[76] = (BYTE)(c >> 16); b[77] = (BYTE)(c >> 24);
+    for(unsigned i=0;i<f.count;i++) {
+        BYTE* report=b+i*f.size;
+        psn_patch_layout(report+f.offset,f.dualsense);
+        if(f.crc) {
+            BYTE seed=0xA1;UINT c=psn_crc32(&seed,1,0xFFFFFFFFu);
+            c=psn_crc32(report,74,c)^0xFFFFFFFFu;
+            report[74]=(BYTE)c;report[75]=(BYTE)(c>>8);
+            report[76]=(BYTE)(c>>16);report[77]=(BYTE)(c>>24);
+        }
     }
     ++g_psn_patched;
     g_ps_connected = 1;

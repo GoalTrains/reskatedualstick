@@ -1,5 +1,24 @@
 # Changelog
 
+## v5.85 TEST - changes since v5.84
+
+- Fix DualSense report framing in both native mode (PlayStationPads=2) and
+  direct mode (PlayStationPads=1). Long USB reads no longer select the short
+  Bluetooth layout, which could invent D-pad Up and L2=8 and keep stock
+  radial-menu passthrough active.
+- Validate consecutive 64-byte USB reports before processing a batch, including
+  the 384-byte size seen in the affected log. Also accept one USB report with
+  zero padding. Unsupported lengths/framing are left untouched; native mode
+  logs the first skipped report ID and byte count.
+- Preserve true 10-byte Bluetooth simple, 78-byte full Bluetooth and DualShock
+  layouts. Keep native sensor, touchpad, haptics and trigger data outside the
+  translated control fields.
+- Add framing and translator regression checks reproducing the false input.
+
+This fixes a demonstrated decoder defect. The user's 384-byte payload was not
+provided, so gameplay confirmation on the affected controller is still required.
+No stance, menu, steering curve or preset defaults changed. Keep your existing INI.
+
 DUAL STICK CONTROLS v5.84 TEST - changes since v5.82
 
 - Remove the redundant Controls: first page row; keep right-hand diagrams
