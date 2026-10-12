@@ -7,7 +7,7 @@ static void ui_keyboard_actions(void) {
     }
     if(g_ui_req_toggle) {
         g_ui_req_toggle=0;
-        if(g_ui_open && g_ui_page) {g_ui_sel=g_ui_page==3?2:g_ui_page==2?7:0;g_ui_page=0;}
+        if(g_ui_open && g_ui_page) {g_ui_sel=g_ui_page==3?4:g_ui_page==2?9:0;g_ui_page=0;}
         else {g_ui_open=!g_ui_open;g_ui_page=0;g_ui_sel=0;}
         g_ui_dirty=1;if(g_ui_open)log_text("menu opened (keyboard; controller independent)");
     }

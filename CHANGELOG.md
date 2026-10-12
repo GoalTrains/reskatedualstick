@@ -1,5 +1,19 @@
 # Changelog
 
+## v5.93 TEST - changes since v5.92
+
+- Offer all four templates at the top of the menu: Front/Back Flick,
+  Front/Back Release, Physical Feet Flick and Physical Feet Release.
+- Pop style is independent of the layout. Front/Back templates keep steering
+  off and single-stick flips blocked; Physical Feet templates enable steering,
+  single-stick flips and True Foot job swapping. All settings remain editable.
+- Correct submenu return selection after adding the two new rows.
+- 25 regression executables passed, including actual INI application of all
+  four templates. Existing settings/custom slots are preserved.
+
+Includes the v5.92 late-revert fix, still awaiting gameplay confirmation.
+Linux/Proton gameplay has not been independently tested.
+
 ## v5.92 TEST - changes since v5.91
 
 - True Foot now accepts one stance change within 500 ms after a ground slide

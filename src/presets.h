@@ -34,16 +34,17 @@ static int ui_snapshot_int(const WCHAR* key,int value) {
     while(k)val[n++]=rev[--k];val[n]=0;
     return ui_snapshot_put(key,val);
 }
-static int ui_builtin_apply(int xl) {
+static int ui_builtin_apply_style(int xl,int release) {
     if(!ui_snapshot_read(L"SessionControls"))return 0;
     if(!ui_snapshot_int(L"FrontBackFoot",!xl) || !ui_snapshot_int(L"SwitchStance",xl?3:1) ||
-       !ui_snapshot_int(L"PopOnRelease",xl) || !ui_snapshot_int(L"StickSteering",xl) ||
+       !ui_snapshot_int(L"PopOnRelease",release) || !ui_snapshot_int(L"StickSteering",xl) ||
        !ui_snapshot_int(L"OneFootFlips",xl) ||
        !ui_snapshot_int(L"SwitchSource",4) || !ui_snapshot_int(L"PresetFeetSwapped",0))return 0;
     if(!WritePrivateProfileSectionW(L"SessionControls",ui_snapshot,g_ini))return 0;
     g_cfg.feet_swapped=0;
     return 1;
 }
+static int ui_builtin_apply(int xl){return ui_builtin_apply_style(xl,xl);}
 static int ui_custom_save(void) {
     if(!ui_snapshot_read(L"SessionControls"))return 0;
     /* Save effective values even when they currently came from defaults. */

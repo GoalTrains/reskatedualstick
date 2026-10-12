@@ -27,4 +27,12 @@ int main(void){WCHAR dir[MAX_PATH];GetTempPathW(MAX_PATH,dir);GetTempFileNameW(d
  assert(ui_builtin_apply(1));
  assert(GetPrivateProfileIntW(L"SessionControls",L"OneFootFlips",-1,g_ini)==1);
  assert(GetPrivateProfileIntW(L"SessionControls",L"SwitchStance",-1,g_ini)==3);
+ for(int physical=0;physical<2;physical++)for(int release=0;release<2;release++){
+ assert(ui_builtin_apply_style(physical,release));
+ assert(GetPrivateProfileIntW(L"SessionControls",L"FrontBackFoot",-1,g_ini)==!physical);
+ assert(GetPrivateProfileIntW(L"SessionControls",L"SwitchStance",-1,g_ini)==(physical?3:1));
+ assert(GetPrivateProfileIntW(L"SessionControls",L"PopOnRelease",-1,g_ini)==release);
+ assert(GetPrivateProfileIntW(L"SessionControls",L"StickSteering",-1,g_ini)==physical);
+ assert(GetPrivateProfileIntW(L"SessionControls",L"OneFootFlips",-1,g_ini)==physical);
+ }
  DeleteFileW(g_ini);puts("PASS: actual INI presets round-trip defaults, explicit settings and foot swap; complete builtins and global startup preference");}

@@ -73,7 +73,7 @@ static HWND ui_foreground_game(void) {
 
 
 /* v5.12: PURE only. Trick input and Kick / heel sides rows removed; Menu size moved to the bottom. */
-enum { UI_PRESET_SESSION, UI_PRESET_XL, UI_SESSION, UI_STANCE, UI_LAYOUT, UI_SWITCH, UI_POPSTYLE, UI_ONEFOOT, UI_STEER, UI_REVERTS, UI_WINDUP, UI_FLIPS, UI_AIR, UI_SLIDES, UI_BUMP, UI_SIZE, UI_CLOSE, UI_ADVANCED, UI_BACK, UI_CUSTOM, UI_SLOT, UI_SAVE, UI_LOAD, UI_STARTUP, UI_HOTKEY, UI_STOCKAIR, UI_RAMPDIAG, UI_COUNT };
+enum { UI_PRESET_SESSION, UI_PRESET_XL, UI_SESSION, UI_STANCE, UI_LAYOUT, UI_SWITCH, UI_POPSTYLE, UI_ONEFOOT, UI_STEER, UI_REVERTS, UI_WINDUP, UI_FLIPS, UI_AIR, UI_SLIDES, UI_BUMP, UI_SIZE, UI_CLOSE, UI_ADVANCED, UI_BACK, UI_CUSTOM, UI_SLOT, UI_SAVE, UI_LOAD, UI_STARTUP, UI_HOTKEY, UI_STOCKAIR, UI_RAMPDIAG, UI_PRESET_FB_RELEASE, UI_PRESET_PHYS_FLICK, UI_COUNT };
 /* v5.8: wider menu, an explanation box for the highlighted line, and a controls page */
 #define UI_SETTINGS_W 700
 #define UI_CONTROLS_W 700
@@ -91,7 +91,7 @@ static volatile int g_ui_draw_scale=100;
 #include "menu_scheme.h"
 static int g_ui_controls_page;   /* six large cards per page */
 
-static const int k_ui_main[] = {UI_PRESET_SESSION, UI_PRESET_XL, UI_CUSTOM, UI_SESSION, UI_STANCE, UI_LAYOUT, UI_POPSTYLE, UI_ADVANCED, UI_STARTUP, UI_HOTKEY, UI_SIZE, UI_CLOSE};
+static const int k_ui_main[] = {UI_PRESET_SESSION, UI_PRESET_FB_RELEASE, UI_PRESET_PHYS_FLICK, UI_PRESET_XL, UI_CUSTOM, UI_SESSION, UI_STANCE, UI_LAYOUT, UI_POPSTYLE, UI_ADVANCED, UI_STARTUP, UI_HOTKEY, UI_SIZE, UI_CLOSE};
 static const int k_ui_advanced[] = {UI_LAYOUT, UI_SWITCH, UI_POPSTYLE, UI_ONEFOOT, UI_STEER, UI_REVERTS, UI_WINDUP, UI_FLIPS, UI_AIR, UI_SLIDES, UI_BUMP, UI_STOCKAIR, UI_RAMPDIAG, UI_BACK};
 static int g_ui_slot = 1, g_ui_overwrite;
 static int g_ui_startup_input_sync;
@@ -124,9 +124,9 @@ static int ui_item_for_row(int row) {
     if(g_ui_page==2) return k_ui_advanced[row+(g_cfg.front_back && row>=1)];
     return g_ui_page == 3 ? k_ui_custom[row] : k_ui_main[row];
 }
-static int ui_preset_active(int xl) {
+static int ui_preset_active(int xl,int release) {
     return g_cfg.front_back == !xl && g_cfg.switch_flip == (xl ? 3 : 1) &&
-           g_cfg.pop_on_release == xl && g_cfg.stick_steer == xl && g_cfg.one_foot_flips == xl &&
+           g_cfg.pop_on_release == release && g_cfg.stick_steer == xl && g_cfg.one_foot_flips == xl &&
            g_switch_src == 4 && !g_cfg.feet_swapped;
 }
 static void ui_value(int item, WCHAR* out) {
@@ -134,9 +134,11 @@ static void ui_value(int item, WCHAR* out) {
     switch (item) {
     case UI_SIZE: { int sc = g_ui_scale, n = 0; char t[8]; if (sc >= 100) t[n++] = (char)('0' + sc / 100); t[n++] = (char)('0' + sc / 10 % 10); t[n++] = (char)('0' + sc % 10); t[n++] = '%'; t[n] = 0;
                     for (int i = 0; i <= n; ++i) out[i] = (WCHAR)t[i]; return; }
-    case UI_PRESET_SESSION: v = ui_preset_active(0) ? "ACTIVE" : "APPLY"; break;
-    case UI_PRESET_XL: v = ui_preset_active(1) ? "ACTIVE" : "APPLY"; break;
-    case UI_CUSTOM: v = (!ui_preset_active(0) && !ui_preset_active(1)) ? "CUSTOM / OPEN" : "OPEN"; break;
+    case UI_PRESET_SESSION: v = ui_preset_active(0,0) ? "ACTIVE" : "APPLY"; break;
+    case UI_PRESET_XL: v = ui_preset_active(1,1) ? "ACTIVE" : "APPLY"; break;
+    case UI_PRESET_FB_RELEASE: v=ui_preset_active(0,1)?"ACTIVE":"APPLY";break;
+    case UI_PRESET_PHYS_FLICK: v=ui_preset_active(1,0)?"ACTIVE":"APPLY";break;
+    case UI_CUSTOM: v = (!ui_preset_active(0,0) && !ui_preset_active(1,1) && !ui_preset_active(0,1) && !ui_preset_active(1,0)) ? "CUSTOM / OPEN" : "OPEN"; break;
     case UI_HOTKEY: {
         const WCHAR* name=g_ui_bind_mode?L"PRESS KEY...":g_menu_key_name;
         int i=0;while(name[i] && i<15) {out[i]=name[i];i++;}out[i]=0;return;
@@ -167,7 +169,7 @@ static void ui_value(int item, WCHAR* out) {
 }
 static const WCHAR* const k_ui_labels[UI_COUNT] = {
     L"Front/Back - Flick", L"Physical Feet - Release", L"Dual Stick controls", L"Stance", L"Stick layout", L"Legacy switch mode", L"Pop style", L"Allow single-stick flips", L"Stick steering", L"Reverts", L"Spin wind-up",
-    L"Body flips", L"Air controls", L"Powerslides", L"Grind bump-out", L"Menu size", L"Close", L"Advanced settings", L"Back to presets", L"Custom presets", L"Custom slot", L"Save current settings", L"Load saved settings", L"Show menu on startup", L"Menu hotkey", L"Stock ramp controls", L"Ramp diagnostic recording"};
+    L"Body flips", L"Air controls", L"Powerslides", L"Grind bump-out", L"Menu size", L"Close", L"Advanced settings", L"Back to presets", L"Custom presets", L"Custom slot", L"Save current settings", L"Load saved settings", L"Show menu on startup", L"Menu hotkey", L"Stock ramp controls", L"Ramp diagnostic recording", L"Front/Back - Release", L"Physical Feet - Flick"};
 static const WCHAR* const k_ui_help[UI_COUNT] = {
     L"Applies FRONT/BACK FOOT, FLICK pop, steering OFF and one-stick flips BLOCKED. Left = front, right = back in every stance. These translate Skate controls across two sticks; inputs differ from Session.",
     L"Applies LEFT/RIGHT FOOT, TRUE FOOT, RELEASE pop, steering ON and one-stick flips ALLOWED. Sticks stay with physical feet; jobs swap in switch. These translate Skate controls across two sticks; inputs differ from XL.",
@@ -186,8 +188,8 @@ static const WCHAR* const k_ui_help[UI_COUNT] = {
     L"Rail / lip exit: tilt a stick DOWN or UP and click it. Centred L3 = left, R3 = right.",
     L"Preferred menu size (75-250 %). The two panels automatically shrink to fit the game window.",
     L"Close this menu (your menu hotkey or B also closes it).",
-    L"Customize individual options. Changing layout, switch handling, pop or steering can take you outside a preset. Both presets translate two-stick inputs into Skate's controls.",
-    L"Return to the two presets and main settings. Your custom options are kept.",
+    L"Customize individual options. Changing layout, switch handling, pop or steering can take you outside a preset. All four templates translate two-stick inputs into Skate's controls.",
+    L"Return to the four templates and main settings. Your custom options are kept.",
     L"Save your own settings in one of five slots, then load them whenever you want. Slots are stored in session_controls.ini.",
     L"Choose slot 1-5. Each slot stores your current settings, including custom options and stance selection.",
     L"Save current settings in this slot. For a filled slot, press again to confirm replacement; moving to another row cancels.",
@@ -195,7 +197,9 @@ static const WCHAR* const k_ui_help[UI_COUNT] = {
     L"ON opens this menu when the mod loads each launch, even without a controller. OFF skips it on future launches. You can always reopen the menu using the key shown below.",
     L"A / Enter or Right: press a new keyboard key to open this menu. Left restores End. Escape or controller B cancels. Use a letter, digit, function key or navigation key such as Home.",
     L"OFF: foot controls. AIR ONLY: the current trigger-grab air experiment. EARLY ON RAMP: switch to stock controls during a qualifying ramp climb, for stock pop/prewind, then keep them until landing. A cancelled approach returns to foot controls. R3 still pumps. Experimental tilt cue.",
-    L"OFF / RAMP / FLAT: record checked skater-object snapshots for finding ramp angle or velocity. Label ramp runs RAMP, then flat-ground ollies FLAT. No automatic ramp detection yet. Bounded recording; OFF stops capture."};
+    L"OFF / RAMP / FLAT: record checked skater-object snapshots for finding ramp angle or velocity. Label ramp runs RAMP, then flat-ground ollies FLAT. No automatic ramp detection yet. Bounded recording; OFF stops capture.",
+    L"FRONT/BACK with RELEASE pop, steering OFF and single-stick flips BLOCKED. Hold a full setup, then release to pop; two-foot flicks also work. Jobs stay consistent in switch.",
+    L"PHYSICAL FEET with FLICK pop, steering ON and single-stick flips ALLOWED. Hold one foot, then flick the other to pop. Foot jobs swap in switch. All templates translate Skate controls."};
 /* v5.9 controls page as Flick-it style pictures: each card shows the two sticks (L = front foot,
  * R = back foot, regular stance) with the moves drawn on them. kind 0 = line from (a,b) to (c,d),
  * 1 = arc of radius a from angle b to c (0 = up, clockwise), 2 = stick click. end: 0 arrow (flick),
@@ -365,15 +369,18 @@ static void ui_change(int item, int dir) {
         load_config(1);g_ui_preset_status=L"Custom preset loaded.";g_ui_dirty=1;
         log_text("menu: custom preset loaded");return;
     case UI_PRESET_SESSION:
+    case UI_PRESET_FB_RELEASE:
+    case UI_PRESET_PHYS_FLICK:
     case UI_PRESET_XL: {
-        int xl = item == UI_PRESET_XL;
-        if(!ui_builtin_apply(xl)) {g_ui_preset_status=L"Could not apply the preset. Check that session_controls.ini is writable.";g_ui_dirty=1;return;}
-        g_ui_preset_status=xl?L"Physical Feet - Release applied: physical feet, release pop, stick steering. These inputs translate into Skate's controls and differ from XL.":L"Front/Back - Flick applied: consistent jobs, flick pop, trigger steering. These inputs translate into Skate's controls and differ from Session.";
-        log_text(xl ? "menu: Physical Feet - Release preset applied (Skate input translation)" : "menu: Front/Back - Flick preset applied (Skate input translation)");
+        int xl = item == UI_PRESET_XL || item==UI_PRESET_PHYS_FLICK;
+        int release=item==UI_PRESET_XL || item==UI_PRESET_FB_RELEASE;
+        if(!ui_builtin_apply_style(xl,release)) {g_ui_preset_status=L"Could not apply the preset. Check that session_controls.ini is writable.";g_ui_dirty=1;return;}
+        g_ui_preset_status=xl?(release?L"Physical Feet - Release applied.":L"Physical Feet - Flick applied."):(release?L"Front/Back - Release applied.":L"Front/Back - Flick applied.");
+        log_wide("menu: template applied: ",g_ui_preset_status);
         break;
     }
     case UI_ADVANCED: g_ui_page = 2; g_ui_sel = 0; g_ui_dirty = 1; return;
-    case UI_BACK: g_ui_sel = g_ui_page == 3 ? 2 : 7; g_ui_page = 0; g_ui_dirty = 1; return;
+    case UI_BACK: g_ui_sel = g_ui_page == 3 ? 4 : 9; g_ui_page = 0; g_ui_dirty = 1; return;
     case UI_SIZE: {
         int sc = g_ui_scale + (dir < 0 ? -25 : 25);
         if (sc > 250) sc = 75; if (sc < 75) sc = 250;
@@ -714,7 +721,7 @@ static int ui_poll(XINPUT_STATE* s) {
     if (dn & 0x0004) ch = -1;                 /* D-pad left */
     if (dn & (0x0008 | 0x1000)) ch = 1;       /* D-pad right / A */
     if (ch) ui_change(ui_item_for_row(g_ui_sel), ch);
-    if (dn & 0x2000) { if (g_ui_page >= 2) { g_ui_sel = g_ui_page == 3 ? 2 : 7; g_ui_page = 0; } else g_ui_open = 0; g_ui_dirty = 1; }   /* B closes */
+    if (dn & 0x2000) { if (g_ui_page >= 2) { g_ui_sel = g_ui_page == 3 ? 4 : 9; g_ui_page = 0; } else g_ui_open = 0; g_ui_dirty = 1; }   /* B closes */
     /* the game sees an idle controller while the menu is open */
     memset(&s->Gamepad, 0, sizeof s->Gamepad);
     return 1;
