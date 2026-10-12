@@ -557,8 +557,10 @@ static HWND ui_create_owned_window(HWND owner,int w,int h) {
     if(window)SetLayeredWindowAttributes(window,0,235,2 /*LWA_ALPHA*/);
     return window;
 }
+#include "menu_keyboard.h"
 static DWORD WINAPI ui_thread(void* arg) {
     (void)arg;
+    ui_startup_open();
     SC_WNDCLASS wc; memset(&wc, 0, sizeof wc);
     wc.size = sizeof wc; wc.proc = ui_proc; wc.inst = g_self; wc.name = L"DualStickControlsMenu";
     RegisterClassExW(&wc);
@@ -624,6 +626,7 @@ static DWORD WINAPI ui_thread(void* arg) {
             /* the game may not be polling the controller (paused): apply keyboard actions here too */
         }
         }
+        if(!g_reskate_menu_visible)ui_keyboard_actions();
         /* v4.0: drawn inside the game when the game is presenting through our hook; the window is
          * only the fallback (it knocked exclusive fullscreen out) */
         static double open_t; static int was_open;
@@ -657,7 +660,8 @@ static void ui_start(void) {
     if (g_ui_started) return;
     g_ui_started = 1;
     DWORD id; HANDLE th = CreateThread(0, 0, ui_thread, 0, 0, &id);
-    if (th) { CloseHandle(th);ui_startup_open(); }
+    if (th) CloseHandle(th);
+    else {g_ui_started=0;log_text("menu: window thread creation failed; retry on controller poll");}
 }
 
 /* Called from process() on every controller poll. Returns 1 while the menu has the controller. */
@@ -672,26 +676,22 @@ static int ui_poll(XINPUT_STATE* s) {
     }
     if(g_ui_startup_input_sync) {dn=0;g_ui_startup_input_sync=0;}
     if(g_ui_bind_mode) {
-        g_ui_req_cards=g_ui_req_toggle=g_ui_req_nav=g_ui_req_change=0;
-        int key=g_ui_req_bound_key;g_ui_req_bound_key=0;
         if(dn&0x2000)ui_hotkey_apply(-1);
-        else if(key)ui_hotkey_apply(key);
         memset(&s->Gamepad,0,sizeof s->Gamepad);return 1;
     }
-    if (g_ui_req_toggle) { g_ui_req_toggle = 0; if (g_ui_open && g_ui_page) { g_ui_sel = g_ui_page == 3 ? 2 : g_ui_page == 2 ? 5 : 0; g_ui_page = 0; } else { g_ui_open = !g_ui_open; g_ui_page = 0; g_ui_sel = 0; } g_ui_dirty = 1; if (g_ui_open) log_text("menu opened"); }
     if (!g_ui_open) return 0;
     if(g_ui_page!=1 && (g_ui_sel<0 || g_ui_sel>=ui_row_count())) {g_ui_sel=0;g_ui_dirty=1;}
-    int cards=g_ui_req_cards;g_ui_req_cards=0;
+    int cards=0;
     int bumpers=sc_controls_bumper_direction(dn);if(bumpers)cards=bumpers;
     if(cards) {
         g_ui_controls_page=sc_controls_next_page(g_ui_controls_page,cards,UI_NCARDS,UI_CARDS_PER_PAGE);
         g_ui_dirty=1;
     }
-    int nav = g_ui_req_nav; g_ui_req_nav = 0;
+    int nav = 0;
     if (dn & 0x0001) nav = -1;            /* D-pad up */
     if (dn & 0x0002) nav = 1;             /* D-pad down */
     if (nav) { g_ui_overwrite = 0; g_ui_preset_status=L""; g_ui_sel = (g_ui_sel + nav + ui_row_count()) % ui_row_count(); g_ui_dirty = 1; }
-    int ch = g_ui_req_change; g_ui_req_change = 0;
+    int ch = 0;
     if (dn & 0x0004) ch = -1;                 /* D-pad left */
     if (dn & (0x0008 | 0x1000)) ch = 1;       /* D-pad right / A */
     if (ch) ui_change(ui_item_for_row(g_ui_sel), ch);

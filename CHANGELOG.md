@@ -1,5 +1,19 @@
 # Changelog
 
+## v5.88 TEST - changes since v5.87
+
+- Start the menu window thread when the mod loads, independently of controller
+  detection. Restarting with an unavailable/disconnected pad no longer prevents
+  keyboard menu startup.
+- Process menu hotkey, keyboard navigation, settings, control-page scrolling
+  and hotkey rebinding on the window thread, including when the game stops
+  polling controllers. Controller input still navigates and is blocked while
+  the mod menu is open; official ReSkate Insert ownership remains respected.
+- Log window-thread startup failure and allow a retry on a later controller poll.
+
+Eighteen native regression executables passed. Affected-device confirmation and
+Linux/Proton gameplay remain pending. Keep existing settings/custom presets.
+
 ## v5.87 TEST - changes since v5.86
 
 - Stop stale held/spent foot flags from indefinitely blocking stick powerslides.
