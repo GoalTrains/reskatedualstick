@@ -1,5 +1,19 @@
 # Changelog
 
+## v5.92 TEST - changes since v5.91
+
+- True Foot now accepts one stance change within 500 ms after a ground slide
+  ends. Previously, reverts only swapped foot jobs if the game published the
+  final flag before or on the slide-exit poll, explaining intermittent results.
+- Preserve the completed turn through later ground resets. No-turn slides and
+  expired updates do not swap jobs; landing into a slide is still counted once.
+- Add a precise "stance turned AFTER ground slide, ms" diagnostic.
+- 25 native regression executables passed, including regular/goofy reverts in
+  both directions, delayed flags, actual foot jobs and unchanged air handling.
+
+Gameplay confirmation of the late-revert correction is pending. Linux/Proton
+has not been independently tested. Keep your existing INI when updating.
+
 ## v5.91 TEST - changes since v5.90
 
 - Remove the extra sideways mirror in regular True Foot switch, which turned

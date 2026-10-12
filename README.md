@@ -4,10 +4,9 @@ A two-stick controller mod for [reSkate](https://github.com/Dingo-Shenanigans/Re
 It translates foot inputs into Skate's existing controls, with Front/Back Flick and
 Physical Feet Release presets, editable settings, custom presets, and optional stock ramp controls.
 
-Current version: **v5.91 TEST**. Ramp detection remains experimental.
-The previous foot-swap and combo fixes are confirmed by two players. This build
-removes the extra regular-switch flick mirror and filters brief airborne stance resets.
-The new corrections still need gameplay confirmation.
+Current version: **v5.92 TEST**. Ramp detection remains experimental.
+This build accepts a stance flag that arrives shortly after a ground revert ends,
+so True Foot can swap jobs on delayed reverts. The new fix needs gameplay confirmation.
 
 ## Install on Windows
 

@@ -5,7 +5,8 @@
 typedef struct {
     int initialized, prev_state, prev_raw, reference, takeoff_stance, stance;
     double turn_time;
-    double landing_turn_ms, landed_at, late_turn_ms;
+    double landing_turn_ms, landed_at, late_turn_ms, late_slide_ms;
+    int pending_revert;
     int saw_air_edge, pending_reference, pending_stance;
     int settle_touchdown;
     int air_zero_pending; double air_zero_since;
@@ -16,7 +17,7 @@ typedef struct {
 static int sc_track_stance(sc_stance_track* t, int state, int raw,
                            int spawned, int initial_stance, double now) {
     int valid = raw == 0 || raw == 1;
-    t->landing_turn_ms = t->late_turn_ms = -1;
+    t->landing_turn_ms = t->late_turn_ms = t->late_slide_ms = -1;
     if (!t->initialized || spawned) {
         t->initialized = 1;
         t->stance = valid ? raw : (initial_stance > 0);
@@ -39,10 +40,12 @@ static int sc_track_stance(sc_stance_track* t, int state, int raw,
              * remain ignored after this landing decision is committed. */
             int final_raw = valid ? raw : t->prev_raw;
             if (final_raw >= 0) t->stance = final_raw != t->reference ? !t->takeoff_stance : t->takeoff_stance;
-            /* Accept one late edge only when no turn was observed in flight. */
-            if (landed && (!t->saw_air_edge || t->settle_touchdown) && final_raw == t->reference) {
+            /* The final flag can arrive after landing OR a grounded slide ends.
+             * Accept one bounded late edge; ignore subsequent ground resets. */
+            if ((landed || end_slide) && (end_slide || !t->saw_air_edge || t->settle_touchdown) && final_raw == t->reference) {
                 t->pending_reference = t->reference;
                 t->pending_stance = t->takeoff_stance;
+                t->pending_revert = end_slide && !landed;
                 t->landed_at = now;
             } else t->pending_reference = -1;
             t->reference = t->takeoff_stance = -1;
@@ -66,7 +69,8 @@ static int sc_track_stance(sc_stance_track* t, int state, int raw,
             if (state < 100 || state >= 200 || now - t->landed_at > 500.0) t->pending_reference = -1;
             else if (valid && raw != t->pending_reference) {
                 t->stance = !t->pending_stance;
-                t->late_turn_ms = now - t->landed_at;
+                if(t->pending_revert) t->late_slide_ms = now - t->landed_at;
+                else t->late_turn_ms = now - t->landed_at;
                 t->pending_reference = -1;
             }
         }
@@ -84,7 +88,7 @@ static int sc_resolve_stance(sc_stance_track* t, int source, int goofy,
                              int mode, int front_back, int state, int raw,
                              int spawned, int initial, double now) {
     if (source == 4 && !(mode == 3 && !front_back)) {
-        t->landing_turn_ms = t->late_turn_ms = -1;
+        t->landing_turn_ms = t->late_turn_ms = t->late_slide_ms = -1;
         int valid=raw==0 || raw==1;
         if(!t->direct_initialized || state==300 || state==504 || state==700) {
             t->direct_initialized=1;

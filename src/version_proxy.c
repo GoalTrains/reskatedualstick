@@ -1146,6 +1146,8 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
             log_num("  stance turned in the air, ms before landing: ", (UINT64)tracking.landing_turn_ms);
         if (g_state_log && tracking.late_turn_ms >= 0)
             log_num("  stance turned AFTER landing, ms: ", (UINT64)tracking.late_turn_ms);
+        if (g_state_log && tracking.late_slide_ms >= 0)
+            log_num("  stance turned AFTER ground slide, ms: ", (UINT64)tracking.late_slide_ms);
         if (sw != g_switched) {
             if (g_switched >= 0 || sw) log_text(sw ? (g_cfg.switch_flip == 3 && !g_cfg.front_back ? "stance: riding SWITCH (true foot: the sticks swap jobs)" : "stance: riding SWITCH (front foot pops the end in front of you)") : "stance: riding normal");
             g_switched = sw;
@@ -1524,7 +1526,7 @@ static void setup(HMODULE self) {
     GetModuleFileNameW(0, exe, 519);
     if (!wieq(wbase(exe), "skate.exe")) return; /* only the game; stay a plain version.dll elsewhere */
 
-    log_text("---- Dual Stick Controls 5.91 CLEAR LAYOUTS AND SWITCH FLICK FIX loaded (version.dll route)");
+    log_text("---- Dual Stick Controls 5.92 LATE REVERT STANCE FIX loaded (version.dll route)");
     log_wide("process: ", exe);
     load_config(0);
     if (GetFileAttributesW(g_ini) == 0xFFFFFFFFu) log_text("no session_controls.ini found; using defaults");
