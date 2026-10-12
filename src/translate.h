@@ -75,6 +75,8 @@ typedef struct {
     int revert_shape;     /* 1-4, see the revert code */
     float bump_ms;        /* v0.23: how long a grind bump-out holds the left stick to the side */
     int prewind;          /* v0.21: turning while crouched winds up a spin. 0 = off, 1-3 = stick shape */
+    int prewind_steer;    /* light trigger steers while crouched; strong pull winds up */
+    int prewind_percent;  /* strong net trigger threshold, 50-90 percent */
     float prewind_ms;     /* how long the move into the wind-up takes */
     float grab_hold_ms;   /* in the air, a bumper held this long is a grab (shorter = dark catch tap) */
     int switch_flip;      /* 1 = riding switch turns the flick stick round (y), 2 = y and x, 3 = true foot */
@@ -1816,7 +1818,12 @@ static sc_pad sc_translate(const sc_config* c, sc_state* s, sc_pad in, double no
          * held 85 % out in its pop direction is the crouch. */
         int real = pm >= 0.85f || s->game_crouch > 0;
         int crouched = !s->air && !s->d_windup && (back_crouch || front_crouch) && s->phase == SC_IDLE && real;
-        int want = steer >= 0.3f ? 1 : steer <= -0.3f ? -1 : 0;
+        float wind_threshold=0.3f;
+        if(c->prewind_steer && !s->air && s->takeoff!=1) {
+            int percent=c->prewind_percent; if(percent<50 || percent>90)percent=70;
+            wind_threshold=percent/100.0f;
+        }
+        int want = steer >= wind_threshold ? 1 : steer <= -wind_threshold ? -1 : 0;
         /* v2.0: the wind-up ends when you land. It used to stay on while the trigger was still
          * held, so the left stick sat pulled back and to the side after landing: you landed in a
          * manual and the board turned (with air controls off too). Let go of the trigger to turn

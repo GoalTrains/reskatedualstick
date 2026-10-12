@@ -69,6 +69,8 @@ static int ui_custom_save(void) {
        !ui_snapshot_int(L"RevertSpinMs",(int)g_cfg.revert_sweep_ms) ||
        !ui_snapshot_int(L"RevertShape",g_cfg.revert_shape) ||
        !ui_snapshot_int(L"PowerslideDelayMs",0) ||
+       !ui_snapshot_int(L"SpinWindUpSteer",g_cfg.prewind_steer) ||
+       !ui_snapshot_int(L"SpinWindUpTriggerPercent",g_cfg.prewind_percent) ||
        !ui_snapshot_int(L"SpinWindUpMs",(int)g_cfg.prewind_ms) ||
        !ui_snapshot_int(L"BodyFlipGrabMs",(int)g_cfg.bf_grab_ms))return 0;
     if(!ui_snapshot_int(L"FrontBackFoot",g_cfg.front_back) ||

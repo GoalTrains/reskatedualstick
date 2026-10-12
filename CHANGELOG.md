@@ -1,5 +1,20 @@
 # Changelog
 
+## v5.96 TEST - changes since v5.95
+
+- Add Revert double-tap window to Advanced settings (100-600 ms). Higher
+  values allow slower taps; revert motion and both-trigger timing are unchanged.
+- Add optional LIGHT STEERS crouched trigger handling: light pulls steer,
+  stronger pulls wind up a spin. Ease below the threshold to steer again before
+  takeoff. Air spin continues at its usual threshold. NORMAL remains the default.
+- Add Wind-up trigger strength (50-90%, default 70%) for LIGHT STEERS mode.
+- Save these options with custom presets. Stock ramp controls retain stock handling.
+- 29 regression executables passed, including regular/goofy trigger directions,
+  cancellation/restart, air spin, tap timing and settings persistence.
+
+New options need in-game confirmation. Linux/Proton is untested.
+
+
 ## v5.95 TEST - changes since v5.94
 
 - Solo rail-foot sweeps remain board positioning through vertical angles.

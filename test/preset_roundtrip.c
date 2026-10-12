@@ -12,8 +12,12 @@ static int ui_slot_filled(void){return GetPrivateProfileIntW(ui_slot_section(),L
 int main(void){WCHAR dir[MAX_PATH];GetTempPathW(MAX_PATH,dir);GetTempFileNameW(dir,L"scp",0,g_ini);
  g_cfg.front_back=0;g_cfg.switch_flip=3;g_cfg.pop_on_release=1;g_cfg.feet_swapped=1;
  g_cfg.deadzone=.15f;g_cfg.active=.3f;g_cfg.manual_max=.85f;g_cfg.steer_scale=1;g_cfg.steer_curve=1.5f;g_cfg.grind_sensitivity=1.2f;
+ g_cfg.prewind_steer=1;g_cfg.prewind_percent=80;g_cfg.revert_ms=450;
  WritePrivateProfileStringW(L"SessionControls",L"UnrelatedSetting",L"42",g_ini);
  assert(ui_custom_save());
+ assert(GetPrivateProfileIntW(ui_slot_section(),L"SpinWindUpSteer",-1,g_ini)==1);
+ assert(GetPrivateProfileIntW(ui_slot_section(),L"SpinWindUpTriggerPercent",-1,g_ini)==80);
+ assert(GetPrivateProfileIntW(ui_slot_section(),L"RevertDoubleTapMs",-1,g_ini)==450);
  assert(GetPrivateProfileIntW(ui_slot_section(),L"FootDeadzonePercent",-1,g_ini)==15);
  assert(GetPrivateProfileIntW(ui_slot_section(),L"PlayStationPads",-1,g_ini)==2);
  assert(GetPrivateProfileIntW(ui_slot_section(),L"UnrelatedSetting",-1,g_ini)==42);

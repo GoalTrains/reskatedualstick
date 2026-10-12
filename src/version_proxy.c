@@ -171,7 +171,9 @@ static void load_config(int keep_runtime) {
     g_cfg.powerslide = ini_int(L"Powerslides", 1) != 0;
     g_cfg.ps_delay_ms = 0; /* legacy PowerslideDelayMs is ignored: immediate response */
     g_cfg.revert_ms = (float)ini_int(L"RevertDoubleTapMs", 300);
-    if (g_cfg.revert_ms <= 0) g_cfg.revert_ms = 300;
+    if (g_cfg.revert_ms <= 0) g_cfg.revert_ms=300;
+    if (g_cfg.revert_ms < 100) g_cfg.revert_ms = 100;
+    if (g_cfg.revert_ms > 600) g_cfg.revert_ms = 600;
     /* v5.7: RevertInput = 0 off, 1 double tap, 2 squeeze both triggers (default) */
     g_cfg.revert_input = ini_int(L"RevertInput", 2);
     if (g_cfg.revert_input < 0 || g_cfg.revert_input > 2) g_cfg.revert_input = 2;
@@ -204,6 +206,10 @@ static void load_config(int keep_runtime) {
     { int sc = ini_int(L"MenuScale", 100); if (sc < 50) sc = 50; if (sc > 300) sc = 300; g_ui_scale = sc; }
     GetPrivateProfileStringW(L"SessionControls", L"MenuKey", L"End", g_menu_key_name, 24, g_ini);
     g_show_startup_menu = ini_int(L"ShowMenuOnStartup", 1) != 0;
+    g_cfg.prewind_steer = ini_int(L"SpinWindUpSteer", 0) != 0;
+    g_cfg.prewind_percent = ini_int(L"SpinWindUpTriggerPercent", 70);
+    if(g_cfg.prewind_percent<50)g_cfg.prewind_percent=50;
+    if(g_cfg.prewind_percent>90)g_cfg.prewind_percent=90;
     g_cfg.prewind_ms = (float)ini_int(L"SpinWindUpMs", 60);
     g_switch_src = ini_int(L"SwitchSource", 4);
     g_cfg.deadzone = ini_percent(L"FootDeadzonePercent", 15);
@@ -1526,7 +1532,7 @@ static void setup(HMODULE self) {
     GetModuleFileNameW(0, exe, 519);
     if (!wieq(wbase(exe), "skate.exe")) return; /* only the game; stay a plain version.dll elsewhere */
 
-    log_text("---- Dual Stick Controls 5.95 RAIL ROTATION AND SLIDE ONSET FIX loaded (version.dll route)");
+    log_text("---- Dual Stick Controls 5.96 REVERT TIMING AND PREWIND OPTIONS loaded (version.dll route)");
     log_wide("process: ", exe);
     load_config(0);
     if (GetFileAttributesW(g_ini) == 0xFFFFFFFFu) log_text("no session_controls.ini found; using defaults");
