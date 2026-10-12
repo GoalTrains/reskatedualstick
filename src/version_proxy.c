@@ -189,7 +189,7 @@ static void load_config(int keep_runtime) {
     g_cfg.prewind = ini_int(L"SpinWindUp", 1);
     g_cfg.body_flips = ini_int(L"BodyFlips", 1) != 0;
     g_cfg.stick_steer = ini_int(L"StickSteering", 0) != 0;   /* v5.15 */
-    g_cfg.front_back = ini_int(L"FrontBackFoot", 0) != 0;     /* v5.26 */
+    g_cfg.front_back = ini_int(L"FrontBackFoot", 1) != 0;     /* v5.26 */
     /* Front/back always keeps its jobs in switch. Preserve the stored key
      * so switching back to left/right restores that layout's switch choice. */
     if (g_cfg.front_back) g_cfg.switch_flip = 1;
@@ -283,7 +283,7 @@ static void load_config(int keep_runtime) {
     g_board_button = 0;
     for (unsigned i = 0; i < sizeof names / sizeof names[0]; ++i) if (wieq(btn, names[i].name)) g_board_button = names[i].bit;
     if (keep_runtime) { g_cfg.enabled = enabled; g_cfg.feet_swapped = swapped; }
-    else { g_cfg.enabled = ini_int(L"EnabledAtStart", 1) != 0; g_cfg.feet_swapped = 0; g_user_enabled = g_cfg.enabled; }
+    else { g_cfg.enabled = ini_int(L"EnabledAtStart", 1) != 0; g_cfg.feet_swapped = ini_int(L"PresetFeetSwapped",0)!=0; g_user_enabled = g_cfg.enabled; }
 }
 
 
@@ -1524,7 +1524,7 @@ static void setup(HMODULE self) {
     GetModuleFileNameW(0, exe, 519);
     if (!wieq(wbase(exe), "skate.exe")) return; /* only the game; stay a plain version.dll elsewhere */
 
-    log_text("---- Dual Stick Controls 5.90 FLICK HANDOFF AND TRUE FOOT FIX loaded (version.dll route)");
+    log_text("---- Dual Stick Controls 5.91 CLEAR LAYOUTS AND SWITCH FLICK FIX loaded (version.dll route)");
     log_wide("process: ", exe);
     load_config(0);
     if (GetFileAttributesW(g_ini) == 0xFFFFFFFFu) log_text("no session_controls.ini found; using defaults");

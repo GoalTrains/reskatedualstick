@@ -1,5 +1,28 @@
 # Changelog
 
+## v5.91 TEST - changes since v5.90
+
+- Remove the extra sideways mirror in regular True Foot switch, which turned
+  confirmed kickflip inputs into heelflips after the v5.90 foot-swap fix.
+- Reject brief falling airborne stance edges: DTG's new trace includes 4-ms
+  resets that momentarily swapped the feet. Sustained falling edges qualify
+  after 12 ms; stick input, rising edges and touchdown are not delayed.
+- Put complete Front/Back and Physical Feet choices on the main menu.
+  Physical Feet automatically enables True Foot job swapping. Preserve old
+  non-swapping settings as Legacy L/R under Advanced.
+- Rename presets Front/Back - Flick and Physical Feet - Release. Explain that
+  both translate Skate controls, rather than reproduce Session/XL exactly.
+- Controls diagrams follow the selected layout and last detected switch state.
+- Custom presets save effective sensitivity/controller values and persist manual
+  foot swapping across restarts. Preserve global hotkey/startup preferences.
+- Fresh installs use Front/Back Flick. Existing INIs retain explicit settings.
+
+24 native regression executables passed, including both stance mappings,
+flip directions and actual INI preset round-trips. The menu was rendered and
+visually checked. The new mirror/reset corrections need gameplay confirmation. Longer post-landing
+stance changes cannot be classified as incorrect from input logs alone.
+Linux/Proton gameplay has not been independently tested.
+
 ## v5.90 TEST - changes since v5.89
 
 - Preserve the second foot's flick identity until that stick centres. Releasing

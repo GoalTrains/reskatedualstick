@@ -88,9 +88,10 @@ static volatile int g_ui_page;   /* 0 = presets/settings, 1 = controls, 2 = adva
 static int ui_height(void) { return UI_HC; }
 static volatile int g_ui_draw_scale=100;
 #include "menu_controls.h"
+#include "menu_scheme.h"
 static int g_ui_controls_page;   /* six large cards per page */
 
-static const int k_ui_main[] = {UI_PRESET_SESSION, UI_PRESET_XL, UI_CUSTOM, UI_SESSION, UI_STANCE, UI_ADVANCED, UI_STARTUP, UI_HOTKEY, UI_SIZE, UI_CLOSE};
+static const int k_ui_main[] = {UI_PRESET_SESSION, UI_PRESET_XL, UI_CUSTOM, UI_SESSION, UI_STANCE, UI_LAYOUT, UI_POPSTYLE, UI_ADVANCED, UI_STARTUP, UI_HOTKEY, UI_SIZE, UI_CLOSE};
 static const int k_ui_advanced[] = {UI_LAYOUT, UI_SWITCH, UI_POPSTYLE, UI_ONEFOOT, UI_STEER, UI_REVERTS, UI_WINDUP, UI_FLIPS, UI_AIR, UI_SLIDES, UI_BUMP, UI_STOCKAIR, UI_RAMPDIAG, UI_BACK};
 static int g_ui_slot = 1, g_ui_overwrite;
 static int g_ui_startup_input_sync;
@@ -135,7 +136,7 @@ static void ui_value(int item, WCHAR* out) {
                     for (int i = 0; i <= n; ++i) out[i] = (WCHAR)t[i]; return; }
     case UI_PRESET_SESSION: v = ui_preset_active(0) ? "ACTIVE" : "APPLY"; break;
     case UI_PRESET_XL: v = ui_preset_active(1) ? "ACTIVE" : "APPLY"; break;
-    case UI_CUSTOM: v = "OPEN"; break;
+    case UI_CUSTOM: v = (!ui_preset_active(0) && !ui_preset_active(1)) ? "CUSTOM / OPEN" : "OPEN"; break;
     case UI_HOTKEY: {
         const WCHAR* name=g_ui_bind_mode?L"PRESS KEY...":g_menu_key_name;
         int i=0;while(name[i] && i<15) {out[i]=name[i];i++;}out[i]=0;return;
@@ -150,8 +151,8 @@ static void ui_value(int item, WCHAR* out) {
     case UI_BACK: v = "BACK"; break;
     case UI_SESSION: v = g_user_enabled ? "ON" : "OFF"; break;
     case UI_STANCE: v = g_auto_stance ? (g_game_goofy < 0 ? (g_cfg.goofy ? "AUTO (GOOFY?)" : "AUTO (REG?)") : g_cfg.goofy ? "AUTO: GOOFY" : "AUTO: REGULAR") : g_cfg.goofy ? "GOOFY" : "REGULAR"; break;
-    case UI_LAYOUT: v = g_cfg.front_back ? "FRONT/BACK FOOT" : "LEFT/RIGHT FOOT"; break;
-    case UI_SWITCH: v = g_cfg.front_back && g_cfg.switch_flip == 3 ? "ON" : g_cfg.switch_flip == 1 ? "ON" : g_cfg.switch_flip == 2 ? "ON + MIRROR" : g_cfg.switch_flip == 3 ? "TRUE FOOT" : "OFF"; break;
+    case UI_LAYOUT: v = g_cfg.front_back ? "FRONT/BACK" : g_cfg.switch_flip==3 ? "PHYSICAL FEET" : "LEGACY L/R"; break;
+    case UI_SWITCH: v = g_cfg.front_back && g_cfg.switch_flip == 3 ? "ON" : g_cfg.switch_flip == 1 ? "KEEP JOBS" : g_cfg.switch_flip == 2 ? "KEEP + MIRROR" : g_cfg.switch_flip == 3 ? "SWAP JOBS" : "OFF"; break;
     case UI_POPSTYLE: v = g_cfg.pop_on_release ? "RELEASE" : "FLICK"; break;
     case UI_ONEFOOT: v = g_cfg.one_foot_flips ? "ALLOWED" : "BLOCKED"; break;
     case UI_STEER: v = g_cfg.stick_steer ? "ON" : "OFF"; break;
@@ -165,16 +166,16 @@ static void ui_value(int item, WCHAR* out) {
     int n = 0; while (v[n] && n < 15) { out[n] = (WCHAR)v[n]; ++n; } out[n] = 0;
 }
 static const WCHAR* const k_ui_labels[UI_COUNT] = {
-    L"Session-style preset", L"XL-style preset", L"Dual Stick controls", L"Stance", L"Stick layout", L"Switch stance", L"Pop style", L"One-stick flips", L"Stick steering", L"Reverts", L"Spin wind-up",
+    L"Front/Back - Flick", L"Physical Feet - Release", L"Dual Stick controls", L"Stance", L"Stick layout", L"Legacy switch mode", L"Pop style", L"Allow single-stick flips", L"Stick steering", L"Reverts", L"Spin wind-up",
     L"Body flips", L"Air controls", L"Powerslides", L"Grind bump-out", L"Menu size", L"Close", L"Advanced settings", L"Back to presets", L"Custom presets", L"Custom slot", L"Save current settings", L"Load saved settings", L"Show menu on startup", L"Menu hotkey", L"Stock ramp controls", L"Ramp diagnostic recording"};
 static const WCHAR* const k_ui_help[UI_COUNT] = {
     L"Applies FRONT/BACK FOOT, FLICK pop, steering OFF and one-stick flips BLOCKED. Left = front, right = back in every stance. These translate Skate controls across two sticks; inputs differ from Session.",
     L"Applies LEFT/RIGHT FOOT, TRUE FOOT, RELEASE pop, steering ON and one-stick flips ALLOWED. Sticks stay with physical feet; jobs swap in switch. These translate Skate controls across two sticks; inputs differ from XL.",
     L"Dual Stick on / off. Off = the game's normal controls. Holding L3 + R3 for 3 seconds does the same.",
     L"Which foot is in front. AUTO follows the stance you picked in the game. REGULAR / GOOFY force one.",
-    L"LEFT / RIGHT FOOT: each stick is one of your feet - goofy puts the left stick on your back foot, and riding switch with TRUE FOOT swaps them. FRONT / BACK FOOT: the left stick is always the front foot (goofy and switch too).",
-    L"Riding switch. ON: the front-foot stick still pops the end in front of you. TRUE FOOT: the sticks swap jobs (physical feet). OFF: nothing changes.",
-    L"FLICK: crouch, then flick the other foot to pop. RELEASE: crouch fully with one foot and just let go to pop. Both are translated into Skate flick-stick input.",
+    L"FRONT/BACK: left keeps the front job, right the back job in every stance. PHYSICAL FEET: left/right stick follow left/right foot; jobs swap automatically in switch. LEGACY L/R keeps an older switch mode until you choose a complete layout.",
+    L"Advanced compatibility option. SWAP JOBS = physical feet / True Foot. KEEP JOBS = old ON translation without swapping jobs. OFF = unchanged translation. Changing away from SWAP JOBS makes the layout LEGACY L/R.",
+    L"FLICK: crouch, then flick the other foot to pop. RELEASE: hold a full setup and release to pop; two-foot flicks also work. Both are translated into Skate flick-stick input.",
     L"BLOCKED: flip tricks need both feet - one stick on its own can still scoop shove-its, 360 shove-its and impossibles (a full circle over the top), but not sweep into a heelflip, kickflip or tre. ALLOWED: no limit.",
     L"Skater XL style: while rolling with the back foot let go, push the front-foot stick sideways to turn (triggers still work). Let it back to the middle before you pop or flick with it.",
     L"How to revert. BOTH TRIGGERS: squeeze LT + RT together (reverts towards the one pressed first). DOUBLE TAP: double-tap LT or RT. OFF.",
@@ -191,7 +192,7 @@ static const WCHAR* const k_ui_help[UI_COUNT] = {
     L"Choose slot 1-5. Each slot stores your current settings, including custom options and stance selection.",
     L"Save current settings in this slot. For a filled slot, press again to confirm replacement; moving to another row cancels.",
     L"Restore this slot's saved settings. Empty slots do nothing. Your other saved presets are kept.",
-    L"ON opens this menu when the mod first receives controller input each launch. OFF skips it on future launches. You can always reopen the menu using the key shown below.",
+    L"ON opens this menu when the mod loads each launch, even without a controller. OFF skips it on future launches. You can always reopen the menu using the key shown below.",
     L"A / Enter or Right: press a new keyboard key to open this menu. Left restores End. Escape or controller B cancels. Use a letter, digit, function key or navigation key such as Home.",
     L"OFF: foot controls. AIR ONLY: the current trigger-grab air experiment. EARLY ON RAMP: switch to stock controls during a qualifying ramp climb, for stock pop/prewind, then keep them until landing. A cancelled approach returns to foot controls. R3 still pumps. Experimental tilt cue.",
     L"OFF / RAMP / FLAT: record checked skater-object snapshots for finding ramp angle or velocity. Label ramp runs RAMP, then flat-ground ollies FLAT. No automatic ramp detection yet. Bounded recording; OFF stops capture."};
@@ -226,8 +227,9 @@ static const UI_CARD k_cards[] = {
 static void ui_stick_pt(int cx, int cy, int r, float x, float y, int* px, int* py) { *px = cx + (int)(x * r); *py = cy - (int)(y * r); }
 static void ui_draw_card(HDC dc, const UI_CARD* cd, int x0, int y0, int w, int h, int k, HGDIOBJ small, HGDIOBJ bold, int goofy) {
     int physical = cd==&k_cards[UI_CARD_PUMP] || cd==&k_cards[UI_CARD_SLIDE] || cd==&k_cards[UI_CARD_EXIT] || cd==&k_cards[UI_CARD_TOGGLE];
-    int swap_feet = !physical && (goofy != !!g_cfg.feet_swapped);
-    int mirror_x = !physical && goofy;
+    int swap_feet = !physical && !sc_menu_left_front(g_cfg.front_back,g_cfg.goofy,g_cfg.switch_flip,g_switched>0,g_cfg.feet_swapped);
+    int mirror_x = !physical && sc_menu_mirror_x(g_cfg.front_back,g_cfg.goofy,g_cfg.flip_x);
+    (void)goofy;
     UI_CARD option;
     if(cd==&k_cards[UI_CARD_REVERT]) {
         option=*cd;option.note=g_cfg.revert_input==2?L"squeeze LT + RT":g_cfg.revert_input==1?L"double-tap LT or RT":L"Reverts disabled in settings";cd=&option;
@@ -366,12 +368,12 @@ static void ui_change(int item, int dir) {
     case UI_PRESET_XL: {
         int xl = item == UI_PRESET_XL;
         if(!ui_builtin_apply(xl)) {g_ui_preset_status=L"Could not apply the preset. Check that session_controls.ini is writable.";g_ui_dirty=1;return;}
-        g_ui_preset_status=xl?L"XL-style applied: physical feet, release pop, stick steering. These inputs translate into Skate's controls and differ from XL.":L"Session-style applied: front/back feet, flick pop, trigger steering. These inputs translate into Skate's controls and differ from Session.";
-        log_text(xl ? "menu: XL-style preset applied (Skate input translation)" : "menu: Session-style preset applied (Skate input translation)");
+        g_ui_preset_status=xl?L"Physical Feet - Release applied: physical feet, release pop, stick steering. These inputs translate into Skate's controls and differ from XL.":L"Front/Back - Flick applied: consistent jobs, flick pop, trigger steering. These inputs translate into Skate's controls and differ from Session.";
+        log_text(xl ? "menu: Physical Feet - Release preset applied (Skate input translation)" : "menu: Front/Back - Flick preset applied (Skate input translation)");
         break;
     }
     case UI_ADVANCED: g_ui_page = 2; g_ui_sel = 0; g_ui_dirty = 1; return;
-    case UI_BACK: g_ui_sel = g_ui_page == 3 ? 2 : 5; g_ui_page = 0; g_ui_dirty = 1; return;
+    case UI_BACK: g_ui_sel = g_ui_page == 3 ? 2 : 7; g_ui_page = 0; g_ui_dirty = 1; return;
     case UI_SIZE: {
         int sc = g_ui_scale + (dir < 0 ? -25 : 25);
         if (sc > 250) sc = 75; if (sc < 75) sc = 250;
@@ -385,7 +387,13 @@ static void ui_change(int item, int dir) {
         ui_set(L"AutoStance", v == 0 ? L"1" : L"0");
         if (v) ui_set(L"Stance", v == 2 ? L"goofy" : L"regular");
         break; }
-    case UI_LAYOUT: ui_set(L"FrontBackFoot", g_cfg.front_back ? L"0" : L"1"); break;
+    case UI_LAYOUT: {
+        int front_back,mode;
+        sc_menu_choose_layout(sc_menu_next_layout(sc_menu_layout_kind(g_cfg.front_back,g_cfg.switch_flip),dir),&front_back,&mode);
+        if(!ui_snapshot_read(L"SessionControls") || !ui_snapshot_int(L"FrontBackFoot",front_back) || !ui_snapshot_int(L"SwitchStance",mode) || !ui_snapshot_int(L"PresetFeetSwapped",0) || !WritePrivateProfileSectionW(L"SessionControls",ui_snapshot,g_ini)) {
+            g_ui_preset_status=L"Could not save layout. Check INI write access.";g_ui_dirty=1;return;
+        }
+        g_cfg.feet_swapped=0;break; }
     case UI_SWITCH: {   /* OFF -> ON -> TRUE FOOT (ON + MIRROR, 2, is ini only) */
         static const int order[3] = {0, 1, 3};
         int cur = g_cfg.switch_flip == 3 ? 2 : g_cfg.switch_flip == 0 ? 0 : 1;
@@ -406,6 +414,12 @@ static void ui_change(int item, int dir) {
     g_ui_dirty = 1;
 }
 
+static void ui_mapping_text(WCHAR* out) {
+    const WCHAR* parts[5]={g_cfg.goofy?L"GOOFY":L"REGULAR",g_switched<0?L" | stance unknown":g_switched?L" | last: SWITCH":L" | last: NORMAL",L" | ",
+        sc_menu_left_front(g_cfg.front_back,g_cfg.goofy,g_cfg.switch_flip,g_switched>0,g_cfg.feet_swapped)?L"L: front | R: back/pop":L"L: back/pop | R: front",
+        sc_menu_layout_kind(g_cfg.front_back,g_cfg.switch_flip)==2?L" | LEGACY":L""};
+    unsigned n=0;for(int i=0;i<5;i++)for(int j=0;parts[i][j] && n<159;j++)out[n++]=parts[i][j];out[n]=0;
+}
 static void ui_draw_controls(HDC dc,int k) {
     #define S(v) ((int)(v)*k/100)
     SC_RECT title={S(UI_CONTROLS_X+16),S(12),S(UI_W-16),S(40)};
@@ -422,7 +436,8 @@ static void ui_draw_controls(HDC dc,int k) {
             SelectObject(dc,small);
             SC_RECT sub = {S(UI_CONTROLS_X+16), S(40), S(UI_W-16), S(64)};
             SetTextColor(dc, RGB3(215, 220, 228));
-            DrawTextW(dc, L"Normal stance shown. L / R = physical sticks; front / back = foot jobs.", -1, &sub, 0x20);
+            WCHAR status[160];ui_mapping_text(status);
+            DrawTextW(dc,status,-1,&sub,0x20);
             int cols = 2, gap = S(8), cw = (S(UI_CONTROLS_W) - S(16) - gap * (cols - 1)) / cols, ch = S(224);
             int first = g_ui_controls_page * UI_CARDS_PER_PAGE;
             for (int i = first; i < UI_NCARDS && i < first + UI_CARDS_PER_PAGE; ++i) {
@@ -611,6 +626,10 @@ static DWORD WINAPI ui_thread(void* arg) {
             pe=(GetAsyncKeyState(0x0D)&0x8000)!=0;
             pprev=(GetAsyncKeyState(0x21)&0x8000)!=0;pnext=(GetAsyncKeyState(0x22)&0x8000)!=0;was_focused=1;
         }
+        static int prev_goofy=-1,prev_switch=-2,prev_layout=-1,prev_mode=-1;
+        if(prev_goofy!=g_cfg.goofy || prev_switch!=g_switched || prev_layout!=g_cfg.front_back || prev_mode!=g_cfg.switch_flip) {
+            prev_goofy=g_cfg.goofy;prev_switch=g_switched;prev_layout=g_cfg.front_back;prev_mode=g_cfg.switch_flip;g_ui_dirty=1;
+        }
         ui_reskate_status_poll();
         if(g_ui_hotkey_sync) {pk=(GetAsyncKeyState(g_ui_key)&0x8000)!=0;g_ui_hotkey_sync=0;}
         if(g_ui_bind_mode) ui_capture_keys();
@@ -695,7 +714,7 @@ static int ui_poll(XINPUT_STATE* s) {
     if (dn & 0x0004) ch = -1;                 /* D-pad left */
     if (dn & (0x0008 | 0x1000)) ch = 1;       /* D-pad right / A */
     if (ch) ui_change(ui_item_for_row(g_ui_sel), ch);
-    if (dn & 0x2000) { if (g_ui_page >= 2) { g_ui_sel = g_ui_page == 3 ? 2 : 5; g_ui_page = 0; } else g_ui_open = 0; g_ui_dirty = 1; }   /* B closes */
+    if (dn & 0x2000) { if (g_ui_page >= 2) { g_ui_sel = g_ui_page == 3 ? 2 : 7; g_ui_page = 0; } else g_ui_open = 0; g_ui_dirty = 1; }   /* B closes */
     /* the game sees an idle controller while the menu is open */
     memset(&s->Gamepad, 0, sizeof s->Gamepad);
     return 1;

@@ -8,6 +8,7 @@ typedef struct {
     double landing_turn_ms, landed_at, late_turn_ms;
     int saw_air_edge, pending_reference, pending_stance;
     int settle_touchdown;
+    int air_zero_pending; double air_zero_since;
     int direct_initialized, direct_stance, direct_candidate;
     double direct_since;
 } sc_stance_track;
@@ -100,6 +101,15 @@ static int sc_resolve_stance(sc_stance_track* t, int source, int goofy,
      * goofy tracker on actual off-board/spawn states, not on every poll
      * for 1.5 seconds while already riding. */
     if (source == 4) spawned = state == 504 || state == 300 || state == 700;
+    /* DTG v5.90: d briefly drops for one 4-ms air poll while b stays 1.
+     * Confirm a falling air edge for 12 ms; rising edges and touchdown stay
+     * immediate. This filters stance evidence, not physical stick input. */
+    if (source == 4) {
+        if (!spawned && state>=200 && state<300 && raw==0 && t->prev_raw==1) {
+            if (!t->air_zero_pending) {t->air_zero_pending=1;t->air_zero_since=now;}
+            if (now-t->air_zero_since<12) raw=1;
+        } else t->air_zero_pending=0;
+    }
     t->settle_touchdown = source == 4;
     return sc_track_stance(t, state, raw, spawned, initial, now);
 }

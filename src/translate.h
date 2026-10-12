@@ -1048,9 +1048,8 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
     /* v5.14: no goofy mirror any more. reSkate mirrors its own flick gestures for a goofy skater, so
      * mirroring here as well turned kickflips into heelflips (and scoops round) - your v5.12 test:
      * goofy was only right with "Kick / heel sides" = MIRRORED, which cancelled this out. */
-    /* v5.35: not for goofy - a goofy true-foot player's log: riding switch / fakie, lasers came out as 360
-     * flips and 360 flips as lasers. The game already mirrors goofy (as with v5.14 goofy flips). */
-    if (c->switch_flip == 3 && !c->front_back && !c->goofy && s->switched && !(c->air_controls && airborne)) mirror = !mirror;
+    /* True Foot swaps foot jobs, not kick/heel directions. The extra regular
+     * switch mirror reversed successful flips in the v5.90 gameplay reports. */
     if (mirror) { fx = -fx; bx = -bx; }
     float fm = sc_sqrt(fx * fx + fy * fy), bm = sc_sqrt(bx * bx + by * by);
     /* a stick that reaches 95 % is all the way: worn / handheld sticks rarely give 100 % */

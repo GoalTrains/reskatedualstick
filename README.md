@@ -1,12 +1,13 @@
 # Dual Stick Controls for reSkate
 
 A two-stick controller mod for [reSkate](https://github.com/Dingo-Shenanigans/ReSkate).
-It translates foot inputs into Skate's existing controls, with Session-style and
-XL-style presets, editable settings, custom presets, and optional stock ramp controls.
+It translates foot inputs into Skate's existing controls, with Front/Back Flick and
+Physical Feet Release presets, editable settings, custom presets, and optional stock ramp controls.
 
-Current version: **v5.90 TEST**. Ramp detection remains experimental.
-This build preserves second-foot flicks and regular True Foot through late ground resets.
-Gameplay confirmation is still needed on the affected device.
+Current version: **v5.91 TEST**. Ramp detection remains experimental.
+The previous foot-swap and combo fixes are confirmed by two players. This build
+removes the extra regular-switch flick mirror and filters brief airborne stance resets.
+The new corrections still need gameplay confirmation.
 
 ## Install on Windows
 
@@ -42,7 +43,7 @@ and logged. The affected player's hardware still needs to confirm this fix.
 
 ## Menu
 
-The menu opens on startup once controller input begins. Press **End** to reopen
+The menu can open on startup without waiting for controller input. Press **End** to reopen
 it by default. Navigate with the D-pad or arrow keys, select with A or Enter,
 and go back with B. The main menu lets you change its hotkey, size, and startup
 display. Controls stay visible on the right in the main menu, Advanced settings,
@@ -67,9 +68,9 @@ seconds toggles Dual Stick controls.
 
 ## Presets
 
-| Setting | Session-style | XL-style |
+| Setting | Front/Back - Flick | Physical Feet - Release |
 | --- | --- | --- |
-| Foot layout | Front / back foot | Left / right foot |
+| Foot layout | Front / back foot | Physical feet |
 | Switch behavior | Consistent front / back jobs | True Foot |
 | Pop style | Flick | Release |
 | Stick steering | Off | On |
@@ -80,7 +81,13 @@ from Session and Skater XL.** All listed settings remain editable.
 
 Front/Back Foot always assigns the left stick to the front end and the right to
 the back end, including goofy and switch. Left/Right Foot follows physical feet;
-True Foot changes their front/back jobs when riding switch.
+True Foot changes their front/back jobs when riding switch. Selecting Physical Feet
+sets that behavior automatically; old non-swapping Left/Right settings remain labeled
+Legacy L/R under Advanced. Existing INIs keep their settings until you choose a layout.
+
+The diagrams use the selected layout and last detected riding stance. Custom slots
+include effective sensitivity and controller settings, even when omitted from the INI.
+Startup display and the menu hotkey remain global preferences.
 
 ## Basic controls
 
