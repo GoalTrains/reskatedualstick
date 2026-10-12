@@ -12,7 +12,7 @@ int main(void) {
  sc_translate(&c,&s,p,1000);sc_translate(&c,&s,p,1150);assert(s.ps_side);
  s.grind=1;p=(sc_pad){0};sc_pad o=sc_translate(&c,&s,p,1160);
  assert(!s.ps_side); /* Old build stays latched, never reaches grind handling. */
- p.ry=sc_short(-1);o=sc_translate(&c,&s,p,1170);assert(s.grind_pop && o.ry< -30000);
+ p.ry=sc_short(-1);o=sc_translate(&c,&s,p,1170);assert(!s.grind_pop && o.ry< -30000);
  p.lx=sc_short(-.7f);p.ly=sc_short(.7f);o=sc_translate(&c,&s,p,1260);assert(o.rx< -18000 && o.ry>18000);
  s=(sc_state){0};p=inward(1);o=sc_translate(&c,&s,p,2000);assert(o.lx>20000 && o.ly< -20000); /* No delay, even legacy config. */
  s.air=s.takeoff=1;p=(sc_pad){0};sc_translate(&c,&s,p,2010);assert(!s.ps_side);
@@ -32,7 +32,7 @@ int main(void) {
   s.grind=1;p=(sc_pad){0};sc_translate(&c,&s,p,6010);assert(!s.ps_side);
   int lf=layout?1:!goofy;if(mode==3 && sw && !layout)lf=!lf;
   if(lf)p.ry=sc_short(-.78f);else p.ly=sc_short(-.78f);
-  o=sc_translate(&c,&s,p,6030);assert(s.grind_pop && sc_abs(sc_axis(o.ry))>.65f);
+  o=sc_translate(&c,&s,p,6030);assert(!s.grind_pop && sc_abs(sc_axis(o.ry))>.65f);
   if(lf){p.lx=sc_short(.7f);p.ly=sc_short(.7f);}else{p.rx=sc_short(.7f);p.ry=sc_short(.7f);}
   o=sc_translate(&c,&s,p,6130);assert(sc_abs(sc_axis(o.rx))>.4f && sc_abs(sc_axis(o.ry))>.4f);
  }

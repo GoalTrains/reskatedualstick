@@ -4,10 +4,10 @@ A two-stick controller mod for [reSkate](https://github.com/Dingo-Shenanigans/Re
 It translates foot inputs into Skate's existing controls, with Front/Back Flick and
 Physical Feet Release presets, editable settings, custom presets, and optional stock ramp controls.
 
-Current version: **v5.94 TEST**. Ramp detection remains experimental.
-This build prevents setup/wind-up sticks from being captured as held flips during
-rail approaches, and restores foot pivots when either foot makes a fresh positioning
-movement. Genuine held flips remain supported. Gameplay confirmation is pending.
+Current version: **v5.95 TEST**. Ramp detection remains experimental.
+This build keeps solo rail-foot sweeps as board adjustments, with confirmed
+Flick/Release exits, and prevents a stray trick flick at powerslide onset.
+The existing slide motion is retained. Gameplay confirmation is pending.
 
 ## Install on Windows
 

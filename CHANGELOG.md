@@ -1,5 +1,21 @@
 # Changelog
 
+## v5.95 TEST - changes since v5.94
+
+- Solo rail-foot sweeps remain board positioning through vertical angles.
+  Previously a vertical pull latched trick-out handling and constrained later
+  rotation. Flick exits now require a fresh opposite-foot flick; full vertical
+  hold/release remains a Release exit.
+- Lower opposing-stick slide activation to 40%, and reserve developing
+  opposing gestures so they cannot emit a stray trick flick first.
+- Keep the existing immediate slide diagonal. Low speed may explain the reported
+  rejected slides; the recordings do not establish a separate activation failure.
+- 28 regression executables passed: rail rotations and exits in both stances,
+  layouts and switch; slide onset; existing tricks, menus and held flips.
+
+Both changes need gameplay confirmation. Linux/Proton has not been independently
+tested. Keep your existing INI when updating.
+
 ## v5.94 TEST - changes since v5.93
 
 - Stop setup/wind-up sticks being mistaken for held flips during an air.

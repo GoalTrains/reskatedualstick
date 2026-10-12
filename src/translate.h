@@ -1113,15 +1113,15 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
     int front_pop_dir = fy > 0 && f_off <= pop_lim, back_pop_dir = by < 0 && b_off <= pop_lim;
     float side_lim = c->windup_deg > 0 ? 120.0f : pop_lim;
 
-    /* v5.52: a foot held onto a rail remains a board adjustment, not a
-     * ground trick. Only a NEW firm pull towards a pop end after rail entry
-     * arms normal two-foot pop/flick controls. The firm directional threshold
-     * leaves sideways/diagonal grind changes free to move both board ends. */
+    /* A rail foot remains a board adjustment across vertical and sideways
+     * positions. A fresh opposite-foot flick confirms a Flick exit; a full
+     * vertical setup followed by release confirms a Release exit. */
     if (c->air_controls) {
         int fpop = fy >= 0.70f && sc_abs(fx) < 0.65f * fm;
         int bpop = by <= -0.70f && sc_abs(bx) < 0.65f * bm;
         int fflick = fm >= on && (fy > 0.2f * fm || sc_abs(fx) > 0.7f * fm);
         int bflick = bm >= on && (by < -0.2f * bm || sc_abs(bx) > 0.7f * bm);
+        int release_back=0,release_front=0;
         if (!s->grind) {
             s->grind_pop = 0; s->grind_fpop_t = s->grind_bpop_t = 0;
         } else {
@@ -1129,7 +1129,9 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
             if(bpop && (!s->grind_prev || !s->grind_bpop))s->grind_bpop_t=now;
             if(!fpop)s->grind_fpop_t=0;
             if(!bpop)s->grind_bpop_t=0;
-            if (fm < off && bm < off) s->grind_pop = 0;
+            release_back=c->pop_on_release && s->grind_prev && s->grind_bpop && s->d_back_full && bm<off;
+            release_front=c->pop_on_release && s->grind_prev && s->grind_fpop && s->d_front_full && fm<off;
+            if (fm < off && bm < off && !(s->rp_t>0 && now-s->rp_t<70)) s->grind_pop = 0;
             /* A held stall position remains an adjustment. A fresh flick of
              * the opposite foot after a firm held pop is an explicit trick-out. */
             int held_back = s->grind_prev && bpop && fflick && !s->grind_fflick &&
@@ -1137,17 +1139,23 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
             int held_front = s->grind_prev && fpop && bflick && !s->grind_bflick &&
                              s->grind_fpop_t > 0 && now-s->grind_fpop_t >= 70.0;
             if (s->grind_prev && !s->grind_pop &&
-                ((fpop && !s->grind_fpop) || (bpop && !s->grind_bpop) || held_back || held_front)) {
+                (held_back || held_front || (bpop && fflick && !s->grind_fflick) ||
+                 (fpop && bflick && !s->grind_bflick) || release_back || release_front)) {
                 s->grind_pop = 1;
                 s->d_front_on = s->d_back_on = 0;
                 s->d_front_spent = s->d_back_spent = 0;
                 s->d_front_ignored = s->d_back_ignored = 0;
                 s->d_land_hold = s->d_front_carry = s->d_back_carry = 0;
                 s->d_windup=0;
-                if(held_back) {s->d_back_on=1;s->d_back_seq=++s->d_seq;s->pf_t[1]=s->grind_bpop_t;}
-                else if(held_front) {s->d_front_on=1;s->d_front_seq=++s->d_seq;s->pf_t[0]=s->grind_fpop_t;}
+                if(held_back || (bpop && fflick)) {s->d_back_on=1;s->d_back_seq=++s->d_seq;s->pf_t[1]=s->grind_bpop_t;}
+                else if(held_front || (fpop && bflick)) {s->d_front_on=1;s->d_front_seq=++s->d_seq;s->pf_t[0]=s->grind_fpop_t;}
             }
         }
+            if(release_back || release_front) {
+                s->rp_t=now;s->rp_y=release_back?1.0f:-1.0f;s->rp_two_foot=0;
+                s->d_back_full=s->d_front_full=0;
+                s->last_name=release_back?"ollie (rail release)":"nollie (rail release)";s->fired++;
+            }
         s->grind_prev = s->grind;
         s->grind_fpop = fpop; s->grind_bpop = bpop;
         s->grind_fflick = fflick; s->grind_bflick = bflick;
@@ -1156,6 +1164,10 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
             float gain = c->grind_sensitivity > 0 ? c->grind_sensitivity : 1.0f;
             x *= gain; y *= gain;
             float m = sc_sqrt(x*x + y*y); if (m > 1) { x /= m; y /= m; }
+            /* A single foot sweeping past vertical is board positioning,
+             * not a trick-out. Track full Release setups without switching
+             * frames; Flick exits require fresh input from the other foot. */
+            s->d_front_full=fpop && fm>=.8f;s->d_back_full=bpop && bm>=.8f;
             /* No spent-foot or one-foot flick clamp while changing grinds. */
             s->d_front_on = s->d_back_on = 0;
             s->d_front_spent = s->d_back_spent = 0;
@@ -1566,7 +1578,7 @@ static sc_pad sc_translate(const sc_config* c, sc_state* s, sc_pad in, double no
      * skate.'s left stick down-right), away from each other = heel side (backside: down-left). Not in the air or on a rail.
      * Reverts: double-tap RT = revert one way, LT = the other (skate.: a circle on the left
      * stick). A single press still steers. */
-    int ps_active = 0; float psx = 0, psy = 0;
+    int ps_active = 0, ps_pending=0; float psx = 0, psy = 0;
     if (c->revert_ms > 0) {
         unsigned char tv[2] = {in.lt, in.rt};
         for (int i = 0; i < 2; ++i) {
@@ -1690,7 +1702,7 @@ static sc_pad sc_translate(const sc_config* c, sc_state* s, sc_pad in, double no
         int side = 0;
         /* v0.19g: the sticks pushed TOWARDS each other (left stick right, right stick left) = toe
          * side, AWAY from each other = heel side */
-        float slide_on = s->ps_side ? 0.35f : 0.5f;
+        float slide_on = s->ps_side ? 0.35f : 0.4f;
         float slide_angle = s->ps_side ? 0.9f : 1.2f;
         int lside = alx >= slide_on && alx > slide_angle * sc_abs(ly);
         int rside = arx >= slide_on && arx > slide_angle * sc_abs(ry);
@@ -1703,6 +1715,11 @@ static sc_pad sc_translate(const sc_config* c, sc_state* s, sc_pad in, double no
         int foot_busy=c->pure && !s->d_windup && recent_pop;
         if((fy>=.85f && sc_abs(fx)<.5f) || (by<=-.85f && sc_abs(bx)<.5f))
             s->ps_pop_t=now+1;
+        /* Reserve a developing opposing-stick slide before both thumbs
+         * cross the threshold. The v5.94 trace emitted a synthetic flick
+         * at L48%/R58%, then sent the slide: that first poll can spoil it. */
+        ps_pending=!foot_busy && alx>=.25f && arx>=.25f &&
+            alx>1.2f*sc_abs(ly) && arx>1.2f*sc_abs(ry) && (lx>0)!=(rx>0);
         if (lside && rside && (lx > 0) != (rx > 0) && (s->ps_side || (!foot_busy && (sc_abs(s->ps_lt - s->ps_rt) <= 220.0 || (alx>=.65f && arx>=.65f)))))
             side = lx > 0 ? 1 : -1;
         if (side && side != s->ps_side) { s->ps_start = now; s->ps_side = side; }
@@ -1726,7 +1743,7 @@ static sc_pad sc_translate(const sc_config* c, sc_state* s, sc_pad in, double no
         }
     }
     float vx, vy;
-    if (s->ps_side || ps_active == 1) { vx = 0; vy = 0; }
+    if (s->ps_side || ps_active == 1 || ps_pending) { vx = 0; vy = 0; }
     else if (c->pure) sc_pure(c, s, now, fx, fy, bx, by, &vx, &vy);
     else if (c->direct) sc_direct(c, s, now, fx, fy, bx, by, &vx, &vy);
     else sc_feet_to_flick(c, s, now, fx, fy, bx, by, &vx, &vy);
