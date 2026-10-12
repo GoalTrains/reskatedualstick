@@ -57,9 +57,9 @@ int main(void) {
     assert(sw(100,1,45452200)==0);
     assert(sc_resolve_stance(&t,4,1,3,0,504,0,1,1,45453000)==0);
     /* Regular / other modes / front-back keep their direct source behavior. */
-    assert(sc_resolve_stance(&t,4,0,3,0,100,1,0,0,1)==1);
-    assert(sc_resolve_stance(&t,4,0,3,0,100,0,0,1,2)==1);
-    assert(sc_resolve_stance(&t,4,0,3,0,100,0,0,1,80)==0);
+    assert(sc_resolve_stance(&t,4,0,1,0,100,1,0,0,1)==1);
+    assert(sc_resolve_stance(&t,4,0,1,0,100,0,0,1,2)==1);
+    assert(sc_resolve_stance(&t,4,0,1,0,100,0,0,1,80)==0);
     assert(sc_resolve_stance(&t,4,1,1,0,100,0,0,1,3)==0);
     assert(sc_resolve_stance(&t,4,1,3,1,100,0,0,1,4)==0);
     puts("PASS: goofy True Foot turn/reset sequences, no-turn hops, second 180, 360, touchdown blip, revert, spawn, physical switch-ollie sticks and unchanged direct routes");

@@ -1127,8 +1127,8 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
             sc_stance_track zero={0}; tracking=zero;
             track_slot=g_local; track_source=g_switch_src; track_goofy=g_cfg.goofy;
             track_mode=g_cfg.switch_flip; track_layout=g_cfg.front_back;
-            if (g_switch_src==4 && g_cfg.goofy && g_cfg.switch_flip==3 && !g_cfg.front_back)
-                log_text("goofy true foot: retaining completed turns through ground probe resets");
+            if (g_switch_src==4 && g_cfg.switch_flip==3 && !g_cfg.front_back)
+                log_text("true foot: retaining completed turns through ground probe resets");
         }
         int state = g_local >= 0 ? (int)g_slots[g_local].state : 0;
         int spawned = g_now_ms - g_spawn_t < 1500.0;
@@ -1524,7 +1524,7 @@ static void setup(HMODULE self) {
     GetModuleFileNameW(0, exe, 519);
     if (!wieq(wbase(exe), "skate.exe")) return; /* only the game; stay a plain version.dll elsewhere */
 
-    log_text("---- Dual Stick Controls 5.89 RELEASE FLICK FIX loaded (version.dll route)");
+    log_text("---- Dual Stick Controls 5.90 FLICK HANDOFF AND TRUE FOOT FIX loaded (version.dll route)");
     log_wide("process: ", exe);
     load_config(0);
     if (GetFileAttributesW(g_ini) == 0xFFFFFFFFu) log_text("no session_controls.ini found; using defaults");

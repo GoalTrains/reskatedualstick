@@ -1,5 +1,23 @@
 # Changelog
 
+## v5.90 TEST - changes since v5.89
+
+- Preserve the second foot's flick identity until that stick centres. Releasing
+  the setup foot no longer reapplies the one-stick limiter or changes the held
+  flick's diagonal midway through a two-foot trick.
+- Recognize same-poll setup release/flick handoff before clearing the setup
+  history. Keep single-stick blocking for genuinely new solo gestures.
+- Make regular Left/Right True Foot retain completed turns through late ground
+  stance-flag resets, as the goofy tracker already does. DTG's new recording
+  shows resets roughly 1.4 seconds after landing without another takeoff.
+- Preserve next-turn, revert and off-board reset handling. Other switch modes
+  retain their direct reading behaviour. Menu layout and personal settings unchanged.
+
+Twenty-one native regression executables passed, including both pop ends,
+regular/goofy, normal/switch, both layouts and late ground reset sequences.
+DTG's trace was replayed through the new tracker. Affected-device gameplay
+confirmation remains pending; Linux/Proton gameplay is untested.
+
 ## v5.89 TEST - changes since v5.88
 
 - Fix an opposite release pop being generated when the second foot of a

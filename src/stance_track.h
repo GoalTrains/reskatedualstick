@@ -75,14 +75,14 @@ static int sc_track_stance(sc_stance_track* t, int state, int raw,
     else if (spawned) t->prev_raw = -1;
     return t->stance;
 }
-/* v5.60: the goofy True Foot trace shows d returning to zero after a
+/* True Foot traces in both stances show d returning to zero after a
  * completed 180, like b/c. Treat that route as takeoff-relative, while
- * preserving the tested direct d route for regular and the other modes.
+ * preserving the direct d route for the other modes.
  * This does not count arbitrary ground edges as turns. */
 static int sc_resolve_stance(sc_stance_track* t, int source, int goofy,
                              int mode, int front_back, int state, int raw,
                              int spawned, int initial, double now) {
-    if (source == 4 && !(goofy && mode == 3 && !front_back)) {
+    if (source == 4 && !(mode == 3 && !front_back)) {
         t->landing_turn_ms = t->late_turn_ms = -1;
         int valid=raw==0 || raw==1;
         if(!t->direct_initialized || state==300 || state==504 || state==700) {

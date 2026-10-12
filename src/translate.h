@@ -131,6 +131,7 @@ typedef struct {
     /* direct mode (last foot to move wins) */
     int d_front_on, d_back_on, d_front_spent, d_back_spent;
     unsigned d_front_seq, d_back_seq, d_seq;
+    int d_front_flick, d_back_flick; /* survives setup-foot release until flick stick centres */
     int d_two;
     double d_t;
     int d_front_ignored, d_back_ignored; /* moved the wrong way first: ignored until released */
@@ -201,6 +202,7 @@ static void sc_remap_foot_history(sc_state* s) {
 #define SC_SWAP_FIELD(type, a, b) do { type v = s->a; s->a = s->b; s->b = v; } while (0)
     SC_SWAP_FIELD(int, d_front_on, d_back_on);
     SC_SWAP_FIELD(int, d_front_spent, d_back_spent);
+    SC_SWAP_FIELD(int, d_front_flick, d_back_flick);
     SC_SWAP_FIELD(unsigned, d_front_seq, d_back_seq);
     SC_SWAP_FIELD(int, d_front_ignored, d_back_ignored);
     SC_SWAP_FIELD(int, d_front_carry, d_back_carry);
@@ -1069,6 +1071,11 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
         s->d_front_peak=s->d_back_peak=0;
         if(fm<off && bm<off)s->rp_two_foot=0;
     }
+    /* Recognize the second foot before clearing a setup released in this poll. */
+    if(fm>=on && !s->d_front_on && s->d_back_on && !s->d_back_spent)s->d_front_flick=1;
+    if(bm>=on && !s->d_back_on && s->d_front_on && !s->d_front_spent)s->d_back_flick=1;
+    if(fm<off)s->d_front_flick=0;
+    if(bm<off)s->d_back_flick=0;
     /* let go = fresh foot */
     if (fm < off) { s->d_front_on = 0; s->d_front_spent = 0; s->d_front_ignored = 0; }
     if (bm < off) { s->d_back_on = 0; s->d_back_spent = 0; s->d_back_ignored = 0; }
@@ -1251,17 +1258,17 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
 
     /* starting a foot */
     if (!s->d_front_on && fm >= on && !s->d_front_ignored) {
-        if (s->d_back_on || front_pop_dir || f_off <= side_lim) {
+        if (s->d_back_on || s->d_front_flick || front_pop_dir || f_off <= side_lim) {
             s->d_front_on = 1; s->d_front_seq = ++s->d_seq; s->pf_t[0] = now;
             s->lone_side[0] = (!s->d_back_on && f_off >= 55.0f) ? (fx > 0 ? 1 : -1) : 0; sc_lone_start(s, 0, fx, fy);
-            if (!s->d_back_on && !front_pop_dir) { s->d_windup = 1; s->d_windup_t = now; s->d_log = 1; s->d_log_a = fa; s->d_log_b = 0; }
+            if (!s->d_back_on && !s->d_front_flick && !front_pop_dir) { s->d_windup = 1; s->d_windup_t = now; s->d_log = 1; s->d_log_a = fa; s->d_log_b = 0; }
         } else s->d_front_ignored = 1;
     }
     if (!s->d_back_on && bm >= on && !s->d_back_ignored) {
-        if (s->d_front_on || back_pop_dir || b_off <= side_lim) {
+        if (s->d_front_on || s->d_back_flick || back_pop_dir || b_off <= side_lim) {
             s->d_back_on = 1; s->d_back_seq = ++s->d_seq; s->pf_t[1] = now;
             s->lone_side[1] = (!s->d_front_on && b_off >= 55.0f) ? (bx > 0 ? 1 : -1) : 0; sc_lone_start(s, 1, bx, by);
-            if (!s->d_front_on && !back_pop_dir) { s->d_windup = 1; s->d_windup_t = now; s->d_log = 1; s->d_log_a = ba; s->d_log_b = 1; }
+            if (!s->d_front_on && !s->d_back_flick && !back_pop_dir) { s->d_windup = 1; s->d_windup_t = now; s->d_log = 1; s->d_log_a = ba; s->d_log_b = 1; }
         } else s->d_back_ignored = 1;
     }
     int fl = s->d_front_on && !s->d_front_spent, bl = s->d_back_on && !s->d_back_spent;
@@ -1277,8 +1284,8 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
         if (!s->d_windup && t0 > 0 && now - t0 < 70.0) s->pf_hold = front_first ? 1 : -1;
     }
     if (fl && bl && !s->pf_hold) {
-        if (s->d_front_seq > s->d_back_seq) { s->d_back_spent = 1; bl = 0; }
-        else { s->d_front_spent = 1; fl = 0; }
+        if (s->d_front_seq > s->d_back_seq) { s->d_back_spent = 1; s->d_front_flick=1; bl = 0; }
+        else { s->d_front_spent = 1; s->d_back_flick=1; fl = 0; }
         s->d_log = 2; s->d_log_a = fl ? fa : ba; s->d_log_b = 0;
     }
 
@@ -1307,7 +1314,7 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
      * a flick down-left was a nollie kickflip with no back foot). A flip needs the other foot.
      * Sweeping round the edge (shove-its, 360 shove-its, wind-ups) is still fine. */
     for (int k = 0; k < 2; ++k) {
-        int live = k ? (bl && !s->d_front_on) : (fl && !s->d_back_on);
+        int live = k ? (bl && !s->d_front_on && !s->d_back_flick) : (fl && !s->d_back_on && !s->d_front_flick);
         float px = k ? bx : fx, py = k ? by : fy, pm = k ? bm : fm;
         float own = k ? -py : py;                    /* + = towards this foot's own end */
         if (!live) { s->lp_blk[k] = 0; s->lp_dip[k] = 0; s->lp_mag[k] = 0; continue; }
@@ -1320,8 +1327,8 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
     }
     float x = 0, y = 0;
     if (s->pf_hold) { x = 0; y = s->pf_hold > 0 ? 1.0f : -1.0f; }
-    else if (fl && !s->lp_blk[0]) { x = fx; y = fy; if (!c->one_foot_flips && !s->d_back_on) sc_lone_clamp(s, 0, &x, &y); }
-    else if (bl && !s->lp_blk[1]) { x = bx; y = by; if (!c->one_foot_flips && !s->d_front_on) sc_lone_clamp(s, 1, &x, &y); }
+    else if (fl && !s->lp_blk[0]) { x = fx; y = fy; if (!c->one_foot_flips && !s->d_back_on && !s->d_front_flick) sc_lone_clamp(s, 0, &x, &y); }
+    else if (bl && !s->lp_blk[1]) { x = bx; y = by; if (!c->one_foot_flips && !s->d_front_on && !s->d_back_flick) sc_lone_clamp(s, 1, &x, &y); }
     else if (fl || bl) { x = 0; y = 0; }
     else if (!s->d_front_on && !s->d_back_on) {
         /* light leans (manuals), each foot in its own direction only */
@@ -1334,7 +1341,7 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
      * never popped (your goofy log: front foot flicked flat left / right from a held crouch, the game
      * saw down -> side = nothing). A flick more sideways than towards its own end is turned to the
      * diagonal, which is the game's kickflip / heelflip (nollie: the same towards the tail). */
-    if (!s->pf_hold && ((fl && s->d_back_spent) || (bl && s->d_front_spent))) {
+    if (!s->pf_hold && ((fl && (s->d_back_spent || s->d_front_flick)) || (bl && (s->d_front_spent || s->d_back_flick)))) {
         float sgn = fl ? 1.0f : -1.0f, own = y * sgn, ax = sc_abs(x), m = sc_sqrt(x * x + y * y);
         if (m >= on && ax > 0.2f && own < 0.7f * ax) { x = (x > 0 ? 0.707f : -0.707f) * m; y = sgn * 0.707f * m; }
     }
