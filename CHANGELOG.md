@@ -1,5 +1,24 @@
 # Changelog
 
+## v5.94 TEST - changes since v5.93
+
+- Stop setup/wind-up sticks being mistaken for held flips during an air.
+  That mistake could keep a held back stick in Skate's trick frame, then
+  reverse its output when the rail's tail-pivot handling took over.
+- Hold genuine two-foot flicks, and allowed one-stick flip endpoints, rather
+  than every strong stick left over from takeoff.
+- Fresh positioning by the other foot cancels a held flip. Movement of the
+  held foot uses the existing 20-degree pivot threshold, removing the old
+  20-to-30-degree gap where positioning remained blocked.
+- Preserve rail adjustments, stall exits and the four control templates.
+- 26 native regression executables passed. The new regression reproduced the
+  false hold before the fix and checks both stances/layouts/switch, air-to-rail
+  output directions, genuine held flips and fresh opposite-foot positioning.
+
+Replay of the two identified entries from your v5.92 input recording removes
+the pre-contact/contact direction reversal. Gameplay confirmation is pending. Linux/Proton has not been independently tested.
+Keep your existing INI when updating.
+
 ## v5.93 TEST - changes since v5.92
 
 - Offer all four templates at the top of the menu: Front/Back Flick,

@@ -1091,7 +1091,11 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
          * is still pushed right out keeps the game's stick exactly where the flick left it. */
         s->hold_foot = 0;
         {
-            int fh = fm >= 0.8f, bh = bm >= 0.8f;
+            /* A setup/wind-up stick is not a held flip. In the grind trace,
+             * that false capture kept the back foot in Skate's flick frame
+             * until rail contact, then reversed it into a tail pivot. */
+            int fh = fm >= 0.8f && (s->d_front_flick || (c->one_foot_flips && fy < -0.2f*fm));
+            int bh = bm >= 0.8f && (s->d_back_flick || (c->one_foot_flips && by > 0.2f*bm));
             if (fh && (!bh || s->d_front_seq > s->d_back_seq)) s->hold_foot = 1;
             else if (bh) s->hold_foot = 2;
             float om = sc_sqrt(s->ox * s->ox + s->oy * s->oy);
@@ -1167,7 +1171,14 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
         if (s->hold_foot) {   /* v5.19: held trick - until that foot eases off or swings away */
             float hx = s->hold_foot == 1 ? fx : bx, hy = s->hold_foot == 1 ? fy : by, hm = sc_sqrt(hx * hx + hy * hy);
             float ta = s->hold_foot == 1 ? s->tk_fa : s->tk_ba;
-            if (hm >= 0.7f && sc_abs(sc_wrap(sc_angle(hx, hy) - ta)) < 30.0f) {
+            float other_m=s->hold_foot==1?bm:fm;
+            float other_a=s->hold_foot==1?sc_angle(bx,by):sc_angle(fx,fy);
+            float other_ta=s->hold_foot==1?s->tk_ba:s->tk_fa;
+            int other_on=s->hold_foot==1?s->d_back_on:s->d_front_on;
+            int pivot=other_m>=on && (!other_on || sc_abs(sc_wrap(other_a-other_ta))>=20.0f);
+            /* New board positioning takes priority over a held flick; use
+             * the same 20-degree movement threshold as ordinary air pivots. */
+            if (!pivot && hm >= 0.7f && sc_abs(sc_wrap(sc_angle(hx, hy) - ta)) < 20.0f) {
                 s->d_was_air = 1; s->d_t = now; *out_x = s->hold_x; *out_y = s->hold_y;
                 return;
             }
