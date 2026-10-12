@@ -140,6 +140,7 @@ typedef struct {
     int d_latch; float d_lx, d_ly;  /* a slowed flick keeps going to where the foot went */
     double d_windup_t;    /* when the wind-up started */
     int d_back_full, d_front_full;  /* v1.1 pop on release: the crouch went all the way */
+    int rp_two_foot; /* second-foot flick is not another release pop */
     double rp_t; float rp_y, d_back_peak, d_front_peak; /* v1.1 pop on release in progress / deepest crouch */
     int d_back_was_down, d_front_was_up; double d_back_rel_t, d_front_rel_t; /* single-stick quick pops */
     int d_windup;         /* this press started from the side: pass through, no scoop detection */
@@ -1056,6 +1057,18 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
     float on = c->active, off = c->active * 0.6f;
     s->phase = SC_IDLE; s->d_pending = 0; s->d_latch = 0; s->path_n = 0;
 
+    /* Preserve a two-foot gesture across setup release, including a short
+     * neutral gap covered by the existing 70 ms release pulse. */
+    if(c->pop_on_release && !airborne &&
+       ((fm>=on && ((s->d_back_on && !s->d_back_spent) || s->d_back_full || (s->rp_t>0 && now-s->rp_t<70 && s->rp_y>0))) ||
+        (bm>=on && ((s->d_front_on && !s->d_front_spent) || s->d_front_full || (s->rp_t>0 && now-s->rp_t<70 && s->rp_y<0))))) {
+        s->rp_two_foot=1;s->rp_t=0;
+    }
+    if(s->rp_two_foot) {
+        s->d_front_full=s->d_back_full=0;
+        s->d_front_peak=s->d_back_peak=0;
+        if(fm<off && bm<off)s->rp_two_foot=0;
+    }
     /* let go = fresh foot */
     if (fm < off) { s->d_front_on = 0; s->d_front_spent = 0; s->d_front_ignored = 0; }
     if (bm < off) { s->d_back_on = 0; s->d_back_spent = 0; s->d_back_ignored = 0; }
@@ -1269,8 +1282,9 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
         s->d_log = 2; s->d_log_a = fl ? fa : ba; s->d_log_b = 0;
     }
 
+    if(c->pop_on_release && fl && bl)s->rp_two_foot=1;
     /* PopOnRelease: let go of a full one-foot crouch = the stick snaps to the other end */
-    if (c->pop_on_release) {
+    if (c->pop_on_release && !s->rp_two_foot) {
         if (s->d_windup || s->d_front_on || s->d_back_spent) { s->d_back_full = 0; s->d_back_peak = 0; }
         else if (bl && bm >= 0.8f && back_pop_dir) { s->d_back_full = 1; if (bm > s->d_back_peak) s->d_back_peak = bm; }
         if (s->d_windup || s->d_back_on || s->d_front_spent) { s->d_front_full = 0; s->d_front_peak = 0; }

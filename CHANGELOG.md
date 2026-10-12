@@ -1,5 +1,20 @@
 # Changelog
 
+## v5.89 TEST - changes since v5.88
+
+- Fix an opposite release pop being generated when the second foot of a
+  two-foot flick returns to centre in Release pop mode. Keep the flick output,
+  then return to neutral instead of treating the flick as a fresh crouch.
+- Preserve gesture identity through overlapping inputs, setup release and
+  flick in the same poll, and a short neutral gap within the existing release
+  pulse. Both sticks returning to centre rearms normal one-foot release pops.
+- Cover regular/goofy, normal/switch, both foot layouts and ollie/nollie inputs.
+  No new activation delay or stance-mapping change.
+
+Nineteen native regression executables passed. The reproduced sequence now
+ends in neutral instead of an opposite pop. In-game confirmation remains pending;
+Linux/Proton gameplay is untested. Keep existing settings/custom presets.
+
 ## v5.88 TEST - changes since v5.87
 
 - Start the menu window thread when the mod loads, independently of controller
