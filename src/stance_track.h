@@ -8,6 +8,8 @@ typedef struct {
     double landing_turn_ms, landed_at, late_turn_ms;
     int saw_air_edge, pending_reference, pending_stance;
     int settle_touchdown;
+    int direct_initialized, direct_stance, direct_candidate;
+    double direct_since;
 } sc_stance_track;
 
 static int sc_track_stance(sc_stance_track* t, int state, int raw,
@@ -82,7 +84,17 @@ static int sc_resolve_stance(sc_stance_track* t, int source, int goofy,
                              int spawned, int initial, double now) {
     if (source == 4 && !(goofy && mode == 3 && !front_back)) {
         t->landing_turn_ms = t->late_turn_ms = -1;
-        return raw >= 0 ? raw : (initial >= 0 ? initial : 0);
+        int valid=raw==0 || raw==1;
+        if(!t->direct_initialized || state==300 || state==504 || state==700) {
+            t->direct_initialized=1;
+            t->direct_stance=valid?raw:(initial>=0?initial:0);
+            t->direct_candidate=-1;
+        } else if(valid && raw!=t->direct_stance) {
+            if(state!=100) {t->direct_stance=raw;t->direct_candidate=-1;}
+            else if(t->direct_candidate!=raw) {t->direct_candidate=raw;t->direct_since=now;}
+            else if(now-t->direct_since>=75) {t->direct_stance=raw;t->direct_candidate=-1;}
+        } else t->direct_candidate=-1;
+        return t->direct_stance;
     }
     /* A spawn grace period can include the first trick. Only reset the
      * goofy tracker on actual off-board/spawn states, not on every poll

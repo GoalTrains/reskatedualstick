@@ -22,7 +22,7 @@ static UINT64 rd_time(void) {
 }
 static int rd_copy(UINT64 address,void* out,UINT64 size) {
     UINT64 got=0;
-    if(address<0x10000 || address>0x7FFFFFFFFFFFull || !readable(address,size))return 0;
+    if(address<0x10000 || address>0x7FFFFFFFFFFFull)return 0;
     return ReadProcessMemory(GetCurrentProcess(),(const void*)address,out,size,&got) && got==size;
 }
 static UINT64 rd_pointer(UINT64 address) {UINT64 value=0;rd_copy(address,&value,8);return value;}

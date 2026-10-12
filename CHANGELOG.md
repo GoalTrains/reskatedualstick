@@ -1,5 +1,27 @@
 # Changelog
 
+## v5.86 TEST - changes since v5.85
+
+- Restore trigger steering immediately after a stock-mode grab lands, including
+  a trigger held through touchdown. Seed trigger edges to avoid a new revert.
+- Let held front/back feet pivot sideways as soon as takeoff is confirmed,
+  rather than waiting for the delayed air-control flag. Held trick preservation
+  and vertical crouch/manual guards remain.
+- Apply the selected grind sensitivity to sideways air board adjustments too,
+  for consistent entry/rail response; vertical manual strength is unchanged.
+- Filter transient ground turn-flag changes for 75 ms. Airborne turns and
+  revert states are immediate. Stable genuine ground changes still register.
+- Read stance probes once per input call, remove redundant VirtualQuery checks
+  from checked ReadProcessMemory reads, and sample motion only during actual
+  remount calibration. Invalid pointers still fail closed.
+- Add setup/menu/stance/translation/tail timing columns to the precise trace,
+  so remaining input cost can be identified rather than inferred from FPS.
+
+Sixteen native regression executables and an actual stance-read cache fixture
+passed. The changes reduce repeated work and fix demonstrated handoff blocks;
+in-game latency improvement still requires measurement on the affected device.
+Keep existing settings/custom presets. Linux/Proton gameplay remains untested.
+
 ## v5.85 TEST - changes since v5.84
 
 - Fix DualSense report framing in both native mode (PlayStationPads=2) and

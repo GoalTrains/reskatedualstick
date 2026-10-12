@@ -1,6 +1,6 @@
 /* Lossless changes at the controller-poll boundary. Only the worker writes files.
  * Duplicate polls get a heartbeat at 100 ms; changed values are never throttled. */
-#define PT_FIELDS 57
+#define PT_FIELDS 62
 #define PT_CAP 4096
 typedef struct { UINT64 poll, start_us, end_us, dropped; int v[PT_FIELDS]; } pt_record;
 static pt_record pt_queue[PT_CAP], pt_last[4];
@@ -32,14 +32,14 @@ static unsigned pt_take(pt_record* batch, unsigned cap) {
     unsigned n=0; while(pt_read!=pt_write && n<cap) batch[n++]=pt_queue[pt_read++ % PT_CAP];
     __sync_lock_release(&pt_lock); return n;
 }
-static const char pt_header[] = "poll,start_qpc_us,return_qpc_us,dropped_total,user,state,mod_enabled,user_enabled,paused,game_menu,mod_menu,walking,goofy,auto_stance,front_back_layout,switch_mode,switch_source,switched,mapping_valid,front_is_left,output_switch_latch,takeoff,air,grind,held_trick_foot,front_on,back_on,front_spent,back_spent,front_ignored,back_ignored,front_carry,back_carry,front_carry_ignored,back_carry_ignored,raw_lx,raw_ly,raw_rx,raw_ry,raw_lt,raw_rt,raw_buttons,out_lx,out_ly,out_rx,out_ry,out_lt,out_rt,out_buttons,switch_probe_a,switch_probe_b,switch_probe_c,switch_probe_d,stock_grab_air_active,ramp_diagnostic_label,ramp_orientation_valid,ramp_vertical_milli,ramp_qualified,ramp_departing,ramp_curve_qualified,stock_early_active\r\n";
+static const char pt_header[] = "poll,start_qpc_us,return_qpc_us,dropped_total,user,state,mod_enabled,user_enabled,paused,game_menu,mod_menu,walking,goofy,auto_stance,front_back_layout,switch_mode,switch_source,switched,mapping_valid,front_is_left,output_switch_latch,takeoff,air,grind,held_trick_foot,front_on,back_on,front_spent,back_spent,front_ignored,back_ignored,front_carry,back_carry,front_carry_ignored,back_carry_ignored,raw_lx,raw_ly,raw_rx,raw_ry,raw_lt,raw_rt,raw_buttons,out_lx,out_ly,out_rx,out_ry,out_lt,out_rt,out_buttons,switch_probe_a,switch_probe_b,switch_probe_c,switch_probe_d,stock_grab_air_active,ramp_diagnostic_label,ramp_orientation_valid,ramp_vertical_milli,ramp_qualified,ramp_departing,ramp_curve_qualified,stock_early_active,setup_us,menu_us,stance_us,translate_us,tail_us\r\n";
 static DWORD WINAPI pt_worker(void* unused) {
     (void)unused; WCHAR path[560]; unsigned i=0;
     while(g_dir[i] && i<510) { path[i]=g_dir[i]; i++; }
     const WCHAR* tail=L"\\session_controls_input.csv"; while(*tail) path[i++]=*tail++; path[i]=0;
     HANDLE f=CreateFileW(path,4,1|2|4,0,4,0x80,0);
     if(f==INVALID_HANDLE_VALUE) { pt_failed=1; log_text("precise input log: could not open session_controls_input.csv"); return 0; }
-    const char marker[]="# Dual Stick Controls 5.85 DUALSENSE REPORT FIX; new session; axes are signed 16-bit; timestamps are absolute QPC microseconds\r\n";
+    const char marker[]="# Dual Stick Controls 5.86 INPUT HANDOFF FIX; new session; axes are signed 16-bit; timestamps are absolute QPC microseconds\r\n";
     if(!pt_send(f,marker,sizeof marker-1) || !pt_send(f,pt_header,sizeof pt_header-1)) goto failed;
     log_text("precise input log: session_controls_input.csv (every changed poll, exact axes and foot mapping)");
     for(;;) {

@@ -899,8 +899,10 @@ static void stance_dump(int sw) {
  * snapshots, no exceptions). Read-only, checked before every read. */
 static int g_switched = -1;
 static int g_switch_probes[4] = {-1,-1,-1,-1};
-static UINT64 rd8(UINT64 a) { return readable(a, 8) ? *(volatile UINT64*)a : 0; }
-static int rd1(UINT64 a) { return (a && readable(a, 1)) ? *(volatile BYTE*)a : -1; }
+static UINT64 rd_pointer(UINT64 address);
+static int rd_copy(UINT64 address,void* out,UINT64 size);
+static UINT64 rd8(UINT64 a) { return rd_pointer(a); }
+static int rd1(UINT64 a) { BYTE v=0;return rd_copy(a,&v,1)?v:-1; }
 /* Three places that all matched normal / switch in your snapshots; all logged, the first one used
  * unless SwitchSource says otherwise. */
 
@@ -915,7 +917,9 @@ static void read_switch_cands(int* c1, int* c2, int* c3) {
     UINT64 p = rd8(sel + 0x10);
     if (p && !(p & 7)) { UINT64 q = rd8(p + 0x10); if (q && !(q & 7)) *c2 = rd1(q + 0x5e4); }
 }
-static int read_switch_b(void) { int a, b, c; read_switch_cands(&a, &b, &c); return b; }
+static UINT64 g_input_generation;
+static void switch_snapshot(void);
+static int read_switch_b(void) { switch_snapshot();return g_switch_probes[1]; }
 /* Controlled regular/switch snapshots: the first three bytes at A0 remain
  * zero, while the fourth boolean (A3) changes 0 -> 1. Probe b and c later
  * reset on the ground. Keep this candidate separate and log it for testing. */
@@ -939,12 +943,17 @@ static void revert_watch(void) {
         g_rv_watch_t = 0;
     } else if (g_now_ms - g_rv_watch_t > 1500.0) { log_text("  revert: no turn"); g_rv_dump = g_rv_watch_t; g_rv_watch_t = 0; }
 }
+static void switch_snapshot(void) {
+    static UINT64 generation=~0ull;static int slot=-2;
+    if(generation==g_input_generation && slot==g_local)return;
+    generation=g_input_generation;slot=g_local;
+    read_switch_cands(&g_switch_probes[0],&g_switch_probes[1],&g_switch_probes[2]);
+    g_switch_probes[3]=read_switch_d();
+}
 static int read_switched(void) {
-    static int l1 = -9, l2 = -9, l3 = -9, l4 = -9;
-    int c1, c2, c3; read_switch_cands(&c1, &c2, &c3);
-    int c4 = read_switch_d();
-    g_switch_probes[0]=c1; g_switch_probes[1]=c2;
-    g_switch_probes[2]=c3; g_switch_probes[3]=c4;
+    static int l1=-9,l2=-9,l3=-9,l4=-9;
+    switch_snapshot();
+    int c1=g_switch_probes[0],c2=g_switch_probes[1],c3=g_switch_probes[2],c4=g_switch_probes[3];
     if (c1 != l1 || c2 != l2 || c3 != l3 || c4 != l4) {
         char line[96] = "  switch probe: a="; unsigned n = 18;
         int v[4] = {c1, c2, c3, c4};
@@ -977,7 +986,8 @@ static int reskate_owns_input(double now) {
     }
     return ownership ? ownership() != 0 : g_reskate_menu_visible;
 }
-static void process_inner(DWORD user, XINPUT_STATE* s) {
+static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
+    ++g_input_generation;
     UINT64 now = GetTickCount64();
     {
         static INT64 f0;
@@ -1031,7 +1041,10 @@ static void process_inner(DWORD user, XINPUT_STATE* s) {
     g_ui_key = key_from_name(g_menu_key_name);
     ui_start();
     if (!g_seen_state) { g_seen_state = 1; log_text("game is polling the controller through Dual Stick Controls"); dg_start(); gs_start(); }
-    if (ui_poll(s)) return;   /* v0.24: the settings menu has the controller */
+    if(timing)timing[0]=pt_time();
+    int menu_consumed=ui_poll(s);
+    if(timing)timing[1]=pt_time();
+    if(menu_consumed)return;
     handle_combos(user, s);
     sc_state* st = &g_state[user < 4 ? user : 0];
     /* v0.26c native menus: when the game pauses (pause menu, map, settings...) your skater's physics
@@ -1087,12 +1100,16 @@ static void process_inner(DWORD user, XINPUT_STATE* s) {
         }
         if (g_motion_stance && g_switch_src==4 && !g_cfg.goofy && g_local>=0) {
             float position[3]={0}, facing[3]={0};
-            UINT64 first=rd_pointer(g_slots[g_local].sel+0x10);
+            /* A fixed riding reference needs no more position/facing reads.
+             * Collect motion only while an actual remount is calibrating. */
+            int sample_motion=motion.remount_pending && g_slots[g_local].state==100 &&
+                              (!motion.sampled || g_now_ms-motion.time>=90);
+            UINT64 first=sample_motion?rd_pointer(g_slots[g_local].sel+0x10):0;
             UINT64 orientation=first?rd_pointer(first+0x10):0;
             int valid=orientation && rd_copy(orientation+0x100,position,sizeof position) &&
                       rd_copy(orientation+0x150,facing,sizeof facing);
             int old_valid=motion.bias_valid,old_pending=motion.remount_pending;
-            motion_sw=sc_motion_stance_step(&motion,(int)g_slots[g_local].state,valid,
+            motion_sw=(motion.remount_pending && g_slots[g_local].state==100 && !sample_motion) ? -1 : sc_motion_stance_step(&motion,(int)g_slots[g_local].state,valid,
                 position[0],position[2],facing[0],facing[2],sw,g_now_ms);
             if (old_pending && !old_valid && motion.bias_valid) {
                 if(!motion.candidate_valid)log_text("remount stance: calibration cancelled by takeoff or timeout; keeping native frame");
@@ -1118,13 +1135,12 @@ static void process_inner(DWORD user, XINPUT_STATE* s) {
         /* Keep direct d for the tested regular route. Goofy True Foot uses
          * one turn relative to takeoff because its d resets on the ground. */
         sw = sc_resolve_stance(&tracking,g_switch_src,g_cfg.goofy,g_cfg.switch_flip,
-                               g_cfg.front_back,state,sw,spawned,g_switched,g_now_ms);
+                               g_cfg.front_back,state,motion_sw>=0?motion_sw:sw,spawned,g_switched,g_now_ms);
         if (motion_sw >= 0) {
-            sw=motion_sw;
             /* The game's turn flag resets at remount. Use the corrected
              * riding direction for feet, but the native flag for its input
              * frame, so a fakie input does not become a switch ollie. */
-            if (native_sw >= 0) {st->game_switch_known=1;st->game_switch=native_sw;}
+            if (native_sw >= 0) {st->game_switch_known=1;st->game_switch=sw ^ (motion.bias_valid ? motion.bias : 0);}
         }
         if (g_state_log && tracking.landing_turn_ms >= 0)
             log_num("  stance turned in the air, ms before landing: ", (UINT64)tracking.landing_turn_ms);
@@ -1159,7 +1175,9 @@ static void process_inner(DWORD user, XINPUT_STATE* s) {
     g_test_prev = raw_buttons;
     sc_pad raw_pad = s->Gamepad;
     int pump_before = st->pump_r3;
+    if(timing)timing[2]=pt_time();
     s->Gamepad = sc_translate(&g_cfg, st, s->Gamepad, now_ms);
+    if(timing)timing[3]=pt_time();
     if (st->pump_r3 != pump_before)
         log_text(st->pump_r3 ? "  R3 pumping crouch: game R2 / RT held" : "  R3 pumping crouch: released / cancelled");
     {   /* v2.1: was the trick taken by the game? */
@@ -1342,7 +1360,8 @@ static void process(DWORD user, XINPUT_STATE* s) {
     int tracing=g_precise_log && !pt_failed;
     sc_pad raw=s->Gamepad; UINT64 start=0;
     if(tracing) { pt_start(); tracing=!pt_failed; start=pt_time(); }
-    process_inner(user,s);
+    UINT64 timing[4]={0};
+    process_inner(user,s,tracing?timing:0);
     if(g_ramp_diag || g_remount_diag)rd_capture(GetTickCount64());
     if(tracing) {
         sc_state* st=&g_state[user<4?user:0]; sc_pad out=s->Gamepad;
@@ -1358,7 +1377,12 @@ static void process(DWORD user, XINPUT_STATE* s) {
             raw.lx,raw.ly,raw.rx,raw.ry,raw.lt,raw.rt,raw.buttons,
             out.lx,out.ly,out.rx,out.ry,out.lt,out.rt,out.buttons,
             g_switch_probes[0],g_switch_probes[1],g_switch_probes[2],g_switch_probes[3],st->stock_air_active,g_ramp_diag,
-            st->stock_ramp_valid,(int)(st->stock_ramp_vertical*1000),st->stock_ramp_eligible,st->stock_ramp_departing,st->stock_ramp_curve,st->stock_early_active};
+            st->stock_ramp_valid,(int)(st->stock_ramp_vertical*1000),st->stock_ramp_eligible,st->stock_ramp_departing,st->stock_ramp_curve,st->stock_early_active,
+            timing[0]?(int)(timing[0]-start):0,
+            timing[1]?(int)(timing[1]-timing[0]):0,
+            timing[2]?(int)(timing[2]-timing[1]):0,
+            timing[3]?(int)(timing[3]-timing[2]):0,
+            (int)(r.end_us-(timing[3]?timing[3]:timing[1]?timing[1]:start))};
         typedef char trace_shape_check[(sizeof values/sizeof values[0]==PT_FIELDS)?1:-1];
         for(int i=0;i<PT_FIELDS;i++) r.v[i]=values[i];
         pt_enqueue(&r);
@@ -1500,7 +1524,7 @@ static void setup(HMODULE self) {
     GetModuleFileNameW(0, exe, 519);
     if (!wieq(wbase(exe), "skate.exe")) return; /* only the game; stay a plain version.dll elsewhere */
 
-    log_text("---- Dual Stick Controls 5.85 DUALSENSE REPORT FIX loaded (version.dll route)");
+    log_text("---- Dual Stick Controls 5.86 INPUT HANDOFF FIX loaded (version.dll route)");
     log_wide("process: ", exe);
     load_config(0);
     if (GetFileAttributesW(g_ini) == 0xFFFFFFFFu) log_text("no session_controls.ini found; using defaults");

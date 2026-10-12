@@ -1171,8 +1171,8 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
             /* v5.18: finer control - a foot still held from the pop / flick steers its end SIDEWAYS
              * straight away (no swing or let-go needed); only its up / down part (the nose / tail
              * tilt that lands manuals) waits until you swing it round or let go */
-            int fh = s->air && !fl && s->d_front_on && s->d_front_spent && fm >= off;   /* after AirDelayMs: the trick is in */
-            int bh = s->air && !bl && s->d_back_on && s->d_back_spent && bm >= off;
+            int fh = airborne && !fl && s->d_front_on && s->d_front_spent && fm >= off;   /* after AirDelayMs: the trick is in */
+            int bh = airborne && !bl && s->d_back_on && s->d_back_spent && bm >= off;
             /* v5.20: a held foot now tilts its end too (back foot down = tail down for a 5-0, down to
              * the side = smith / feeble), exactly like a fresh press - so the back foot, which is
              * nearly always still held from the ollie, works like the front foot. Only a foot pushed
@@ -1189,6 +1189,9 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
             if (fl && fy > 0 && (!bl || fm >= bm)) y = fy;
             else if (bl && by < 0) y = by;
         }
+        /* Match rail pivot strength while approaching it. Preserve vertical
+         * manual intent; apply the rail gain only to sideways board pivot. */
+        if(c->air_controls) x*=c->grind_sensitivity>0?c->grind_sensitivity:1.0f;
         float m = sc_sqrt(x * x + y * y); if (m > 1.0f) { x /= m; y /= m; }
         s->d_was_air = 1; s->d_t = now; *out_x = x; *out_y = y;
         return;
@@ -1432,7 +1435,9 @@ static sc_pad sc_translate(const sc_config* c, sc_state* s, sc_pad in, double no
         s->rv_start=0;s->tr_rel[0]=s->tr_rel[1]=0;
         s->tr_down[0]=in.lt>=100;s->tr_down[1]=in.rt>=100;
         s->tr_press[0]=s->tr_press[1]=now;
-        s->rv_hold=(in.lt>=100?1:0)+(in.rt>=100?2:0);
+        /* A grab held over touchdown becomes ground steering immediately.
+         * Seed trigger edges above so it cannot invent a fresh revert. */
+        s->rv_hold=0;
         s->bf_side=s->bf_arm=0;s->bf_air_t=0;
         for(int i=0;i<2;i++){s->g_down[i]=(in.buttons&(i?SC_RSHOULDER:SC_LSHOULDER))!=0;s->g_grab[i]=0;s->g_pulse[i]=0;}
     }
