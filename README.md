@@ -4,9 +4,9 @@ A two-stick controller mod for [reSkate](https://github.com/Dingo-Shenanigans/Re
 It translates foot inputs into Skate's existing controls, with Session-style and
 XL-style presets, editable settings, custom presets, and optional stock ramp controls.
 
-Current version: **v5.86 TEST**. Ramp detection remains experimental.
-This build improves held-trigger landing handoff, early board pivots and checked
-stance-read overhead; performance improvement still needs gameplay measurement.
+Current version: **v5.87 TEST**. Ramp detection remains experimental.
+This build fixes stale-foot powerslide lockouts and held-R3 pumping recovery.
+Gameplay confirmation is still needed on the affected device.
 
 ## Install on Windows
 

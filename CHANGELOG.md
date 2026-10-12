@@ -1,5 +1,19 @@
 # Changelog
 
+## v5.87 TEST - changes since v5.86
+
+- Stop stale held/spent foot flags from indefinitely blocking stick powerslides.
+  Keep a brief 300 ms guard after actual vertical setup inputs to protect tricks.
+- Allow strong opposing-stick slides even when the thumbs arrive more than
+  220 ms apart. Eligible slides still activate without an added delay.
+- Recover R3 pumping while the click is held when the sticks return to centre
+  or the skater lands. Clear queued body-flip state when pumping takes over.
+  Airborne body flips and rail exits retain their existing controls.
+
+Seventeen native regression executables passed, including reproduced stale-foot,
+asynchronous-thumb and held-click misses. Gameplay confirmation remains pending.
+Keep existing settings/custom presets. Linux/Proton gameplay remains untested.
+
 ## v5.86 TEST - changes since v5.85
 
 - Restore trigger steering immediately after a stock-mode grab lands, including

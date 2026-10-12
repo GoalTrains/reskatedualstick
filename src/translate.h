@@ -143,7 +143,7 @@ typedef struct {
     double rp_t; float rp_y, d_back_peak, d_front_peak; /* v1.1 pop on release in progress / deepest crouch */
     int d_back_was_down, d_front_was_up; double d_back_rel_t, d_front_rel_t; /* single-stick quick pops */
     int d_windup;         /* this press started from the side: pass through, no scoop detection */
-    int ps_side, ps_tap_side, rv_side, ps_logged; double ps_start, ps_tap_t, rv_start; /* powerslides / reverts */
+    int ps_side, ps_tap_side, rv_side, ps_logged; double ps_pop_t, ps_start, ps_tap_t, rv_start; /* powerslides / reverts */
     int tr_down[2], rv_block, rv_hold, rv_both; /* v4.7 rv_hold: 1 = LT / 2 = RT of a revert still held: no steering from it */ double tr_press[2], tr_rel[2]; /* LT / RT double taps */
     int g_down[2], g_grab[2]; double g_press[2], g_rel[2], g_pulse[2]; /* LB / RB: handplant / dark catch / grab */
     int switched;         /* set by the caller: riding the other way round from the spawn */
@@ -1652,7 +1652,7 @@ static sc_pad sc_translate(const sc_config* c, sc_state* s, sc_pad in, double no
     /* Leaving the slide context must clear its latch before foot translation.
      * A latched slide used to skip sc_pure throughout a stall, even after release. */
     if (!c->powerslide || s->air || s->takeoff == 1 || s->grind) {
-        s->ps_side = s->ps_logged = 0; s->ps_lt = s->ps_rt = 0;
+        s->ps_side = s->ps_logged = 0; s->ps_lt = s->ps_rt = 0; s->ps_pop_t=0;
     }
     if (c->powerslide && !s->air && s->takeoff != 1 && !s->grind && s->phase != SC_EMIT) {
         float alx = sc_abs(lx), arx = sc_abs(rx);
@@ -1665,13 +1665,14 @@ static sc_pad sc_translate(const sc_config* c, sc_state* s, sc_pad in, double no
         int rside = arx >= slide_on && arx > slide_angle * sc_abs(ry);
         if (!lside) s->ps_lt = 0; else if (s->ps_lt <= 0) s->ps_lt = now + 1;
         if (!rside) s->ps_rt = 0; else if (s->ps_rt <= 0) s->ps_rt = now + 1;
-        /* v2.5: both sticks have to go sideways within a forgiving joining window. A wind-up (back foot out to
-         * the side) followed by a sideways flick of the other foot looked like "sticks towards each
-         * other": it started a powerslide, which swallowed the flick and turned the board. */
-        /* v4.1: not when a foot was already held before both went sideways (a wind-up swept round to
-         * the side + the flick of the other foot looked like a powerslide and the trick was eaten) */
-        int foot_busy = c->pure && !s->d_windup && ((s->d_front_on && now - s->pf_t[0] > 90.0) || (s->d_back_on && now - s->pf_t[1] > 90.0));
-        if (lside && rside && (lx > 0) != (rx > 0) && (s->ps_side || (!foot_busy && sc_abs(s->ps_lt - s->ps_rt) <= 220.0)))
+        /* Ordinary sideways inputs use a joining window; strong opposing
+         * thumbs can recover a slide even when they arrive farther apart.
+         * Protect recent vertical setup inputs, not stale spent-foot flags. */
+        int recent_pop=s->ps_pop_t>0 && now+1-s->ps_pop_t<300.0;
+        int foot_busy=c->pure && !s->d_windup && recent_pop;
+        if((fy>=.85f && sc_abs(fx)<.5f) || (by<=-.85f && sc_abs(bx)<.5f))
+            s->ps_pop_t=now+1;
+        if (lside && rside && (lx > 0) != (rx > 0) && (s->ps_side || (!foot_busy && (sc_abs(s->ps_lt - s->ps_rt) <= 220.0 || (alx>=.65f && arx>=.65f)))))
             side = lx > 0 ? 1 : -1;
         if (side && side != s->ps_side) { s->ps_start = now; s->ps_side = side; }
         else if (!side && s->ps_side) { s->ps_side = 0; s->ps_logged = 0; }
@@ -1824,9 +1825,12 @@ static sc_pad sc_translate(const sc_config* c, sc_state* s, sc_pad in, double no
         int pump_neutral = lx*lx + ly*ly <= pump_limit*pump_limit &&
                            rx*rx + ry*ry <= pump_limit*pump_limit;
         if (!pump_ground || !pump_neutral || th != SC_RTHUMB) s->pump_r3 = 0;
-        else if ((down & SC_RTHUMB) && s->phase == SC_IDLE &&
+        /* Recover if the click began before touchdown or while a stick
+         * was off-centre. Centred held R3 is pump intent, not a new flip. */
+        else if (s->phase == SC_IDLE &&
                  !s->d_front_on && !s->d_back_on && s->game_crouch != 1)
-            { s->pump_r3 = 1; s->pump_press_t = now; s->pump_release_t = 0; }
+            { if(!s->pump_r3){s->pump_press_t=now;s->pump_release_t=0;}
+              s->pump_r3=1;s->bf_arm=s->bf_side=0; }
         if (pump_was_held && !s->pump_r3) {
             /* A physical release gets the same short analogue fall as
              * stock R2. Foot gestures and grinds cancel it immediately. */
