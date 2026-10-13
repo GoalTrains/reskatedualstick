@@ -44,6 +44,12 @@ static int ui_builtin_apply_style(int xl,int release) {
     g_cfg.feet_swapped=0;
     return 1;
 }
+static int ui_xl_extras_apply(int on) {
+    if(!ui_snapshot_read(L"SessionControls") ||
+       !ui_snapshot_int(L"StickSteering",on?2:0) ||
+       !ui_snapshot_int(L"OneFootFlips",on?1:0))return 0;
+    return WritePrivateProfileSectionW(L"SessionControls",ui_snapshot,g_ini)!=0;
+}
 static int ui_builtin_apply(int xl){return ui_builtin_apply_style(xl,xl);}
 static int ui_custom_save(void) {
     if(!ui_snapshot_read(L"SessionControls"))return 0;

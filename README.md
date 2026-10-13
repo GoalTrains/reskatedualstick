@@ -4,13 +4,15 @@ A two-stick controller mod for [reSkate](https://github.com/Dingo-Shenanigans/Re
 It translates foot inputs into Skate's existing controls, with Front/Back Flick and
 Physical Feet Release presets, editable settings, custom presets, and optional stock ramp controls.
 
-Current version: **v5.96 TEST**. Ramp detection remains experimental.
-Advanced settings now includes Revert double-tap window (100-600 ms),
-Crouched trigger handling (NORMAL or LIGHT STEERS), and Wind-up trigger strength
-(50-90%). LIGHT STEERS allows weaker trigger pulls to steer while crouched,
-then stronger pulls to wind up. Ease the trigger to steer again before popping.
-Existing behavior remains the default; stock ramp handling is unchanged.
-New options are saved with custom presets. Gameplay confirmation is pending.
+Current version: **v5.97 TEST**. Ramp detection remains experimental.
+The main menu's Skater XL extras toggle enables physical left-stick steering and
+single-stick tricks together, without changing layout or pop style. Advanced
+still allows those settings separately. Started scoops retain their foot input
+instead of being taken over by steering. Half-circle scoops stay blocked from
+one-stick flips when those are disabled; deliberate full circles remain available.
+Physical Feet retains its last confirmed riding stance across a normal dismount;
+full respawns reset it. This is a retention fix, not a new walking-direction detector.
+Gameplay confirmation is pending; Linux/Proton is untested.
 
 ## Install on Windows
 

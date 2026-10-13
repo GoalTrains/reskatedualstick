@@ -978,7 +978,7 @@ static void sc_direct(const sc_config* c, sc_state* s, double now, float fx, flo
  * the game's 360 shove-it ends; going on to flat side read as a one-stick tre).
  * v5.28: IMPOSSIBLES are a different move - a circle that starts at the foot's own end (back foot
  * down / front foot up) and keeps going round (the game wants about 240 degrees). Once such a circle
- * has gone 180 degrees round (over the top: past any one-stick heelflip / kickflip) it is let through,
+ * has gone 240 degrees round (over the top: past any one-stick heelflip / kickflip) it is let through,
  * catching up from the limit in a few quick steps so the game still sees the whole circle.
  * k = 1 back foot (own end down), 0 front foot (own end up). */
 static float sc_own_off(int k, float a) { return k ? sc_abs(sc_wrap(a)) : sc_abs(sc_wrap(a - 180.0f)); }
@@ -1003,7 +1003,7 @@ static void sc_lone_clamp(sc_state* s, int k, float* x, float* y) {
     /* signed offset from the own end (+ = the +x side) */
     float soff = (*x < 0) ? -off : off;
     float base = k ? 0.0f : 180.0f;   /* the foot's own end, in sc_angle degrees */
-    if (!start_side && sc_own_off(k, s->lone_a0[k]) <= 35.0f && sc_abs(s->lone_sw[k]) >= 180.0f && !s->lone_unl[k]) {
+    if (!start_side && sc_own_off(k, s->lone_a0[k]) <= 35.0f && sc_abs(s->lone_sw[k]) >= 240.0f && m>=0.8f && !s->lone_unl[k]) {
         float dir = s->lone_sw[k] > 0 ? 1.0f : -1.0f;
         s->lone_unl[k] = 1;
         s->lone_out[k] = dir * 75.0f + sc_wrap(base - s->lone_a0[k]);   /* where the limit held it, measured from the start */
@@ -1341,7 +1341,7 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
         int live = k ? (bl && !s->d_front_on && !s->d_back_flick) : (fl && !s->d_back_on && !s->d_front_flick);
         float px = k ? bx : fx, py = k ? by : fy, pm = k ? bm : fm;
         float own = k ? -py : py;                    /* + = towards this foot's own end */
-        if (!live) { s->lp_blk[k] = 0; s->lp_dip[k] = 0; s->lp_mag[k] = 0; continue; }
+        if (c->one_foot_flips || !live) { s->lp_blk[k] = 0; s->lp_dip[k] = 0; s->lp_mag[k] = 0; continue; }
         float a = sc_angle(px, py);
         if (own > 0.3f && pm >= 0.5f) { s->lp_dip[k] = 0; s->lp_blk[k] = 0; }
         else if (pm < 0.5f) s->lp_dip[k] = 1;
@@ -1565,14 +1565,19 @@ static sc_pad sc_translate(const sc_config* c, sc_state* s, sc_pad in, double no
     float stick_turn = 0;
     if (c->stick_steer) {
         int ground = !s->air && !s->grind && s->takeoff <= 0;
-        float fax = sc_abs(fx), fmag = sc_sqrt(fx * fx + fy * fy), bmag = sc_sqrt(bx * bx + by * by);
+        int steering_left=c->stick_steer==2 ? 1 : left_is_front;
+        float sx=steering_left?lx:rx,sy=steering_left?ly:ry;
+        float ox=steering_left?rx:lx,oy=steering_left?ry:ly;
+        float fax=sc_abs(sx),fmag=sc_sqrt(sx*sx+sy*sy),bmag=sc_sqrt(ox*ox+oy*oy);
+        int foot_busy=s->d_front_on || s->d_back_on || s->d_front_full || s->d_back_full ||
+                      (s->rp_t>0 && now-s->rp_t<70);
         if (!s->st_latch) {
-            if (ground && s->phase == SC_IDLE && !s->ps_side && bmag < 0.3f && fax >= 0.35f && fax > 1.5f * sc_abs(fy)) s->st_latch = 1;
-        } else if (fmag < 0.25f || !ground) s->st_latch = 0;
+            if (ground && !foot_busy && s->phase == SC_IDLE && !s->ps_side && bmag < 0.3f && fax >= 0.35f && fax > 1.5f*sc_abs(sy)) s->st_latch=1;
+        } else if (fmag < 0.25f || !ground) s->st_latch=0;
         if (s->st_latch) {
-            stick_turn = fx;
-            fx = 0; fy = 0;                                    /* not a foot while it steers */
-            if (left_is_front) { lx = 0; ly = 0; } else { rx = 0; ry = 0; }   /* no powerslide from it */
+            stick_turn=sx;
+            if(steering_left==left_is_front){fx=0;fy=0;}else{bx=0;by=0;}
+            if(steering_left){lx=0;ly=0;}else{rx=0;ry=0;}
         }
     }
 

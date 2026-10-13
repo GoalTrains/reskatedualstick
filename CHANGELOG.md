@@ -1,5 +1,25 @@
 # Changelog
 
+## v5.97 TEST - changes since v5.96
+
+- Add Skater XL extras to the main menu: physical left-stick steering and
+  single-stick tricks together. Preserve layout, switch handling and pop style.
+  Advanced offers OFF / FRONT FOOT / LEFT STICK steering independently.
+- Stop steering from taking over an already-started foot scoop. The recorded
+  Physical Feet nollie scoops were being zeroed when they reached sideways.
+- With single-stick flips blocked, require a deliberate 240-degree full-strength
+  circle before unlocking impossible input. A half-circle or spring rebound
+  must not unlock the far half and add unwanted flip input to shove-its.
+- When single-stick tricks are allowed, also disable the centre-crossing blocker.
+- Physical Feet retains completed riding turns through a normal dismount and
+  remount, regular and goofy, even after fakie flags reset. Full spawn/wipeout
+  resets remain. This does not infer a new riding direction from walking turns.
+- 31 regression executables passed, covering both stances, layouts and switch,
+  scoop preservation, circle thresholds, remounts and custom-preset persistence.
+
+Gameplay confirmation is pending. Linux/Proton is untested. Keep your INI.
+
+
 ## v5.96 TEST - changes since v5.95
 
 - Add Revert double-tap window to Advanced settings (100-600 ms). Higher

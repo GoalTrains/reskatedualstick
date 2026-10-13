@@ -21,6 +21,13 @@ int main(void){WCHAR dir[MAX_PATH];GetTempPathW(MAX_PATH,dir);GetTempFileNameW(d
  assert(GetPrivateProfileIntW(ui_slot_section(),L"FootDeadzonePercent",-1,g_ini)==15);
  assert(GetPrivateProfileIntW(ui_slot_section(),L"PlayStationPads",-1,g_ini)==2);
  assert(GetPrivateProfileIntW(ui_slot_section(),L"UnrelatedSetting",-1,g_ini)==42);
+ assert(ui_xl_extras_apply(1));
+ assert(GetPrivateProfileIntW(L"SessionControls",L"StickSteering",-1,g_ini)==2);
+ assert(GetPrivateProfileIntW(L"SessionControls",L"OneFootFlips",-1,g_ini)==1);
+ assert(GetPrivateProfileIntW(L"SessionControls",L"UnrelatedSetting",-1,g_ini)==42);
+ assert(ui_xl_extras_apply(0));
+ assert(GetPrivateProfileIntW(L"SessionControls",L"StickSteering",-1,g_ini)==0);
+ assert(GetPrivateProfileIntW(L"SessionControls",L"OneFootFlips",-1,g_ini)==0);
  assert(ui_builtin_apply(0));assert(!g_cfg.feet_swapped);
  assert(GetPrivateProfileIntW(L"SessionControls",L"FrontBackFoot",-1,g_ini)==1);
  assert(GetPrivateProfileIntW(L"SessionControls",L"SwitchStance",-1,g_ini)==1);

@@ -14,5 +14,6 @@ int main(void){
  assert(step(100,0,7050)==0); /* second 180 + another reset */
  assert(step(101,0,7100)==0);assert(step(101,1,7200)==0);assert(step(100,1,7300)==1);
  assert(step(100,0,8800)==1); /* revert retained */
- assert(step(504,0,9000)==0);assert(step(100,0,9200)==0);
- puts("PASS: regular True Foot retains completed 180/revert through late ground reset; no-turn hop, next turn and off-board reset preserved");}
+ assert(step(504,0,9000)==1);assert(step(100,0,9200)==1);
+ assert(step(700,0,9400)==0);assert(step(504,0,9500)==0);assert(step(100,0,9600)==0);
+ puts("PASS: regular True Foot retains completed 180/revert through late ground reset; no-turn hop, next turn and normal remount retained and full respawn reset preserved");}

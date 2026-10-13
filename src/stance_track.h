@@ -3,6 +3,7 @@
 #ifndef SC_STANCE_TRACK_H
 #define SC_STANCE_TRACK_H
 typedef struct {
+    int rode_before_walk;
     int initialized, prev_state, prev_raw, reference, takeoff_stance, stance;
     double turn_time;
     double landing_turn_ms, landed_at, late_turn_ms, late_slide_ms;
@@ -100,6 +101,21 @@ static int sc_resolve_stance(sc_stance_track* t, int source, int goofy,
             else if(now-t->direct_since>=75) {t->direct_stance=raw;t->direct_candidate=-1;}
         } else t->direct_candidate=-1;
         return t->direct_stance;
+    }
+    /* Physical feet follow completed riding turns across a normal dismount.
+     * Fakie foot placement can reset every native flag before walking; motion
+     * may then agree with that reset and cannot recover the lost foot identity.
+     * Full spawn/wipeout states still clear the riding reference. */
+    if(source==4 && mode==3 && !front_back) {
+        if(state==300 || state==700)t->rode_before_walk=0;
+        if(state==504 && t->rode_before_walk && t->initialized) {
+            t->reference=t->takeoff_stance=t->pending_reference=-1;
+            t->saw_air_edge=t->air_zero_pending=0;t->turn_time=0;
+            t->prev_state=504;t->prev_raw=-1;
+            t->landing_turn_ms=t->late_turn_ms=t->late_slide_ms=-1;
+            return t->stance;
+        }
+        if(state>=100 && state<500 && state!=300)t->rode_before_walk=1;
     }
     /* A spawn grace period can include the first trick. Only reset the
      * goofy tracker on actual off-board/spawn states, not on every poll

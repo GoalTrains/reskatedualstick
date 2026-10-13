@@ -39,7 +39,7 @@ static DWORD WINAPI pt_worker(void* unused) {
     const WCHAR* tail=L"\\session_controls_input.csv"; while(*tail) path[i++]=*tail++; path[i]=0;
     HANDLE f=CreateFileW(path,4,1|2|4,0,4,0x80,0);
     if(f==INVALID_HANDLE_VALUE) { pt_failed=1; log_text("precise input log: could not open session_controls_input.csv"); return 0; }
-    const char marker[]="# Dual Stick Controls 5.96 REVERT TIMING AND PREWIND OPTIONS; new session; axes are signed 16-bit; timestamps are absolute QPC microseconds\r\n";
+    const char marker[]="# Dual Stick Controls 5.97 XL EXTRAS AND SCOOP REMOUNT FIXES; new session; axes are signed 16-bit; timestamps are absolute QPC microseconds\r\n";
     if(!pt_send(f,marker,sizeof marker-1) || !pt_send(f,pt_header,sizeof pt_header-1)) goto failed;
     log_text("precise input log: session_controls_input.csv (every changed poll, exact axes and foot mapping)");
     for(;;) {

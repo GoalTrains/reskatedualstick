@@ -190,7 +190,8 @@ static void load_config(int keep_runtime) {
     if (g_cfg.switch_flip < 0 || g_cfg.switch_flip > 3) g_cfg.switch_flip = 1;
     g_cfg.prewind = ini_int(L"SpinWindUp", 1);
     g_cfg.body_flips = ini_int(L"BodyFlips", 1) != 0;
-    g_cfg.stick_steer = ini_int(L"StickSteering", 0) != 0;   /* v5.15 */
+    g_cfg.stick_steer = ini_int(L"StickSteering", 0);
+    if(g_cfg.stick_steer<0 || g_cfg.stick_steer>2)g_cfg.stick_steer=0;   /* v5.15 */
     g_cfg.front_back = ini_int(L"FrontBackFoot", 1) != 0;     /* v5.26 */
     /* Front/back always keeps its jobs in switch. Preserve the stored key
      * so switching back to left/right restores that layout's switch choice. */
@@ -1104,7 +1105,7 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
             sc_motion_stance zero={0}; motion=zero;
             motion_slot=g_local; motion_enabled=g_motion_stance;
         }
-        if (g_motion_stance && g_switch_src==4 && !g_cfg.goofy && g_local>=0) {
+        if (g_motion_stance && g_switch_src==4 && !g_cfg.goofy && !(g_cfg.switch_flip==3 && !g_cfg.front_back) && g_local>=0) {
             float position[3]={0}, facing[3]={0};
             /* A fixed riding reference needs no more position/facing reads.
              * Collect motion only while an actual remount is calibrating. */
@@ -1532,7 +1533,7 @@ static void setup(HMODULE self) {
     GetModuleFileNameW(0, exe, 519);
     if (!wieq(wbase(exe), "skate.exe")) return; /* only the game; stay a plain version.dll elsewhere */
 
-    log_text("---- Dual Stick Controls 5.96 REVERT TIMING AND PREWIND OPTIONS loaded (version.dll route)");
+    log_text("---- Dual Stick Controls 5.97 XL EXTRAS AND SCOOP REMOUNT FIXES loaded (version.dll route)");
     log_wide("process: ", exe);
     load_config(0);
     if (GetFileAttributesW(g_ini) == 0xFFFFFFFFu) log_text("no session_controls.ini found; using defaults");

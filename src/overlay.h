@@ -73,14 +73,14 @@ static HWND ui_foreground_game(void) {
 
 
 /* v5.12: PURE only. Trick input and Kick / heel sides rows removed; Menu size moved to the bottom. */
-enum { UI_PRESET_SESSION, UI_PRESET_XL, UI_SESSION, UI_STANCE, UI_LAYOUT, UI_SWITCH, UI_POPSTYLE, UI_ONEFOOT, UI_STEER, UI_REVERTS, UI_WINDUP, UI_FLIPS, UI_AIR, UI_SLIDES, UI_BUMP, UI_SIZE, UI_CLOSE, UI_ADVANCED, UI_BACK, UI_CUSTOM, UI_SLOT, UI_SAVE, UI_LOAD, UI_STARTUP, UI_HOTKEY, UI_STOCKAIR, UI_RAMPDIAG, UI_PRESET_FB_RELEASE, UI_PRESET_PHYS_FLICK, UI_TAPWINDOW, UI_WINDSTEER, UI_WINDTHRESH, UI_COUNT };
+enum { UI_PRESET_SESSION, UI_PRESET_XL, UI_SESSION, UI_STANCE, UI_LAYOUT, UI_SWITCH, UI_POPSTYLE, UI_ONEFOOT, UI_STEER, UI_REVERTS, UI_WINDUP, UI_FLIPS, UI_AIR, UI_SLIDES, UI_BUMP, UI_SIZE, UI_CLOSE, UI_ADVANCED, UI_BACK, UI_CUSTOM, UI_SLOT, UI_SAVE, UI_LOAD, UI_STARTUP, UI_HOTKEY, UI_STOCKAIR, UI_RAMPDIAG, UI_PRESET_FB_RELEASE, UI_PRESET_PHYS_FLICK, UI_TAPWINDOW, UI_WINDSTEER, UI_WINDTHRESH, UI_XLEXTRAS, UI_COUNT };
 /* v5.8: wider menu, an explanation box for the highlighted line, and a controls page */
 #define UI_SETTINGS_W 700
 #define UI_CONTROLS_W 700
 #define UI_CONTROLS_X (UI_SETTINGS_W + 8)
 #define UI_W (UI_CONTROLS_X + UI_CONTROLS_W)
 #define UI_INFO 104
-#define UI_HS (48 + 14 * 30 + 10 + UI_INFO + 34)
+#define UI_HS (48 + 15 * 30 + 10 + UI_INFO + 34)
 #define UI_CARDS_PER_PAGE 6
 #define UI_HC (66 + 3 * 232 + 54)
 #define UI_H (UI_HS > UI_HC ? UI_HS : UI_HC)
@@ -91,7 +91,7 @@ static volatile int g_ui_draw_scale=100;
 #include "menu_scheme.h"
 static int g_ui_controls_page;   /* six large cards per page */
 
-static const int k_ui_main[] = {UI_PRESET_SESSION, UI_PRESET_FB_RELEASE, UI_PRESET_PHYS_FLICK, UI_PRESET_XL, UI_CUSTOM, UI_SESSION, UI_STANCE, UI_LAYOUT, UI_POPSTYLE, UI_ADVANCED, UI_STARTUP, UI_HOTKEY, UI_SIZE, UI_CLOSE};
+static const int k_ui_main[] = {UI_PRESET_SESSION, UI_PRESET_FB_RELEASE, UI_PRESET_PHYS_FLICK, UI_PRESET_XL, UI_CUSTOM, UI_SESSION, UI_STANCE, UI_LAYOUT, UI_POPSTYLE, UI_ADVANCED, UI_XLEXTRAS, UI_STARTUP, UI_HOTKEY, UI_SIZE, UI_CLOSE};
 static const int k_ui_advanced[] = {UI_LAYOUT, UI_SWITCH, UI_POPSTYLE, UI_ONEFOOT, UI_STEER, UI_REVERTS, UI_TAPWINDOW, UI_WINDUP, UI_WINDSTEER, UI_WINDTHRESH, UI_FLIPS, UI_AIR, UI_SLIDES, UI_BUMP, UI_STOCKAIR, UI_RAMPDIAG, UI_BACK};
 static int g_ui_slot = 1, g_ui_overwrite;
 static int g_ui_startup_input_sync;
@@ -157,7 +157,8 @@ static void ui_value(int item, WCHAR* out) {
     case UI_SWITCH: v = g_cfg.front_back && g_cfg.switch_flip == 3 ? "ON" : g_cfg.switch_flip == 1 ? "KEEP JOBS" : g_cfg.switch_flip == 2 ? "KEEP + MIRROR" : g_cfg.switch_flip == 3 ? "SWAP JOBS" : "OFF"; break;
     case UI_POPSTYLE: v = g_cfg.pop_on_release ? "RELEASE" : "FLICK"; break;
     case UI_ONEFOOT: v = g_cfg.one_foot_flips ? "ALLOWED" : "BLOCKED"; break;
-    case UI_STEER: v = g_cfg.stick_steer ? "ON" : "OFF"; break;
+    case UI_STEER: v = g_cfg.stick_steer==2 ? "LEFT STICK" : g_cfg.stick_steer ? "FRONT FOOT" : "OFF"; break;
+    case UI_XLEXTRAS: v=g_cfg.stick_steer==2 && g_cfg.one_foot_flips ? "ON" : g_cfg.stick_steer || g_cfg.one_foot_flips ? "CUSTOM" : "OFF";break;
     case UI_REVERTS: v = g_cfg.revert_input == 2 ? "BOTH TRIGGERS" : g_cfg.revert_input == 1 ? "DOUBLE TAP" : "OFF"; break;
     case UI_WINDSTEER: v=g_cfg.prewind_steer?"LIGHT STEERS":"NORMAL";break;
     case UI_TAPWINDOW:
@@ -178,7 +179,7 @@ static void ui_value(int item, WCHAR* out) {
 }
 static const WCHAR* const k_ui_labels[UI_COUNT] = {
     L"Front/Back - Flick", L"Physical Feet - Release", L"Dual Stick controls", L"Stance", L"Stick layout", L"Legacy switch mode", L"Pop style", L"Allow single-stick flips", L"Stick steering", L"Reverts", L"Spin wind-up",
-    L"Body flips", L"Air controls", L"Powerslides", L"Grind bump-out", L"Menu size", L"Close", L"Advanced settings", L"Back to presets", L"Custom presets", L"Custom slot", L"Save current settings", L"Load saved settings", L"Show menu on startup", L"Menu hotkey", L"Stock ramp controls", L"Ramp diagnostic recording", L"Front/Back - Release", L"Physical Feet - Flick", L"Revert double-tap window", L"Crouched trigger handling", L"Wind-up trigger strength"};
+    L"Body flips", L"Air controls", L"Powerslides", L"Grind bump-out", L"Menu size", L"Close", L"Advanced settings", L"Back to presets", L"Custom presets", L"Custom slot", L"Save current settings", L"Load saved settings", L"Show menu on startup", L"Menu hotkey", L"Stock ramp controls", L"Ramp diagnostic recording", L"Front/Back - Release", L"Physical Feet - Flick", L"Revert double-tap window", L"Crouched trigger handling", L"Wind-up trigger strength", L"Skater XL extras"};
 static const WCHAR* const k_ui_help[UI_COUNT] = {
     L"Applies FRONT/BACK FOOT, FLICK pop, steering OFF and one-stick flips BLOCKED. Left = front, right = back in every stance. These translate Skate controls across two sticks; inputs differ from Session.",
     L"Applies LEFT/RIGHT FOOT, TRUE FOOT, RELEASE pop, steering ON and one-stick flips ALLOWED. Sticks stay with physical feet; jobs swap in switch. These translate Skate controls across two sticks; inputs differ from XL.",
@@ -188,7 +189,7 @@ static const WCHAR* const k_ui_help[UI_COUNT] = {
     L"Advanced compatibility option. SWAP JOBS = physical feet / True Foot. KEEP JOBS = old ON translation without swapping jobs. OFF = unchanged translation. Changing away from SWAP JOBS makes the layout LEGACY L/R.",
     L"FLICK: crouch, then flick the other foot to pop. RELEASE: hold a full setup and release to pop; two-foot flicks also work. Both are translated into Skate flick-stick input.",
     L"BLOCKED: flip tricks need both feet - one stick on its own can still scoop shove-its, 360 shove-its and impossibles (a full circle over the top), but not sweep into a heelflip, kickflip or tre. ALLOWED: no limit.",
-    L"Skater XL style: while rolling with the back foot let go, push the front-foot stick sideways to turn (triggers still work). Let it back to the middle before you pop or flick with it.",
+    L"OFF / FRONT FOOT / LEFT STICK: choose which stick steers with the other centred. Centre it before beginning a foot trick. A started scoop keeps its foot control through sideways angles. Triggers still turn.",
     L"How to revert. BOTH TRIGGERS: squeeze LT + RT together (reverts towards the one pressed first). DOUBLE TAP: double-tap LT or RT. OFF.",
     L"Crouch, then hold LT or RT before you pop: the skater winds up a spin that way (the game's prewind).",
     L"Click the front-foot stick for a frontflip or the back-foot stick for a backflip while foot-crouched or airborne. This option enables body flips. Centred R3 pumping and rail/lip exits are separate controls.",
@@ -211,7 +212,8 @@ static const WCHAR* const k_ui_help[UI_COUNT] = {
     L"PHYSICAL FEET with FLICK pop, steering ON and single-stick flips ALLOWED. Hold one foot, then flick the other to pop. Foot jobs swap in switch. All templates translate Skate controls.",
     L"DOUBLE TAP reverts only: 100-600 ms between releasing the first tap and pressing again. Higher = more forgiving, with more chance of accidental reverts. Does not change revert speed or BOTH TRIGGERS mode.",
     L"NORMAL keeps existing pre-wind. LIGHT STEERS lets weaker trigger pulls turn while crouched; a stronger pull starts pre-wind. Ease below the strength setting to cancel wind-up and steer again before takeoff. Spin wind-up must be ON. Stock ramp controls use Skate's own handling.",
-    L"LIGHT STEERS only: net LT/RT pull required to wind up while crouched (50-90%). Weaker pulls steer. After takeoff the usual spin threshold applies. This does not change normal turning sensitivity."};
+    L"LIGHT STEERS only: net LT/RT pull required to wind up while crouched (50-90%). Weaker pulls steer. After takeoff the usual spin threshold applies. This does not change normal turning sensitivity.",
+    L"ON enables physical LEFT-STICK steering and single-stick tricks together. OFF disables both. Keeps your layout, stance handling and pop style. These are Skate inputs across two sticks; this is not an exact XL control scheme. Individual options remain in Advanced."};
 /* v5.9 controls page as Flick-it style pictures: each card shows the two sticks (L = front foot,
  * R = back foot, regular stance) with the moves drawn on them. kind 0 = line from (a,b) to (c,d),
  * 1 = arc of radius a from angle b to c (0 = up, clockwise), 2 = stick click. end: 0 arrow (flick),
@@ -420,7 +422,11 @@ static void ui_change(int item, int dir) {
         ui_set(L"SwitchStance", v == 1 ? L"1" : v == 3 ? L"3" : L"0"); break; }
     case UI_POPSTYLE: ui_set(L"PopOnRelease", g_cfg.pop_on_release ? L"0" : L"1"); break;
     case UI_ONEFOOT: ui_set(L"OneFootFlips", g_cfg.one_foot_flips ? L"0" : L"1"); break;
-    case UI_STEER: ui_set(L"StickSteering", g_cfg.stick_steer ? L"0" : L"1"); break;
+    case UI_XLEXTRAS:
+        if(!ui_xl_extras_apply(!(g_cfg.stick_steer==2 && g_cfg.one_foot_flips))) {
+            g_ui_preset_status=L"Could not save XL extras. Check INI write access.";g_ui_dirty=1;return;
+        }break;
+    case UI_STEER: {int v=(g_cfg.stick_steer+(dir<0?2:1))%3;ui_set(L"StickSteering",v==2?L"2":v==1?L"1":L"0");break;}
     case UI_REVERTS: { int v = (g_cfg.revert_input + (dir < 0 ? 2 : 1)) % 3; ui_set(L"RevertInput", v == 2 ? L"2" : v == 1 ? L"1" : L"0"); break; }
     case UI_TAPWINDOW:
     case UI_WINDTHRESH: {
