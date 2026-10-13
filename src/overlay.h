@@ -153,7 +153,7 @@ static void ui_value(int item, WCHAR* out) {
     case UI_BACK: v = "BACK"; break;
     case UI_SESSION: v = g_user_enabled ? "ON" : "OFF"; break;
     case UI_STANCE: v = g_auto_stance ? (g_game_goofy < 0 ? (g_cfg.goofy ? "AUTO (GOOFY?)" : "AUTO (REG?)") : g_cfg.goofy ? "AUTO: GOOFY" : "AUTO: REGULAR") : g_cfg.goofy ? "GOOFY" : "REGULAR"; break;
-    case UI_LAYOUT: v = g_cfg.front_back ? "FRONT/BACK" : g_cfg.switch_flip==3 ? "PHYSICAL FEET" : "LEGACY L/R"; break;
+    case UI_LAYOUT: v = g_cfg.front_back ? "FRONT/BACK" : g_cfg.switch_flip==3 ? "LEFT/RIGHT FOOT" : "LEGACY L/R"; break;
     case UI_SWITCH: v = g_cfg.front_back && g_cfg.switch_flip == 3 ? "ON" : g_cfg.switch_flip == 1 ? "KEEP JOBS" : g_cfg.switch_flip == 2 ? "KEEP + MIRROR" : g_cfg.switch_flip == 3 ? "SWAP JOBS" : "OFF"; break;
     case UI_POPSTYLE: v = g_cfg.pop_on_release ? "RELEASE" : "FLICK"; break;
     case UI_ONEFOOT: v = g_cfg.one_foot_flips ? "ALLOWED" : "BLOCKED"; break;
@@ -178,14 +178,14 @@ static void ui_value(int item, WCHAR* out) {
     int n = 0; while (v[n] && n < 15) { out[n] = (WCHAR)v[n]; ++n; } out[n] = 0;
 }
 static const WCHAR* const k_ui_labels[UI_COUNT] = {
-    L"Front/Back - Flick", L"Physical Feet - Release", L"Dual Stick controls", L"Stance", L"Stick layout", L"Legacy switch mode", L"Pop style", L"Allow single-stick flips", L"Stick steering", L"Reverts", L"Spin wind-up",
-    L"Body flips", L"Air controls", L"Powerslides", L"Grind bump-out", L"Menu size", L"Close", L"Advanced settings", L"Back to presets", L"Custom presets", L"Custom slot", L"Save current settings", L"Load saved settings", L"Show menu on startup", L"Menu hotkey", L"Stock ramp controls", L"Ramp diagnostic recording", L"Front/Back - Release", L"Physical Feet - Flick", L"Revert double-tap window", L"Crouched trigger handling", L"Wind-up trigger strength", L"Skater XL extras"};
+    L"Front/Back - Flick", L"Left/Right Foot - Release", L"Dual Stick controls", L"Stance", L"Stick layout", L"Legacy switch mode", L"Pop style", L"Allow single-stick flips", L"Stick steering", L"Reverts", L"Spin wind-up",
+    L"Body flips", L"Air controls", L"Powerslides", L"Grind bump-out", L"Menu size", L"Close", L"Advanced settings", L"Back to presets", L"Custom presets", L"Custom slot", L"Save current settings", L"Load saved settings", L"Show menu on startup", L"Menu hotkey", L"Stock ramp controls", L"Ramp diagnostic recording", L"Front/Back - Release", L"Left/Right Foot - Flick", L"Revert double-tap window", L"Crouched trigger handling", L"Wind-up trigger strength", L"Skater XL extras"};
 static const WCHAR* const k_ui_help[UI_COUNT] = {
     L"Applies FRONT/BACK FOOT, FLICK pop, steering OFF and one-stick flips BLOCKED. Left = front, right = back in every stance. These translate Skate controls across two sticks; inputs differ from Session.",
-    L"Applies LEFT/RIGHT FOOT, TRUE FOOT, RELEASE pop, steering ON and one-stick flips ALLOWED. Sticks stay with physical feet; jobs swap in switch. These translate Skate controls across two sticks; inputs differ from XL.",
+    L"Applies LEFT/RIGHT FOOT, TRUE FOOT, RELEASE pop, steering ON and one-stick flips ALLOWED. Left stick = left foot; right stick = right foot. Front/back jobs swap in switch. These translate Skate controls across two sticks; inputs differ from XL.",
     L"Dual Stick on / off. Off = the game's normal controls. Holding L3 + R3 for 3 seconds does the same.",
     L"Which foot is in front. AUTO follows the stance you picked in the game. REGULAR / GOOFY force one.",
-    L"FRONT/BACK: left keeps the front job, right the back job in every stance. PHYSICAL FEET: left/right stick follow left/right foot; jobs swap automatically in switch. LEGACY L/R keeps an older switch mode until you choose a complete layout.",
+    L"FRONT/BACK: left keeps the front job, right the back job in every stance. LEFT/RIGHT FOOT: left stick = left foot, right stick = right foot. Front/back jobs swap in switch. LEGACY L/R keeps an older switch mode until you choose a complete layout.",
     L"Advanced compatibility option. SWAP JOBS = physical feet / True Foot. KEEP JOBS = old ON translation without swapping jobs. OFF = unchanged translation. Changing away from SWAP JOBS makes the layout LEGACY L/R.",
     L"FLICK: crouch, then flick the other foot to pop. RELEASE: hold a full setup and release to pop; two-foot flicks also work. Both are translated into Skate flick-stick input.",
     L"BLOCKED: flip tricks need both feet - one stick on its own can still scoop shove-its, 360 shove-its and impossibles (a full circle over the top), but not sweep into a heelflip, kickflip or tre. ALLOWED: no limit.",
@@ -209,7 +209,7 @@ static const WCHAR* const k_ui_help[UI_COUNT] = {
     L"OFF: foot controls. AIR ONLY: the current trigger-grab air experiment. EARLY ON RAMP: switch to stock controls during a qualifying ramp climb, for stock pop/prewind, then keep them until landing. A cancelled approach returns to foot controls. R3 still pumps. Experimental tilt cue.",
     L"OFF / RAMP / FLAT: record checked skater-object snapshots for finding ramp angle or velocity. Label ramp runs RAMP, then flat-ground ollies FLAT. No automatic ramp detection yet. Bounded recording; OFF stops capture.",
     L"FRONT/BACK with RELEASE pop, steering OFF and single-stick flips BLOCKED. Hold a full setup, then release to pop; two-foot flicks also work. Jobs stay consistent in switch.",
-    L"PHYSICAL FEET with FLICK pop, steering ON and single-stick flips ALLOWED. Hold one foot, then flick the other to pop. Foot jobs swap in switch. All templates translate Skate controls.",
+    L"LEFT/RIGHT FOOT with FLICK pop, steering ON and single-stick flips ALLOWED. Hold one foot, then flick the other to pop. Foot jobs swap in switch. All templates translate Skate controls.",
     L"DOUBLE TAP reverts only: 100-600 ms between releasing the first tap and pressing again. Higher = more forgiving, with more chance of accidental reverts. Does not change revert speed or BOTH TRIGGERS mode.",
     L"NORMAL keeps existing pre-wind. LIGHT STEERS lets weaker trigger pulls turn while crouched; a stronger pull starts pre-wind. Ease below the strength setting to cancel wind-up and steer again before takeoff. Spin wind-up must be ON. Stock ramp controls use Skate's own handling.",
     L"LIGHT STEERS only: net LT/RT pull required to wind up while crouched (50-90%). Weaker pulls steer. After takeoff the usual spin threshold applies. This does not change normal turning sensitivity.",
@@ -389,7 +389,7 @@ static void ui_change(int item, int dir) {
         int xl = item == UI_PRESET_XL || item==UI_PRESET_PHYS_FLICK;
         int release=item==UI_PRESET_XL || item==UI_PRESET_FB_RELEASE;
         if(!ui_builtin_apply_style(xl,release)) {g_ui_preset_status=L"Could not apply the preset. Check that session_controls.ini is writable.";g_ui_dirty=1;return;}
-        g_ui_preset_status=xl?(release?L"Physical Feet - Release applied.":L"Physical Feet - Flick applied."):(release?L"Front/Back - Release applied.":L"Front/Back - Flick applied.");
+        g_ui_preset_status=xl?(release?L"Left/Right Foot - Release applied.":L"Left/Right Foot - Flick applied."):(release?L"Front/Back - Release applied.":L"Front/Back - Flick applied.");
         log_wide("menu: template applied: ",g_ui_preset_status);
         break;
     }

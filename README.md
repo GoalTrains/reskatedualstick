@@ -2,15 +2,15 @@
 
 A two-stick controller mod for [reSkate](https://github.com/Dingo-Shenanigans/ReSkate).
 It translates foot inputs into Skate's existing controls, with Front/Back Flick and
-Physical Feet Release presets, editable settings, custom presets, and optional stock ramp controls.
+Left/Right Foot Release presets, editable settings, custom presets, and optional stock ramp controls.
 
-Current version: **v5.97 TEST**. Ramp detection remains experimental.
+Current version: **v5.98 TEST**. Ramp detection remains experimental.
 The main menu's Skater XL extras toggle enables physical left-stick steering and
 single-stick tricks together, without changing layout or pop style. Advanced
 still allows those settings separately. Started scoops retain their foot input
 instead of being taken over by steering. Half-circle scoops stay blocked from
 one-stick flips when those are disabled; deliberate full circles remain available.
-Physical Feet retains its last confirmed riding stance across a normal dismount;
+Left/Right Foot retains its last confirmed riding stance across a normal dismount;
 full respawns reset it. This is a retention fix, not a new walking-direction detector.
 Gameplay confirmation is pending; Linux/Proton is untested.
 
@@ -77,15 +77,15 @@ seconds toggles Dual Stick controls.
 | --- | --- | --- | --- | --- |
 | Front/Back - Flick | Consistent | Flick | Off | Blocked |
 | Front/Back - Release | Consistent | Release | Off | Blocked |
-| Physical Feet - Flick | Swap | Flick | On | Allowed |
-| Physical Feet - Release | Swap | Release | On | Allowed |
+| Left/Right Foot - Flick | Swap | Flick | On | Allowed |
+| Left/Right Foot - Release | Swap | Release | On | Allowed |
 
 **These presets still map Skate controls across two sticks. Their inputs differ
 from Session and Skater XL.** All listed settings remain editable.
 
 Front/Back Foot always assigns the left stick to the front end and the right to
 the back end, including goofy and switch. Left/Right Foot follows physical feet;
-True Foot changes their front/back jobs when riding switch. Selecting Physical Feet
+True Foot changes their front/back jobs when riding switch. Selecting Left/Right Foot
 sets that behavior automatically; old non-swapping Left/Right settings remain labeled
 Legacy L/R under Advanced. Existing INIs keep their settings until you choose a layout.
 

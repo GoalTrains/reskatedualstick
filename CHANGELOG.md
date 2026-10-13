@@ -1,5 +1,17 @@
 # Changelog
 
+## v5.98 TEST - changes since v5.97
+
+- Rename Physical Feet to Left/Right Foot in the menu, preset names and docs.
+- Explain left stick = left foot, right stick = right foot; front/back jobs
+  swap in switch. Front/Back keeps left = front, right = back in every stance.
+- Labels only: existing settings, custom presets and control behavior are preserved.
+- DLL build and rendered menu verified. The v5.97 control changes passed 31
+  regression executables; their gameplay confirmation is still pending.
+
+Linux/Proton is untested. Keep your INI when updating.
+
+
 ## v5.97 TEST - changes since v5.96
 
 - Add Skater XL extras to the main menu: physical left-stick steering and
