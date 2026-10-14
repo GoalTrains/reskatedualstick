@@ -5,10 +5,12 @@ The mod translates Skate's controls across two sticks; it does not replace the g
 
 ## Download v5.128
 
+[Release notes and downloads](https://github.com/GoalTrains/reskatedualstick/releases/tag/5.128). Download the Windows or Linux asset below; the automatically generated Source code archives are for developers.
+
 | Platform | Download |
 | --- | --- |
-| Windows | [Download Windows zip](https://github.com/GoalTrains/reskatedualstick/raw/refs/heads/main/releases/v5.128/Dual_Stick_Controls_v5.128.zip) |
-| Linux / Steam Deck (Proton) | [Download Linux / Steam Deck zip](https://github.com/GoalTrains/reskatedualstick/raw/refs/heads/main/releases/v5.128/Dual_Stick_Controls_v5.128_Linux.zip) |
+| Windows | [Download Windows zip](https://github.com/GoalTrains/reskatedualstick/releases/download/5.128/Dual_Stick_Controls_v5.128.zip) |
+| Linux / Steam Deck (Proton) | [Download Linux / Steam Deck zip](https://github.com/GoalTrains/reskatedualstick/releases/download/5.128/Dual_Stick_Controls_v5.128_Linux.zip) |
 
 [Changes since v5.108](CHANGELOG.md) · [Windows instructions](docs/INSTALL_WINDOWS.md) · [Linux instructions](docs/INSTALL_LINUX.md)
 
