@@ -1,198 +1,185 @@
 # Dual Stick Controls for reSkate
 
-A two-stick controller mod for [reSkate](https://github.com/Dingo-Shenanigans/ReSkate).
-It translates foot inputs into Skate's existing controls, with Front/Back Flick and
-Left/Right Foot Release presets, editable settings, custom presets, and optional stock ramp controls.
+Play Skate with two foot sticks using **Session-style**, **Skater XL-style**, or your own **Custom** settings.
+The mod translates Skate's controls across two sticks; it does not replace the game's skating physics.
 
-Current version: **v5.98 TEST**. Ramp detection remains experimental.
-The main menu's Skater XL extras toggle enables physical left-stick steering and
-single-stick tricks together, without changing layout or pop style. Advanced
-still allows those settings separately. Started scoops retain their foot input
-instead of being taken over by steering. Half-circle scoops stay blocked from
-one-stick flips when those are disabled; deliberate full circles remain available.
-Left/Right Foot retains its last confirmed riding stance across a normal dismount;
-full respawns reset it. This is a retention fix, not a new walking-direction detector.
-Gameplay confirmation is pending; Linux/Proton is untested.
+## Download v5.128
 
-## Install on Windows
+| Platform | Download |
+| --- | --- |
+| Windows | [Download Windows zip](https://github.com/GoalTrains/reskatedualstick/raw/refs/heads/main/releases/v5.128/Dual_Stick_Controls_v5.128.zip) |
+| Linux / Steam Deck (Proton) | [Download Linux / Steam Deck zip](https://github.com/GoalTrains/reskatedualstick/raw/refs/heads/main/releases/v5.128/Dual_Stick_Controls_v5.128_Linux.zip) |
 
-1. Close the game and back up any existing `version.dll`.
-2. Place the mod's built `version.dll` beside `Skate.exe`.
-3. For a fresh install, copy `config/session_controls.example.ini` beside
-   `Skate.exe` and rename it to `session_controls.ini`.
-4. Launch through `ReSkateLauncher.exe`.
+[Changes since v5.108](CHANGELOG.md) · [Windows instructions](docs/INSTALL_WINDOWS.md) · [Linux instructions](docs/INSTALL_LINUX.md)
 
-When updating, keep your existing INI to retain your settings and custom presets.
-This source repository does not include compiled game files. Build the DLL below
-or use a separately supplied release archive.
+## Install or update
 
-## Linux / Steam Deck with Proton
+1. Close Skate completely.
+2. Open the game folder containing `Skate.exe`.
+3. Back up your existing `version.dll` and `session_controls.ini`.
+4. Copy the downloaded `version.dll` beside `Skate.exe`.
+5. **A fresh INI is recommended for this release:** replace `session_controls.ini` with the included one. This resets settings and custom preset slots, so keep your backup.
+6. Launch through your normal reSkate setup. Press **End** and choose **Session-style** or **Skater XL-style**.
 
-Use the same Windows DLL beside `Skate.exe`. Add this Steam launch option:
+The fresh INI starts with Session-style controls. Select XL in the menu to use its new layout.
+Keep the official `ReSkate.dll`; these downloads contain the standalone mod.
+
+To retain your settings instead, keep your INI and reapply the XL preset if you want XL controls.
+For experimental pose recovery, enable both settings shown below.
+
+## Choose your controls
+
+| Preset | Layout | Pop style | Stick steering | Single-stick flips |
+| --- | --- | --- | --- | --- |
+| Session-style | Front/Back Foot | Flick | Off; triggers turn | Blocked |
+| Skater XL-style | Skater XL | Release | Physical left stick | Allowed |
+| Custom | Your choice | Flick or Release | Your choice | Your choice |
+
+**Front/Back Foot:** left always has the front job and right always has the back job.
+
+**Left/Right Foot:** each stick represents its physical foot. Front/back jobs swap in switch, using front-up/back-down setup directions.
+
+**Skater XL:** each physical stick keeps its setup direction while its ollie/nollie job swaps in switch.
+
+| Skater | Input | Normal stance | Switch |
+| --- | --- | --- | --- |
+| Regular | Right down | Ollie | Nollie / XL's fakie ollie |
+| Regular | Left up | Nollie | Switch ollie |
+| Goofy | Left down | Ollie | Nollie / XL's fakie ollie |
+| Goofy | Right up | Nollie | Switch ollie |
+
+With Release pop, hold the setup then let go. Opposite-foot flicks also work.
+The diagrams follow the selected layout and detected stance. These are inspired profiles; other Skate inputs still differ from Session and XL.
+
+## Open and use the menu
+
+- **End:** open Dual Stick settings; its opening hotkey can be changed under Menu settings.
+- **Insert:** open the official ReSkate menu.
+- D-pad / arrow keys: navigate. A / Enter: select. B: go back.
+- LB / RB or Page Up / Page Down: browse control diagrams.
+- Custom contains the gameplay options and five save/load preset slots.
+- Menu settings lets you disable the startup menu and adjust its size.
+- Hold **LB + RB + L3 + R3** together for three seconds to toggle Dual Stick.
+
+R3 remains the pumping crouch. With the foot sticks centred, hold it to crouch and release with your pumping timing.
+
+
+## Menu guide
+
+The home page has three large choices: **Session-style**, **Skater XL-style**, and **Custom**. Applying either style changes the core control settings. Editing a core setting changes the active profile to Custom; it does not create a saved slot automatically.
+
+The remaining home-page options are **Dual Stick controls**, **Stance**, **Stock ramp controls**, **Menu settings**, and **Close**. The control diagrams stay alongside the settings; use LB/RB to browse them. There is no separate Controls page to open.
+
+### Custom: choose how the sticks behave
+
+| Option | What it changes |
+| --- | --- |
+| Stick layout | FRONT/BACK keeps left = front and right = back. LEFT/RIGHT FOOT follows physical feet with front-up/back-down setup. SKATER XL keeps each physical stick's setup direction when riding switch. |
+| Pop style | FLICK: hold the setup foot, then flick the other. RELEASE: hold a full setup, then release; opposite-foot flicks also work. |
+| Stick steering | OFF, FRONT FOOT, or LEFT STICK. Steering uses the chosen stick while the other is centred. Triggers still turn. Centre the steering stick before starting a foot trick. |
+| Allow single-stick flips | BLOCKED requires two-foot inputs for flip tricks. One-stick shove-its, 360 shove-its and impossibles remain available. ALLOWED also permits single-stick flips. |
+| Switch flick / scoop directions | STANDARD or REVERSED for left/right foot gestures in switch. Does not swap foot ownership or reverse steering. |
+| Switch up / down directions | STANDARD or REVERSED for vertical foot gestures in switch. Does not swap which foot each stick controls. |
+
+**True Foot is the old name for physical-foot job swapping.** Choose **Left/Right Foot** or **Skater XL** for that behavior. The distinction is their setup directions, as explained above. Front/Back already keeps its jobs consistent through a 180.
+
+### Custom: skating options
+
+| Option | What it changes |
+| --- | --- |
+| Reverts | OFF, DOUBLE TAP on either trigger, or BOTH TRIGGERS. With both triggers, the first pressed chooses the direction. |
+| Revert double-tap window | Time allowed between taps: 100-600 ms. A larger window is easier to activate; this changes tap recognition, not the speed of the revert. |
+| Spin wind-up | Enables trigger pre-wind while crouched before takeoff. |
+| Crouched trigger handling | NORMAL uses the existing wind-up handling. LIGHT STEERS lets weaker pulls turn and stronger pulls wind up; easing below the threshold cancels the wind-up. |
+| Wind-up trigger strength | Threshold for LIGHT STEERS, from 50-90%. Does not change ordinary turning sensitivity. |
+| Body flips | Front/back foot stick clicks request frontflips/backflips while foot-crouched or airborne. R3 pumping and grind exits are separate. |
+| Air controls | Moves each board end with its foot stick in the air and on rails. To pop out of a rail or stall, prepare a foot and flick the opposite foot. |
+| Powerslides | Both sticks inward for toe-side, outward for heel-side. No activation delay; add vertical movement to adjust the approach angle. |
+| Grind bump-out | Tilt a stick up/down and click it to exit a rail or lip. With centred sticks, L3 exits left and R3 exits right. |
+| Legacy switch mode | Compatibility option shown for physical layouts. SWAP JOBS is the physical-foot behavior. KEEP JOBS or OFF changes the layout to LEGACY L/R; start with a named layout instead. |
+| Ramp diagnostic recording | OFF, RAMP or FLAT. These labels describe the attempts you record; they do not select a control layout. Leave OFF for normal play. |
+| Saved custom presets | Opens five slots for saving and loading your settings. |
+
+### Save your own preset
+
+1. Apply the closest style, then adjust options in **Custom**.
+2. Open **Saved custom presets** and choose **Custom slot** 1-5.
+3. Select **Save current settings**. For an occupied slot, select Save again to confirm replacement.
+4. To restore it later, select that slot and **Load saved settings**.
+
+Settings are written to `session_controls.ini`. Loading a saved preset preserves this installation's controller connection, menu preferences and regular/goofy selection. Back up the INI before replacing it; a fresh INI clears the slots.
+
+### Stance and ramp controls
+
+**Stance** is your skater's base regular/goofy setting, not a manual normal/switch toggle. AUTO follows the game's configured stance; REGULAR or GOOFY overrides it.
+
+**Stock ramp controls** is separate from the Session/XL preset:
+
+| Mode | Behavior |
+| --- | --- |
+| OFF | Keep dual-stick foot controls. |
+| AIR ONLY | On a qualifying ramp air, a trigger grab activates stock air handling until landing. |
+| EARLY ON RAMP | Activate stock handling during a qualifying ramp climb, allowing stock setup/pre-wind, and retain it through the air until landing. A cancelled approach returns to foot controls. |
+
+During stock ramp handling, triggers grab and the sticks use Skate's handling. R3 remains pumping. The transition detector uses an experimental tilt cue; it is intended to keep flat-ground tricks in dual-stick controls.
+
+### Menu preferences
+
+**Menu settings** contains **Show menu on startup**, **Menu hotkey**, and **Menu size** (75-250%). Select Menu hotkey and press your preferred keyboard key; Left restores End, and Escape/B cancels binding.
+
+Use D-pad/arrow keys to move, A/Enter to select, and left/right to change values. B returns from a subpage; on the home page it closes the menu. End controls this standalone menu; Insert remains the official ReSkate menu.
+
+
+## Experimental pose recovery
+
+This feedback build enables pose recovery in the supplied INI. It may perform a visible on-board reset that stops your speed.
+It is a workaround for specific recorded stance failures, not a complete repair of Skate's animation system.
+
+If retaining an older INI, add or change these lines under `[SessionControls]`:
+
+```ini
+NativeMenuRespawnRecovery=1
+NativeGroundPoseRecovery=1
+```
+
+Set both to `0` to disable the on-board reset. The separate XL foot-job agreement check can resynchronise stale jobs with neutral feet without respawning or braking.
+Large pose diagnostics are off in the supplied INI. The latest goofy changes still need gameplay feedback.
+
+## Controller setup
+
+On Windows, `PlayStationPads=1` reads supported PlayStation pads and presents Xbox input.
+For native DualSense support, use `PlayStationPads=2`, disable Steam Input for the game, and restart. USB is the simplest first setup.
+If Steam Input, DS4Windows or DSX supplies Xbox input, use `PlayStationPads=0`.
+
+The Linux package defaults to `PlayStationPads=0` for an external controller route such as Steam Input. Both downloads contain the same Windows DLL; Linux uses Proton.
+Add this Steam launch option, preserving any other arguments:
 
 ```text
 WINEDLLOVERRIDES="version=n,b" %command%
 ```
 
-This is a Windows DLL loaded through Proton, not a native Linux library.
-Linux/Proton gameplay has not been independently tested with this build.
+If the settings window is hidden in exclusive fullscreen, try borderless/windowed mode.
 
-## DualSense troubleshooting
+## Report a problem
 
-For native DualSense controls, set `PlayStationPads=2`, disable Steam Input,
-and restart the game. Mode 1 reads the controller directly and presents Xbox
-input; mode 0 leaves controller routing to an external mapper. USB is the
-simplest first test. v5.85 validates USB batch/padding framing rather than
-interpreting long reads as Bluetooth simple reports. Unknown framing is skipped
-and logged. The affected player's hardware still needs to confirm this fix.
+[Open an issue](https://github.com/GoalTrains/reskatedualstick/issues/new) with your version, controller, preset, regular/goofy stance and what happened.
+Attach `session_controls.log` and `session_controls_input.csv` from the affected run. If an automatic reset fired unexpectedly, mention that too.
 
-## Menu
+<details>
+<summary>Build the source</summary>
 
-The menu can open on startup without waiting for controller input. Press **End** to reopen
-it by default. Navigate with the D-pad or arrow keys, select with A or Enter,
-and go back with B. The main menu lets you change its hotkey, size, and startup
-display. Controls stay visible on the right in the main menu, Advanced settings,
-and Custom presets. Use **LB / RB** or **Page Up / Page Down** to browse four
-pages of diagrams. D-pad/arrows and A continue to operate settings on the left.
-The menu automatically shrinks to fit the game window.
-
-The companion menu always uses a game-owned window, with no competing graphics
-hooks even before ReSkate loads. `MenuInGame=1` in an older INI cannot re-enable
-the hook. The menu is not desktop-topmost, hides while another app is in front,
-and ignores menu hotkeys and navigation outside the game. It handles replacement
-of the game's startup window. Exclusive fullscreen may still hide a separate
-window; use borderless/windowed mode if necessary.
-
-The companion yields controller input while the official ReSkate Insert menu
-is visible. This standalone update does not add our proposed Dual Stick page
-to stock ReSkate; that remains a separate upstream integration.
-
-Five custom preset slots let you save and load your own settings. Saving over an
-occupied slot requires a second press. Holding L3 and R3 together for three
-seconds toggles Dual Stick controls.
-
-## Presets
-
-| Template | Foot jobs in switch | Pop | Steering | Single-stick flips |
-| --- | --- | --- | --- | --- |
-| Front/Back - Flick | Consistent | Flick | Off | Blocked |
-| Front/Back - Release | Consistent | Release | Off | Blocked |
-| Left/Right Foot - Flick | Swap | Flick | On | Allowed |
-| Left/Right Foot - Release | Swap | Release | On | Allowed |
-
-**These presets still map Skate controls across two sticks. Their inputs differ
-from Session and Skater XL.** All listed settings remain editable.
-
-Front/Back Foot always assigns the left stick to the front end and the right to
-the back end, including goofy and switch. Left/Right Foot follows physical feet;
-True Foot changes their front/back jobs when riding switch. Selecting Left/Right Foot
-sets that behavior automatically; old non-swapping Left/Right settings remain labeled
-Legacy L/R under Advanced. Existing INIs keep their settings until you choose a layout.
-
-The diagrams use the selected layout and last detected riding stance. Custom slots
-include effective sensitivity and controller settings, even when omitted from the INI.
-Startup display and the menu hotkey remain global preferences.
-
-## Basic controls
-
-- Ollie: back foot down, then front foot up. Nollie: front up, then back down.
-  Release pop also allows holding and releasing the pop foot.
-- Outside stock ramp mode, triggers steer and pre-wind; bumpers handle grabs.
-- Move both sticks inward or outward to powerslide. Adjust their vertical angle
-  while holding the slide to change the coping approach.
-- On rails and stalls, sticks adjust the board ends. Pull front up or back down
-  to prepare a trick out, then flick the other foot.
-- Centred L3/R3 bump left/right. Tilt a stick up/down and click it for a lip exit.
-- With sticks centred while riding, hold R3 for pumping crouch and release with
-  your usual pumping timing.
-
-## Stock ramp controls
-
-Under Advanced, choose **Off**, **Air only**, or **Early on ramp**. Fresh installs
-default to Off.
-
-- **Air only:** a qualifying ramp approach and an airborne trigger grab activate
-  stock handling until landing.
-- **Early on ramp:** a qualifying grounded climb activates stock handling before
-  takeoff for stock pop/pre-wind inputs. Landing, or an expired approach, restores
-  foot controls.
-
-In stock mode, the physical left stick controls steering/spins/body direction,
-the right controls the board, and triggers handle airborne grabs. R3 keeps its
-ground pump. A vertical gesture held at handoff must centre or change direction
-before becoming a stock vertical gesture; horizontal rotation is immediate.
-
-The detector uses skater orientation and rapid grounded tilt changes, not a
-confirmed collision-surface normal. Other qualifying surfaces may activate it.
-
-## Build the standalone mod
-
-The standalone mod uses PowerShell and LLVM tools: `clang`, `lld-link` (or
-`ld.lld`), and `llvm-dlltool`. The existing build uses LLVM MinGW on Windows.
+Use PowerShell and LLVM MinGW tools (`clang`, `lld-link` or `ld.lld`, and `llvm-dlltool`):
 
 ```powershell
 .\build.ps1 -LlvmBin 'C:\path\to\llvm-mingw\bin'
-```
-
-The output is `build/version.dll`. The build does not install it into the game.
-The active entry point is `src/version_proxy.c`; `src/translate.h` implements
-the input mapping. Other source files include controller support, diagnostics,
-menus, and historical helpers.
-
-Run the included control regression tests with:
-
-```powershell
 .\test.ps1 -LlvmBin 'C:\path\to\llvm-mingw\bin'
 ```
 
-## Proposed reSkate menu integration
+The output is `build/version.dll`; the script does not install it. The active entry point is `src/version_proxy.c` and the mapping lives in `src/translate.h`.
+The source in this repository corresponds to the included standalone DLL.
 
-`integration/reskate/dual-stick-menu.patch` adds a companion settings page under
-reSkate's Mod Options. It is a separate, unsubmitted source patch. It requires
-the standalone mod; it does not bundle the translator. The test integration also
-feeds raw controller navigation to the Insert overlay and exposes an input
-ownership signal. Companion v5.72 respects that signal, stops its generated
-gestures while reSkate owns input, and protects held feet on return. With an older
-ReSkate DLL that lacks the signal, the companion keeps its previous behavior.
-See its README and draft PR description for the base revision and validation.
+</details>
 
-Building the complete modified reSkate requires its supported Visual Studio C++
-toolchain. The standalone LLVM build above does not build `ReSkate.dll`.
-
-## Logs and troubleshooting
-
-`session_controls.log` records mod events. Precise input logging can also write
-`session_controls_input.csv`. Optional RAMP/FLAT diagnostic recording writes
-`session_controls_ramp.bin`; labels are manual recording labels. Changing the
-label resets the bounded recording allowance. Keep `SwitchSource=4` unless
-diagnosing another source.
-
-Share logs when reporting problems, with your version, controller, preset,
-regular/goofy stance, and what happened. Do not commit personal logs or settings.
-
-To uninstall, close the game and remove the mod's `version.dll` (or restore your
-backup). Keep the INI if you plan to reinstall. Remove an added Proton override.
-
-## License and development
+## License
 
 GPLv3; see [LICENSE](LICENSE). ReSkate is a separate project by its contributors.
-This mod's development and menu integration have used AI assistance, with local
-regression checks and user gameplay testing. See [CHANGELOG.md](CHANGELOG.md)
-for version history and validation notes.
-
-## Remount correction
-
-The experimental regular-stance correction separates riding direction from
-Skate's native trick-input frame. It is enabled even when an older INI omits
-the new key. v5.84 only arms calibration after an actual dismount following
-riding; a fresh spawn on foot keeps the native reference.
-
-The correction needs a short straight ground roll before the first trick after
-remounting; stationary, sideways, airborne and teleport samples cannot establish
-the reference. Calibration ends at takeoff or after two seconds, retaining the
-native reference if no valid direction was established. The reference stays
-fixed while riding. Earlier remount behavior was confirmed in game; the latest
-v5.84 validation changes still require gameplay confirmation.
-Goofy retains its existing reader; this correction is not enabled for goofy.
-Set `RemountStanceMotion=0` to return to the previous reader. Diagnostic
-snapshots are off by default (`RemountDiagnostics=0`).

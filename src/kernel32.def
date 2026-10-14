@@ -36,3 +36,4 @@ EXPORTS
     GetSystemTimeAsFileTime
 
     ReadProcessMemory
+    WriteProcessMemory

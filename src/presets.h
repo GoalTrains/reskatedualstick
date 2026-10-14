@@ -37,6 +37,7 @@ static int ui_snapshot_int(const WCHAR* key,int value) {
 static int ui_builtin_apply_style(int xl,int release) {
     if(!ui_snapshot_read(L"SessionControls"))return 0;
     if(!ui_snapshot_int(L"FrontBackFoot",!xl) || !ui_snapshot_int(L"SwitchStance",xl?3:1) ||
+       !ui_snapshot_int(L"XLFootDirections",xl && release) ||
        !ui_snapshot_int(L"PopOnRelease",release) || !ui_snapshot_int(L"StickSteering",xl) ||
        !ui_snapshot_int(L"OneFootFlips",xl) ||
        !ui_snapshot_int(L"SwitchSource",4) || !ui_snapshot_int(L"PresetFeetSwapped",0))return 0;
@@ -51,6 +52,19 @@ static int ui_xl_extras_apply(int on) {
     return WritePrivateProfileSectionW(L"SessionControls",ui_snapshot,g_ini)!=0;
 }
 static int ui_builtin_apply(int xl){return ui_builtin_apply_style(xl,xl);}
+/* New named profiles set every core control choice atomically. Ramp behaviour,
+ * tuning and controller/menu preferences remain independent shared options. */
+static int ui_profile_apply(int xl) {
+    if(!ui_snapshot_read(L"SessionControls"))return 0;
+    if(!ui_snapshot_int(L"FrontBackFoot",!xl) || !ui_snapshot_int(L"SwitchStance",xl?3:1) ||
+       !ui_snapshot_int(L"XLFootDirections",xl) ||
+       !ui_snapshot_int(L"PopOnRelease",xl) || !ui_snapshot_int(L"StickSteering",xl?2:0) ||
+       !ui_snapshot_int(L"OneFootFlips",xl) || !ui_snapshot_int(L"SwitchSource",4) ||
+       !ui_snapshot_int(L"PresetFeetSwapped",0) || !ui_snapshot_int(L"SwitchInvertX",0) ||
+       !ui_snapshot_int(L"SwitchInvertY",0) || !ui_snapshot_int(L"MirrorFlicks",0))return 0;
+    if(!WritePrivateProfileSectionW(L"SessionControls",ui_snapshot,g_ini))return 0;
+    g_cfg.feet_swapped=0;return 1;
+}
 static int ui_custom_save(void) {
     if(!ui_snapshot_read(L"SessionControls"))return 0;
     /* Save effective values even when they currently came from defaults. */
@@ -58,6 +72,8 @@ static int ui_custom_save(void) {
        !ui_snapshot_int(L"BoardDetect",g_board_detect) ||
        !ui_snapshot_int(L"ToggleHoldMs",g_toggle_ms) ||
        !ui_snapshot_int(L"MirrorFlicks",g_cfg.flip_x) ||
+       !ui_snapshot_int(L"SwitchInvertX",g_cfg.switch_invert_x) ||
+       !ui_snapshot_int(L"SwitchInvertY",g_cfg.switch_invert_y) ||
        !ui_snapshot_int(L"SwitchFlipGoofy",g_cfg.switch_goofy_flip) ||
        !ui_snapshot_int(L"FootDeadzonePercent",(int)(g_cfg.deadzone*100+0.5f)) ||
        !ui_snapshot_int(L"PopFlickPercent",(int)(g_cfg.active*100+0.5f)) ||
@@ -79,7 +95,8 @@ static int ui_custom_save(void) {
        !ui_snapshot_int(L"SpinWindUpTriggerPercent",g_cfg.prewind_percent) ||
        !ui_snapshot_int(L"SpinWindUpMs",(int)g_cfg.prewind_ms) ||
        !ui_snapshot_int(L"BodyFlipGrabMs",(int)g_cfg.bf_grab_ms))return 0;
-    if(!ui_snapshot_int(L"FrontBackFoot",g_cfg.front_back) ||
+    if(!ui_snapshot_int(L"XLFootDirections",g_cfg.xl_layout) ||
+       !ui_snapshot_int(L"FrontBackFoot",g_cfg.front_back) ||
        !ui_snapshot_int(L"SwitchStance",g_cfg.switch_flip) ||
        !ui_snapshot_int(L"PopOnRelease",g_cfg.pop_on_release) ||
        !ui_snapshot_int(L"StickSteering",g_cfg.stick_steer) ||
@@ -105,7 +122,12 @@ static int ui_custom_load(void) {
     if(!ui_slot_filled() || !ui_snapshot_read(ui_slot_section()))return 0;
     /* Startup display is a global menu preference, independent of gameplay
      * presets, including slots saved before this option existed. */
-    if(!ui_snapshot_int(L"RampDiagnostics",g_ramp_diag) ||
+    if(!ui_snapshot_int(L"PlayStationPads",g_ps_enabled) ||
+       !ui_snapshot_int(L"BoardDetect",g_board_detect) ||
+       !ui_snapshot_int(L"MenuScale",g_ui_scale) ||
+       !ui_snapshot_int(L"AutoStance",g_auto_stance) ||
+       !ui_snapshot_put(L"Stance",g_ini_goofy?L"goofy":L"regular") ||
+       !ui_snapshot_int(L"RampDiagnostics",g_ramp_diag) ||
        !ui_snapshot_int(L"ShowMenuOnStartup",g_show_startup_menu) ||
        !ui_snapshot_put(L"MenuKey",g_menu_key_name))return 0;
     if(!WritePrivateProfileSectionW(L"SessionControls",ui_snapshot,g_ini))return 0;

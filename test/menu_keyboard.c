@@ -20,7 +20,7 @@ int main(void){
  g_ui_req_change=1;ui_keyboard_actions();assert(changes==11);
  g_ui_req_cards=1;ui_keyboard_actions();assert(g_ui_controls_page==1);
  ui_keyboard_actions();assert(g_ui_controls_page==1 && changes==11);
- g_ui_page=2;g_ui_req_toggle=1;ui_keyboard_actions();assert(g_ui_open && g_ui_page==0 && g_ui_sel==9);
+ g_ui_page=2;g_ui_req_toggle=1;ui_keyboard_actions();assert(g_ui_open && g_ui_page==0 && g_ui_sel==2);
  g_ui_req_toggle=1;ui_keyboard_actions();assert(!g_ui_open);
  g_ui_bind_mode=1;g_ui_req_bound_key=0x24;ui_keyboard_actions();assert(bound==0x24 && !g_ui_bind_mode);
  puts("PASS: keyboard opens, navigates, changes settings, pages, backs out and rebinds without controller polls");

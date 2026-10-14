@@ -187,7 +187,7 @@ static volatile int g_psn_lock;
 static unsigned g_psn_reads, g_psn_patched, g_psn_sync, g_psn_async;
 static volatile int g_psn_npend;
 static DWORD g_psn_seq;
-static void process(DWORD user, XINPUT_STATE* s);
+static void process(DWORD user, XINPUT_STATE* s,int route);
 
 static void ps_native_track(HANDLE h, int kind) {
     for (int i = 0; i < 8; ++i) if (!g_psn_h[i].h || g_psn_h[i].h == h) { g_psn_h[i].h = h; g_psn_h[i].kind = kind; break; }
@@ -200,29 +200,17 @@ static UINT psn_crc32(const BYTE* p, DWORD n, UINT crc) {
     for (DWORD i = 0; i < n; ++i) { crc ^= p[i]; for (int k = 0; k < 8; ++k) crc = (crc >> 1) ^ (0xEDB88320u & (0u - (crc & 1))); }
     return crc;
 }
-static BYTE psn_axis(short v) { int a = 128 + (v >> 8); return (BYTE)(a < 0 ? 0 : a > 255 ? 255 : a); }
-static BYTE psn_axis_inv(short v) { int a = 127 - (v >> 8); return (BYTE)(a < 0 ? 0 : a > 255 ? 255 : a); }
-
-/* r = report without its id (same layouts as ps_decode). Decode, translate, write back. */
-static void psn_patch_layout(BYTE* r, int ds) {
-    BYTE* pl2 = ds ? &r[4] : &r[7]; BYTE* pr2 = ds ? &r[5] : &r[8];
-    BYTE* pb0 = ds ? &r[7] : &r[4]; BYTE* pb1 = ds ? &r[8] : &r[5];
-    BYTE in_b1 = *pb1, in_l2 = *pl2, in_r2 = *pr2;
-    ps_decode(r, ds);                            /* -> g_ps_state */
-    XINPUT_STATE xs; memset(&xs, 0, sizeof xs);
-    xs.dwPacketNumber = ++g_psn_seq; xs.Gamepad = g_ps_state;
-    process(1, &xs);                             /* the Dual Stick translation (its own state slot) */
-    sc_pad o = xs.Gamepad;
-    r[0] = psn_axis(o.lx); r[1] = psn_axis_inv(o.ly); r[2] = psn_axis(o.rx); r[3] = psn_axis_inv(o.ry);
-    *pl2 = o.lt; *pr2 = o.rt;
-    WORD b = o.buttons; BYTE hat = 8;
-    int up = (b & 1) != 0, dn = (b & 2) != 0, lf = (b & 4) != 0, rt = (b & 8) != 0;
-    if (up && rt) hat = 1; else if (dn && rt) hat = 3; else if (dn && lf) hat = 5; else if (up && lf) hat = 7;
-    else if (up) hat = 0; else if (rt) hat = 2; else if (dn) hat = 4; else if (lf) hat = 6;
-    *pb0 = (BYTE)(hat | ((b & 0x4000) ? 0x10 : 0) | ((b & 0x1000) ? 0x20 : 0) | ((b & 0x2000) ? 0x40 : 0) | ((b & 0x8000) ? 0x80 : 0));
-    *pb1 = (BYTE)(((b & 0x0100) ? 0x01 : 0) | ((b & 0x0200) ? 0x02 : 0) | (o.lt == in_l2 ? (in_b1 & 0x04) : o.lt > 8 ? 0x04 : 0) | (o.rt == in_r2 ? (in_b1 & 0x08) : o.rt > 8 ? 0x08 : 0) |
-                  ((b & 0x0020) ? 0x10 : 0) | ((b & 0x0010) ? 0x20 : 0) | ((b & 0x0040) ? 0x40 : 0) | ((b & 0x0080) ? 0x80 : 0));
+#include "ps_native_write.h"
+/* Decode, translate, then encode only if the controller state changed. */
+static int psn_patch_layout(BYTE* r,int ds){
+    ps_decode(r,ds);
+    XINPUT_STATE xs;memset(&xs,0,sizeof xs);
+    xs.dwPacketNumber=++g_psn_seq;xs.Gamepad=g_ps_state;
+    sc_pad original=xs.Gamepad;
+    process(1,&xs,4);
+    return sc_ps_native_write(r,ds,original,xs.Gamepad);
 }
+
 static void psn_patch(HANDLE h, BYTE* b, DWORD n) {
     int kind = psn_kind(h);
     if (!kind || !b || n < 10) return;
@@ -250,8 +238,8 @@ static void psn_patch(HANDLE h, BYTE* b, DWORD n) {
     }
     for(unsigned i=0;i<f.count;i++) {
         BYTE* report=b+i*f.size;
-        psn_patch_layout(report+f.offset,f.dualsense);
-        if(f.crc) {
+        int changed=psn_patch_layout(report+f.offset,f.dualsense);
+        if(f.crc && changed) {
             BYTE seed=0xA1;UINT c=psn_crc32(&seed,1,0xFFFFFFFFu);
             c=psn_crc32(report,74,c)^0xFFFFFFFFu;
             report[74]=(BYTE)c;report[75]=(BYTE)(c>>8);

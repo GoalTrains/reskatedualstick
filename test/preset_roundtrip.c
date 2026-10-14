@@ -11,10 +11,12 @@ static int ui_slot_filled(void){return GetPrivateProfileIntW(ui_slot_section(),L
 #include "../src/presets.h"
 int main(void){WCHAR dir[MAX_PATH];GetTempPathW(MAX_PATH,dir);GetTempFileNameW(dir,L"scp",0,g_ini);
  g_cfg.front_back=0;g_cfg.switch_flip=3;g_cfg.pop_on_release=1;g_cfg.feet_swapped=1;
+ g_cfg.xl_layout=1;
  g_cfg.deadzone=.15f;g_cfg.active=.3f;g_cfg.manual_max=.85f;g_cfg.steer_scale=1;g_cfg.steer_curve=1.5f;g_cfg.grind_sensitivity=1.2f;
  g_cfg.prewind_steer=1;g_cfg.prewind_percent=80;g_cfg.revert_ms=450;
  WritePrivateProfileStringW(L"SessionControls",L"UnrelatedSetting",L"42",g_ini);
  assert(ui_custom_save());
+ assert(GetPrivateProfileIntW(ui_slot_section(),L"XLFootDirections",-1,g_ini)==1);
  assert(GetPrivateProfileIntW(ui_slot_section(),L"SpinWindUpSteer",-1,g_ini)==1);
  assert(GetPrivateProfileIntW(ui_slot_section(),L"SpinWindUpTriggerPercent",-1,g_ini)==80);
  assert(GetPrivateProfileIntW(ui_slot_section(),L"RevertDoubleTapMs",-1,g_ini)==450);
@@ -46,4 +48,21 @@ int main(void){WCHAR dir[MAX_PATH];GetTempPathW(MAX_PATH,dir);GetTempFileNameW(d
  assert(GetPrivateProfileIntW(L"SessionControls",L"StickSteering",-1,g_ini)==physical);
  assert(GetPrivateProfileIntW(L"SessionControls",L"OneFootFlips",-1,g_ini)==physical);
  }
- DeleteFileW(g_ini);puts("PASS: actual INI presets round-trip defaults, explicit settings and foot swap; complete builtins and global startup preference");}
+ g_cfg.switch_invert_x=g_cfg.switch_invert_y=1;assert(ui_custom_save());
+ assert(GetPrivateProfileIntW(ui_slot_section(),L"SwitchInvertX",-1,g_ini)==1);
+ assert(GetPrivateProfileIntW(ui_slot_section(),L"SwitchInvertY",-1,g_ini)==1);
+ assert(ui_profile_apply(1));
+ assert(GetPrivateProfileIntW(L"SessionControls",L"XLFootDirections",-1,g_ini)==1);
+ assert(GetPrivateProfileIntW(L"SessionControls",L"StickSteering",-1,g_ini)==2);
+ assert(GetPrivateProfileIntW(L"SessionControls",L"SwitchInvertX",-1,g_ini)==0);
+ assert(GetPrivateProfileIntW(L"SessionControls",L"SwitchInvertY",-1,g_ini)==0);
+ g_ps_enabled=1;g_ui_scale=75;g_ini_goofy=0;assert(ui_custom_load());
+ assert(GetPrivateProfileIntW(L"SessionControls",L"PlayStationPads",-1,g_ini)==1);
+ assert(GetPrivateProfileIntW(L"SessionControls",L"MenuScale",-1,g_ini)==75);
+ assert(GetPrivateProfileIntW(L"SessionControls",L"SwitchInvertX",-1,g_ini)==1);
+ assert(ui_profile_apply(0));
+ assert(GetPrivateProfileIntW(L"SessionControls",L"XLFootDirections",-1,g_ini)==0);
+ assert(GetPrivateProfileIntW(L"SessionControls",L"FrontBackFoot",-1,g_ini)==1);
+ assert(GetPrivateProfileIntW(L"SessionControls",L"PopOnRelease",-1,g_ini)==0);
+ assert(GetPrivateProfileIntW(L"SessionControls",L"OneFootFlips",-1,g_ini)==0);
+ DeleteFileW(g_ini);puts("PASS: INI snapshots, profile core choices, switch inversions and preserved controller/menu/stance preferences");}

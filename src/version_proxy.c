@@ -11,6 +11,8 @@
 #include "tricks_all.h"
 #include "stance_track.h"
 #include "motion_stance.h"
+#include "controller_shortcuts.h"
+#include "pause_gate.h"
 
 typedef unsigned char BYTE;
 typedef unsigned short WORD;
@@ -77,11 +79,19 @@ static HMODULE g_self;
 static WCHAR g_dir[520], g_ini[560], g_log[560];
 static sc_config g_cfg;
 static sc_state g_state[4];
+static sc_controller_hold g_controller_hold[4];
 static WORD g_board_button;
 static int g_debug;
 static int g_precise_log = 1;
 static int g_ramp_diag;
 static int g_remount_diag;
+static int g_pose_diag;
+static int g_menu_pose_recovery;
+static int g_native_pose_restore;
+static int g_native_property_restore;
+static int g_native_animation_reset;
+static int g_native_respawn;
+static int g_native_ground_respawn;
 static int g_motion_stance;
 static volatile int g_ramp_diag_reset;
 static int g_board_detect;
@@ -164,6 +174,8 @@ static void load_config(int keep_runtime) {
         if (keep_runtime && was != g_cfg.goofy) log_text(g_cfg.goofy ? "stance: goofy" : "stance: regular");
     }
     g_cfg.flip_x = ini_int(L"MirrorFlicks", 0) != 0;   /* v5.12: ini only (was FlipSideways, a menu row) */
+    g_cfg.switch_invert_x = ini_int(L"SwitchInvertX", 0) != 0;
+    g_cfg.switch_invert_y = ini_int(L"SwitchInvertY", 0) != 0;
     g_cfg.grab_mode = ini_int(L"GrabMode", 1);
     g_cfg.grab_threshold = ini_int(L"GrabTriggerThreshold", 250);
     g_cfg.grab_double_ms = (float)ini_int(L"GrabDoubleTapMs", 300);
@@ -193,6 +205,8 @@ static void load_config(int keep_runtime) {
     g_cfg.stick_steer = ini_int(L"StickSteering", 0);
     if(g_cfg.stick_steer<0 || g_cfg.stick_steer>2)g_cfg.stick_steer=0;   /* v5.15 */
     g_cfg.front_back = ini_int(L"FrontBackFoot", 1) != 0;     /* v5.26 */
+    g_cfg.xl_layout = ini_int(L"XLFootDirections", 0) != 0;
+    if(g_cfg.xl_layout){g_cfg.front_back=0;g_cfg.switch_flip=3;}
     /* Front/back always keeps its jobs in switch. Preserve the stored key
      * so switching back to left/right restores that layout's switch choice. */
     if (g_cfg.front_back) g_cfg.switch_flip = 1;
@@ -271,6 +285,14 @@ static void load_config(int keep_runtime) {
     g_cfg.stock_grab_air = ini_int(L"StockGrabAir", 0) != 0;
     g_cfg.stock_transition_ground = ini_int(L"StockTransitionGround", 0) != 0;
     g_remount_diag = ini_int(L"RemountDiagnostics", 0) != 0;
+    g_pose_diag = ini_int(L"StancePoseDiagnostics", 0) != 0;
+    g_menu_pose_recovery = ini_int(L"MenuPoseRecovery", 0) != 0;
+    /* Legacy pair-only restore stays disabled. New frame recovery is opt-in. */
+    g_native_pose_restore = 0; /* v5.106 restore was overwritten; disabled. */
+    g_native_property_restore = 0; /* v5.109 retained but changed push/board behaviour. */
+    g_native_animation_reset = 0; /* v5.114 request ran but did not fix the pose. */
+    g_native_respawn = ini_int(L"NativeMenuRespawnRecovery",1)!=0;
+    g_native_ground_respawn = ini_int(L"NativeGroundPoseRecovery",1)!=0;
     g_motion_stance = ini_int(L"RemountStanceMotion", 1) != 0;
     g_ramp_diag = ini_int(L"RampDiagnostics", 0); if(g_ramp_diag<0 || g_ramp_diag>2)g_ramp_diag=0;
     g_cfg.air_controls = ini_int(L"AirControls", 1) != 0;
@@ -321,6 +343,7 @@ static double g_now_ms;            /* updated every poll; read by the hook */
 static int g_local = -1;           /* slot of the local skater, once known */
 static double g_spawn_t;           /* when we last followed a (re)spawn */
 static int g_walking;              /* game says the local skater is off the board */
+static int native_local_slot(void);
 
 /* State changes are queued here by the hook (game thread) and written to the log by process(). */
 typedef struct { int slot; DWORD from, to; double t; } st_event;
@@ -508,6 +531,14 @@ static void try_install_selector_hook(UINT64 now) {
  * slot; it gets picked as soon as it reacts to you, or straight away if the old one has gone
  * silent after a bail. */
 static void update_local(void) {
+    int owned=native_local_slot();
+    if(owned>=0) {
+        if(g_local!=owned){
+            if(g_local>=0){sc_respawn_input_reset(g_state,g_controller_hold,4);g_spawn_t=g_now_ms;}
+            g_local=owned;log_num("board detection: native local-player owner, state ",g_slots[owned].state);
+        }
+        return;
+    }
     int active = 0, only = -1, best = -1; double best_r = 0.5;
     for (int i = 0; i < 16; ++i) {
         if (!g_slots[i].sel || g_now_ms - g_slots[i].seen > 30000.0) continue;
@@ -756,14 +787,10 @@ static void load_recordings(void) {
 }
 
 /* ---------------------------------------------------------------- translation */
-/* L3+R3 together toggles Session mode; LB+L3+R3 swaps feet (for switch). */
+/* Both bumpers + both stick clicks toggles Dual Stick; LB+L3+R3 swaps feet. */
 static void handle_combos(DWORD user, XINPUT_STATE* s) {
     if (user > 3) return;
     WORD b = s->Gamepad.buttons, prev = g_prev_buttons[user];
-    WORD both = SC_LTHUMB | SC_RTHUMB;
-    static double both_since; static int both_done;
-    if ((b & both) != both) { both_since = 0; both_done = 0; }
-    else if (both_since <= 0) both_since = g_now_ms;
     /* any button you press is a chance to see which skater reacts (respawn, get on / off) */
     if ((b & ~prev) & (0x1000 | 0x2000 | 0x4000 | 0x8000 | 0x0010 | 0x0020)) g_probe_ms = g_now_ms;
     /* v0.19 menus: Start / Back open one; standard controls until it is closed again. A goes a
@@ -781,22 +808,18 @@ static void handle_combos(DWORD user, XINPUT_STATE* s) {
             if (--g_menu_depth <= 0) { g_menu = 0; g_menu_depth = 0; log_text("menu closed (B): Dual Stick controls back"); }
         }
     }
-    if ((b & both) == both && !both_done && g_now_ms - both_since >= 400.0 && (g_menu || (b & SC_LSHOULDER))) {
-        both_done = 1; /* v0.19: L3+R3 must be HELD for 0.4 s (a quick double stick-click while skating toggled it) */
-        if (g_menu) { g_menu = 0; g_menu_depth = 0; log_text("menu mode cleared (L3+R3): Dual Stick controls back"); }
-        else {
+    WORD consume=0;
+    int shortcut=sc_controller_shortcut(&g_controller_hold[user],b,g_now_ms,(double)g_toggle_ms,g_menu,&consume);
+    if(shortcut==1) {g_menu=0;g_menu_depth=0;log_text("menu mode cleared (L3+R3): Dual Stick controls back");}
+    else if(shortcut==2) {
             g_cfg.feet_swapped = !g_cfg.feet_swapped;
             log_text(g_cfg.feet_swapped ? "feet swapped (switch)" : "feet normal");
-        }
     }
-    /* v5.2: switching Dual Stick on / off needs L3+R3 HELD for ToggleHoldMs (3 s by default), so it
-     * can't be hit by accident */
-    if ((b & both) == both && !both_done && g_now_ms - both_since >= (double)g_toggle_ms) {
-        both_done = 1;
+    else if(shortcut==3) {
         {
             g_user_enabled = !g_user_enabled;
             g_probe_ms = g_now_ms;
-            log_text(g_user_enabled ? "Dual Stick mode: ON (L3+R3)" : "Dual Stick mode: OFF (L3+R3)");
+            log_text(g_user_enabled ? "Dual Stick mode: ON (LB+RB+L3+R3)" : "Dual Stick mode: OFF (LB+RB+L3+R3)");
         }
     }
     if (g_board_button && (b & g_board_button) && !(prev & g_board_button)) {
@@ -807,7 +830,7 @@ static void handle_combos(DWORD user, XINPUT_STATE* s) {
         }
     }
     g_prev_buttons[user] = b;
-    if ((b & both) == both) s->Gamepad.buttons &= (WORD)~(both | SC_LSHOULDER);
+    s->Gamepad.buttons &= (WORD)~consume;
 }
 static void drain_state_events(void) {
         while (g_ev_r != g_ev_w) {
@@ -816,11 +839,17 @@ static void drain_state_events(void) {
             /* v0.19c: every (re)spawn shows up as the 700 flicker, on your board or on foot, often in
              * a different slot from before (the old one just goes quiet in whatever state it had).
              * So the slot that comes out of 700 is you. */
-            if (e.from == STATE_RIDE && e.to != STATE_RIDE && e.slot != g_local) {
+            int native_owner=native_local_slot();
+            if (e.from == STATE_RIDE && e.to != STATE_RIDE && e.slot != g_local &&
+                (native_owner<0 || native_owner==e.slot)) {
                 g_local = e.slot; g_spawn_t = e.t;
                 log_num("board detection: (re)spawn, following your skater, state ", e.to);
             }
-            if (e.from == STATE_RIDE && e.to != STATE_RIDE) g_spawn_t = e.t;
+            if (e.from == STATE_RIDE && e.to != STATE_RIDE && e.slot==g_local) {
+                g_spawn_t=e.t;
+                sc_respawn_input_reset(g_state,g_controller_hold,4);
+                log_text("respawn: cleared stale foot/pump gestures and shortcut holds; master setting preserved");
+            }
             {
                 DWORD st_now2 = g_local >= 0 ? g_slots[g_local].state : 0;
                 int w2 = st_now2 == STATE_OFFBOARD || st_now2 == STATE_WIPEOUT;
@@ -980,6 +1009,14 @@ static int read_switched(void) {
 #include "gstance.h"
 #include "precise_trace.h"
 #include "ramp_diag.h"
+#include "pose_diag.h"
+#include "menu_pose_recovery.h"
+#include "native_pose_poll.h"
+#include "native_property_poll.h"
+#include "native_animation_poll.h"
+#include "native_respawn_poll.h"
+static sc_menu_pose_recovery g_pose_recovery;
+static DWORD g_pose_recovery_user;
 #include "overlay_handoff.h"
 
 static int reskate_owns_input(double now) {
@@ -1003,10 +1040,52 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
         QueryPerformanceCounter(&t0);
         g_now_ms = f0 ? (double)t0 * 1000.0 / (double)f0 : (double)now;
     }
+    nr_try_hook(now);
+    /* Native UI owns the sticks even when replay playback still ticks physics.
+     * Do not let replayed skater states change live foot/stance tracking. */
+    {
+        static int was_native;
+        if(g_native_menu==1 && !reskate_owns_input(now)) {
+            if(!was_native) {
+                np_begin_menu(g_now_ms,user);
+                npp_begin_menu(g_now_ms,user);
+                nar_begin_menu(g_now_ms,user);
+                nr_begin_menu(g_now_ms,user);
+                g_pose_recovery_user=user;
+                sc_menu_pose_enter(&g_pose_recovery,g_local>=0?g_slots[g_local].sel:0,
+                    g_local>=0?(int)g_slots[g_local].state:-1,read_switch_d(),
+                    g_menu_pose_recovery && g_user_enabled);
+            }
+            was_native=1;g_cfg.enabled=0;
+            sc_overlay_suspend(&g_state[user<4?user:0]);
+            g_prev_buttons[user<4?user:0]=s->Gamepad.buttons;
+            ui_start();
+            ui_poll(s); /* Own menu may consume input; otherwise pad is untouched. */
+            return;
+        }
+        if(was_native && g_native_menu==0){
+            np_end_menu(g_now_ms);
+            npp_end_menu(g_now_ms);
+            nar_end_menu(g_now_ms);
+            nr_end_menu(g_now_ms);
+            if(sc_menu_pose_exit(&g_pose_recovery,g_local>=0?g_slots[g_local].sel:0,
+                g_local>=0?(int)g_slots[g_local].state:-1,read_switch_d(),g_now_ms))
+                log_text("experimental menu pose reset: native stance frame changed; waiting for idle ground input");
+            was_native=0;g_menu=g_menu_depth=0;
+            g_ev_r=g_ev_w; /* Discard physics transitions produced by replay/UI. */
+            sc_overlay_suspend(&g_state[user<4?user:0]);
+            log_text("native game menu handoff: cleared stale menu depth and gestures");
+        }
+    }
+    if(!g_native_pose_pending)np_capture_live(g_now_ms);
+    if(!g_npp_pending)npp_capture_live(g_now_ms);
+    if(!g_nar_pending)nar_capture_live(g_now_ms);
+    if(!g_nr_pending)nr_capture_live(g_now_ms);
     dg_frame(g_now_ms, g_local >= 0 ? (int)g_slots[g_local].state : -1);
     if (g_board_detect) try_install_selector_hook(now);
     if (g_sel_status == 2) {
         update_local();
+        drain_state_events();
         if (g_local >= 0) {
             DWORD st_now = g_slots[g_local].state;
             int walking = st_now == STATE_OFFBOARD || st_now == STATE_WIPEOUT;
@@ -1027,7 +1106,6 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
                 if (g_air && t >= 6000.0) { g_air = 0; log_text("    (air controls off: 6 s without landing, probably not really in the air)"); }
             }
         }
-        drain_state_events();
     }
     if (now - g_last_ini_check > 2000) { g_last_ini_check = now; load_config(1); }
     {
@@ -1059,7 +1137,8 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
      * however deep you go into the menus and whichever button you leave them with. */
     {
         static int paused, menu_saw_pause;
-        int p = g_sel_status == 2 && g_local >= 0 && g_slots[g_local].seen > 0 && g_now_ms - g_slots[g_local].seen > 200.0;
+        int actor_known=g_sel_status==2 && g_local>=0 && g_slots[g_local].seen>0;
+        int p=sc_pause_gate(g_native_menu,actor_known,actor_known?g_now_ms-g_slots[g_local].seen:0);
         if (p != paused) {
             paused = p;
             log_text(p ? "game paused (skater stopped): standard controls" : "game running again: Dual Stick controls back");
@@ -1098,6 +1177,11 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
     if (g_sel_status == 2 && g_cfg.switch_flip) {
         int sw = read_switched();
         int native_sw=sw;
+        /* XL pop jobs use retained riding direction; Skate's outgoing input
+         * frame must use the live native flag, including after a remount. */
+        if(g_cfg.xl_layout && (native_sw==0 || native_sw==1)) {
+            st->game_switch_known=1;st->game_switch=native_sw;
+        }
         int motion_sw = -1;
         static sc_motion_stance motion;
         static int motion_slot=-2, motion_enabled=-1;
@@ -1148,6 +1232,16 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
              * riding direction for feet, but the native flag for its input
              * frame, so a fakie input does not become a switch ollie. */
             if (native_sw >= 0) {st->game_switch_known=1;st->game_switch=sw ^ (motion.bias_valid ? motion.bias : 0);}
+        }
+        int agreement=g_cfg.xl_layout && user==g_xl_input_user && g_local>=0?
+            sc_xl_agreement_cached(GetTickCount64(),g_xl_agreement_seen,g_xl_agreement_owner,g_slots[g_local].sel,
+                g_xl_agreement_profile,g_cfg.goofy,g_xl_agreement_hint,native_sw):-1;
+        if(sc_xl_agreement_can_apply(agreement,sw,state,g_xl_idle && nr_xl_feet_neutral(&s->Gamepad,g_cfg.deadzone))) {
+            tracking.stance=agreement;tracking.reference=tracking.takeoff_stance=tracking.pending_reference=-1;
+            tracking.saw_air_edge=tracking.air_zero_pending=0;tracking.turn_time=0;
+            tracking.prev_state=100;tracking.prev_raw=native_sw;tracking.rode_before_walk=1;
+            sw=agreement;
+            log_text(agreement?"XL stance: settled native frame and facing agree on SWITCH; retained foot jobs resynchronised":"XL stance: settled native frame and facing agree on REGULAR; retained foot jobs resynchronised");
         }
         if (g_state_log && tracking.landing_turn_ms >= 0)
             log_num("  stance turned in the air, ms before landing: ", (UINT64)tracking.landing_turn_ms);
@@ -1365,13 +1459,52 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
 }
 /* Capture at the process boundary, including early returns for menus / walking.
  * The output is the actual translated pad, not a rounded summary or a trick guess. */
-static void process(DWORD user, XINPUT_STATE* s) {
+static void process(DWORD user, XINPUT_STATE* s,int route) {
     int tracing=g_precise_log && !pt_failed;
-    sc_pad raw=s->Gamepad; UINT64 start=0;
+    sc_pad raw=s->Gamepad; DWORD packet=s->dwPacketNumber; UINT64 start=0;
+    static int both_reported[4];
+    if(user<4) {
+        int both=(raw.buttons&(SC_LTHUMB|SC_RTHUMB))==(SC_LTHUMB|SC_RTHUMB);
+        if(both!=both_reported[user]) {
+            both_reported[user]=both;
+            log_text(both?"controller stream reports both stick clicks (not proof of physical presses)":"controller stream released the both-stick-click bits");
+            log_num("  controller user ",user);log_num("  route (1=XInput, 2=XInputEx, 3=PS fallback, 4=native HID) ",route);
+            log_num("  incoming packet ",packet);
+        }
+    }
     if(tracing) { pt_start(); tracing=!pt_failed; start=pt_time(); }
     UINT64 timing[4]={0};
     process_inner(user,s,tracing?timing:0);
+    np_note_menu_request(g_now_ms,user,&raw);
+    np_finish(g_now_ms,user,&raw,&s->Gamepad);
+    npp_note_menu_request(g_now_ms,user,&raw);
+    npp_finish(g_now_ms,user,&raw,&s->Gamepad);
+    nar_note_menu_request(g_now_ms,user,&raw);
+    nar_finish(g_now_ms,user,&raw,&s->Gamepad);
+    nr_note_menu(g_now_ms,user,&raw,&s->Gamepad);
+    if(user==g_pose_recovery_user && (g_pose_recovery.pending || g_pose_recovery.pulsing)) {
+        sc_pad guard=raw;
+        sc_pad* out=&s->Gamepad;
+        /* A remaining synthetic trick/steer must not be combined with brake. */
+        if(out->buttons || out->lt>16 || out->rt>16 ||
+           out->lx < -6000 || out->lx > 6000 || out->ly < -6000 || out->ly > 6000 ||
+           out->rx < -6000 || out->rx > 6000 || out->ry < -6000 || out->ry > 6000)
+            guard.buttons|=1;
+        int was_pulsing=g_pose_recovery.pulsing;
+        if(sc_menu_pose_step(&g_pose_recovery,g_local>=0?g_slots[g_local].sel:0,
+           g_local>=0?(int)g_slots[g_local].state:-1,
+           g_menu_pose_recovery && g_cfg.enabled && g_user_enabled,
+           g_native_menu!=0 || g_ui_open || g_menu || g_paused,g_now_ms,&guard)) {
+            out->buttons|=0x2000;
+            if(!was_pulsing)log_text("experimental menu pose reset: sending 120 ms stock brake; stance memory unchanged");
+        } else if(was_pulsing)log_text("experimental menu pose reset: brake released");
+    }
     if(g_ramp_diag || g_remount_diag)rd_capture(GetTickCount64());
+    if(g_pose_diag && g_local>=0 && user<4) {
+        switch_snapshot();
+        pd_capture(GetTickCount64(),g_slots[g_local].sel,g_slots[g_local].state,user,
+                   g_cfg.enabled,g_state[user].switched,g_switch_probes,&raw,&s->Gamepad);
+    }
     if(tracing) {
         sc_state* st=&g_state[user<4?user:0]; sc_pad out=s->Gamepad;
         pt_record r={0}; r.start_us=start; r.end_us=pt_time();
@@ -1391,7 +1524,8 @@ static void process(DWORD user, XINPUT_STATE* s) {
             timing[1]?(int)(timing[1]-timing[0]):0,
             timing[2]?(int)(timing[2]-timing[1]):0,
             timing[3]?(int)(timing[3]-timing[2]):0,
-            (int)(r.end_us-(timing[3]?timing[3]:timing[1]?timing[1]:start))};
+            (int)(r.end_us-(timing[3]?timing[3]:timing[1]?timing[1]:start)),
+            g_cfg.switch_invert_x,g_cfg.switch_invert_y,g_cfg.pop_on_release,g_cfg.stick_steer,g_cfg.one_foot_flips,g_native_menu,(int)packet,route,g_cfg.xl_layout};
         typedef char trace_shape_check[(sizeof values/sizeof values[0]==PT_FIELDS)?1:-1];
         for(int i=0;i<PT_FIELDS;i++) r.v[i]=values[i];
         pt_enqueue(&r);
@@ -1425,15 +1559,17 @@ static void fix_packet(DWORD user, XINPUT_STATE* s) {
 }
 static DWORD WINAPI wrap_getstate(DWORD user, XINPUT_STATE* s) {
     DWORD r = g_real_getstate ? g_real_getstate(user, s) : ERROR_DEVICE_NOT_CONNECTED;
-    if (r != ERROR_SUCCESS && ps_fill(user, s)) r = ERROR_SUCCESS;   /* v0.25: PlayStation pad */
-    if (r == ERROR_SUCCESS && s) { DWORD raw = s->dwPacketNumber; process(user, s); s->dwPacketNumber = raw; fix_packet(user, s); }
+    int route=1;
+    if (r != ERROR_SUCCESS && ps_fill(user, s)) {r = ERROR_SUCCESS;route=3;}
+    if (r == ERROR_SUCCESS && s) { DWORD raw = s->dwPacketNumber; process(user, s,route); s->dwPacketNumber = raw; fix_packet(user, s); }
     else if (user == 0) no_pad_hint(r);
     return r;
 }
 static DWORD WINAPI wrap_getstateex(DWORD user, XINPUT_STATE* s) {
     DWORD r = g_real_getstateex ? g_real_getstateex(user, s) : ERROR_DEVICE_NOT_CONNECTED;
-    if (r != ERROR_SUCCESS && ps_fill(user, s)) r = ERROR_SUCCESS;
-    if (r == ERROR_SUCCESS && s) { DWORD raw = s->dwPacketNumber; process(user, s); s->dwPacketNumber = raw; fix_packet(user, s); }
+    int route=2;
+    if (r != ERROR_SUCCESS && ps_fill(user, s)) {r=ERROR_SUCCESS;route=3;}
+    if (r == ERROR_SUCCESS && s) { DWORD raw = s->dwPacketNumber; process(user, s,route); s->dwPacketNumber = raw; fix_packet(user, s); }
     return r;
 }
 
@@ -1533,7 +1669,7 @@ static void setup(HMODULE self) {
     GetModuleFileNameW(0, exe, 519);
     if (!wieq(wbase(exe), "skate.exe")) return; /* only the game; stay a plain version.dll elsewhere */
 
-    log_text("---- Dual Stick Controls 5.98 LEFT RIGHT FOOT MENU LABELS loaded (version.dll route)");
+    log_text("---- Dual Stick Controls 5.128 XL GOOFY FRAME TEST loaded (version.dll route)");
     log_wide("process: ", exe);
     load_config(0);
     if (GetFileAttributesW(g_ini) == 0xFFFFFFFFu) log_text("no session_controls.ini found; using defaults");

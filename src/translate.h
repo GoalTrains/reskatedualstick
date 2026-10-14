@@ -80,6 +80,8 @@ typedef struct {
     float prewind_ms;     /* how long the move into the wind-up takes */
     float grab_hold_ms;   /* in the air, a bumper held this long is a grab (shorter = dark catch tap) */
     int switch_flip;      /* 1 = riding switch turns the flick stick round (y), 2 = y and x, 3 = true foot */
+    int switch_invert_x, switch_invert_y; /* optional custom foot-input directions; default unchanged */
+    int xl_layout;        /* physical feet; keep each physical stick setup direction in switch */
     int pop_on_release;   /* v1.1: letting go of a full crouch pops (Skater XL style) */
     int landing_manuals;  /* v2.6: a lean held into a landing is a manual: 0 never, 1 after a 180 only, 2 always */
     float manual_max;     /* v2.8: a lean up to this much is a manual; further is a crouch (0-1, default 0.6) */
@@ -247,7 +249,9 @@ static float sc_ovr_ms[SC_TRICK_COUNT];   /* recorded duration of the motion */
 static float sc_abs(float v) { return v < 0 ? -v : v; }
 /* v4.3: does riding switch turn the flick stick round? Regular: yes. Goofy: no - your goofy switch
  * test had ollie / nollie the wrong way round with it (the game already handles it for goofy). */
-#define SC_SWFLIP(c, s) (((s)->game_switch_known ? (s)->game_switch : (s)->switched) && (c)->switch_flip && ((c)->switch_flip != 3 || (c)->front_back) && (!(c)->goofy || (c)->switch_goofy_flip))
+/* XL uses the live native frame for either stance. Keep the historical goofy
+ * exception confined to the older layouts that were tested with it. */
+#define SC_SWFLIP(c, s) (((s)->game_switch_known ? (s)->game_switch : (s)->switched) && (c)->switch_flip && ((c)->switch_flip != 3 || (c)->front_back || (c)->xl_layout) && (!(c)->goofy || (c)->switch_goofy_flip || (c)->xl_layout))
 #define SC_MMAX(c) ((c)->manual_max > 0.2f && (c)->manual_max < 0.95f ? (c)->manual_max : 0.85f)
 static float sc_sqrt(float v) { return v <= 0 ? 0 : __builtin_sqrtf(v); }
 static float sc_sin_deg(float d) { /* small, freestanding */
@@ -886,14 +890,14 @@ static void sc_direct(const sc_config* c, sc_state* s, double now, float fx, flo
     /* Pop height of the second foot: ollie (front second) full when flicked up, low when down;
      * nollie (back second) full when flicked down, low when up. */
     if (fl && bl) {
-        if (s->d_front_seq > s->d_back_seq) { s->d_back_spent = 1; x = ffx; y = ffy; full = fy >= 0; }
-        else { s->d_front_spent = 1; x = bbx; y = bby; full = by <= 0; }
+        if (s->d_front_seq > s->d_back_seq) { s->d_back_spent = 1; x = ffx; y = ffy; full = fy>=0; }
+        else { s->d_front_spent = 1; x = bbx; y = bby; full = by<=0; }
         if (s->d_windup) {
             /* the flick after a wind-up goes straight through, at full speed */
             s->d_log = 2; s->d_log_a = sc_angle(x, y); s->d_log_b = sc_angle(s->ox, s->oy); full = 1;
         }
-    } else if (fl) { x = ffx; y = ffy; full = s->d_windup || !s->d_two || (s->d_back_spent && fy >= 0); }
-    else if (bl) { x = bbx; y = bby; full = s->d_windup || !s->d_two || (s->d_front_spent && by <= 0); }
+    } else if (fl) { x = ffx; y = ffy; full = s->d_windup || !s->d_two || (s->d_back_spent && (fy>=0)); }
+    else if (bl) { x = bbx; y = bby; full = s->d_windup || !s->d_two || (s->d_front_spent && (by<=0)); }
     /* v0.24: a foot on its own (the crouch) goes through at full speed. It used to be slowed like a
      * low-pop flick, so every crouch reached the game ~80 ms late (the input lag people felt). */
     else if (!s->d_front_on && !s->d_back_on) {
@@ -1581,6 +1585,15 @@ static sc_pad sc_translate(const sc_config* c, sc_state* s, sc_pad in, double no
         }
     }
 
+    /* Custom switch directions affect foot gestures, not steering, pumping,
+     * trigger reverts or the physical inward/outward powerslide gesture. */
+    /* XL keeps the physical stick direction while its front/back job swaps. */
+    if(c->xl_layout && !c->front_back && c->switch_flip==3 && s->switched){fy=-fy;by=-by;}
+    if(s->switched) {
+        if(c->switch_invert_x){fx=-fx;bx=-bx;}
+        if(c->switch_invert_y){fy=-fy;by=-by;}
+    }
+
     /* v0.19g powerslides: sticks pushed towards each other and held = toe side (frontside:
      * skate.'s left stick down-right), away from each other = heel side (backside: down-left). Not in the air or on a rail.
      * Reverts: double-tap RT = revert one way, LT = the other (skate.: a circle on the left
@@ -1719,7 +1732,10 @@ static sc_pad sc_translate(const sc_config* c, sc_state* s, sc_pad in, double no
          * thumbs can recover a slide even when they arrive farther apart.
          * Protect recent vertical setup inputs, not stale spent-foot flags. */
         int recent_pop=s->ps_pop_t>0 && now+1-s->ps_pop_t<300.0;
-        int foot_busy=c->pure && !s->d_windup && recent_pop;
+        /* A sideways-start scoop becomes a trick setup once it passes its
+         * full pop end. Do not let the later opposite-foot flick steal it
+         * as a powerslide merely because d_windup is still set. */
+        int foot_busy=c->pure && recent_pop;
         if((fy>=.85f && sc_abs(fx)<.5f) || (by<=-.85f && sc_abs(bx)<.5f))
             s->ps_pop_t=now+1;
         /* Reserve a developing opposing-stick slide before both thumbs
