@@ -1,0 +1,943 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 007c40d..ace9936 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -26,6 +26,15 @@ if(WIN32)
+ endif()
+ 
+ option(DINGOSDK_BUILD_TESTS "Build logging regression tests" OFF)
++option(DINGOSDK_BUILD_DUAL_STICK_TESTS "Build companion Dual Stick settings tests" OFF)
++if(DINGOSDK_BUILD_DUAL_STICK_TESTS AND WIN32)
++    enable_testing()
++    add_executable(dingosdk_dual_stick_settings_tests Extension/UI/Overlay/Test/dual_stick_settings_tests.cpp)
++    add_test(NAME dual_stick_settings COMMAND dingosdk_dual_stick_settings_tests)
++    add_executable(dingosdk_gamepad_navigation_tests Extension/UI/Overlay/Test/gamepad_navigation_tests.cpp)
++    target_link_libraries(dingosdk_gamepad_navigation_tests PRIVATE dingosdk_imgui)
++    add_test(NAME gamepad_navigation COMMAND dingosdk_gamepad_navigation_tests)
++endif()
+ option(DINGOSDK_BUILD_PARK_EDITOR_TESTS "Build park editor regression tests" OFF)
+ option(DINGOSDK_BUILD_TRAINER_TESTS "Build the trainer's tools and regression tests" OFF)
+ if(DINGOSDK_BUILD_PARK_EDITOR_TESTS)
+diff --git a/Extension/UI/Overlay/Test/dual_stick_settings_tests.cpp b/Extension/UI/Overlay/Test/dual_stick_settings_tests.cpp
+new file mode 100644
+index 0000000..71fbe07
+--- /dev/null
++++ b/Extension/UI/Overlay/Test/dual_stick_settings_tests.cpp
+@@ -0,0 +1,82 @@
++#include "../dual_stick_settings.h"
++// Keep assertions (including file operations) enabled in Release test builds.
++#ifdef NDEBUG
++#undef NDEBUG
++#endif
++#include <cassert>
++#include <iostream>
++
++int main() {
++    using namespace dingosdk::dual_stick;
++    std::array<wchar_t, MAX_PATH> temp{}, name{};
++    assert(GetTempPathW(static_cast<DWORD>(temp.size()),temp.data()));
++    assert(GetTempFileNameW(temp.data(),L"dsc",0,name.data()));
++    Settings settings(name.data());
++    Section initial{{L"onefootflips",L"1"},{L"UnknownFutureTuning",L"123"},{L"ShowMenuOnStartup",L"0"},
++                    {L"MenuKey",L"F8"},{L"RampDiagnostics",L"2"},{L"AirControls",L"1"}};
++    assert(settings.write(initial));
++    assert(settings.preset(false));
++    assert(settings.active(false));
++    assert(settings.number(L"OneFootFlips",-1) == 0);
++    assert(settings.number(L"UnknownFutureTuning",-1) == 123);
++    assert(settings.text(L"MenuKey",L"") == L"F8");
++    assert(settings.preset(true));
++    assert(settings.active(true));
++    assert(settings.number(L"SwitchStance",-1) == 3);
++    assert(settings.number(L"OneFootFlips",-1) == 1);
++    assert(settings.layout() == 2);
++    assert(settings.number(L"XLFootDirections",-1) == 1);
++    assert(settings.number(L"StickSteering",-1) == 2);
++    assert(settings.set_layout(1) && settings.layout() == 1);
++    assert(settings.number(L"XLFootDirections",-1) == 0);
++    assert(!settings.active(true));
++    assert(settings.set_layout(0) && settings.layout() == 0);
++    assert(!settings.set_layout(3));
++    assert(settings.preset(true));
++    assert(settings.set(L"SwitchInvertX",1));
++    assert(!settings.active(true));
++    assert(settings.preset(true));
++    assert(settings.number(L"SwitchInvertX",-1) == 0);
++    assert(settings.set(L"DisableHoldFakie",1));
++    assert(settings.set(L"OneFootFlips",0));
++    assert(!settings.active(true));
++    assert(settings.save(1));
++    assert(settings.filled(1));
++    assert(settings.set(L"StockGrabAir",1));
++    assert(settings.set(L"StockTransitionGround",1));
++    assert(settings.save(5));
++    assert(settings.set(L"AirControls",0));
++    assert(settings.set(L"RampDiagnostics",0));
++    assert(settings.set(L"UnknownFutureTuning",456));
++    assert(settings.set_layout(0));
++    assert(settings.set(L"DisableHoldFakie",0));
++    assert(settings.set(L"AutoStance",0));
++    assert(settings.set(L"PlayStationPads",2));
++    assert(settings.set(L"EnabledAtStart",0));
++    assert(settings.load(1));
++    assert(settings.layout() == 2);
++    assert(settings.number(L"DisableHoldFakie",-1) == 1);
++    assert(settings.number(L"AutoStance",-1) == 0);
++    assert(settings.number(L"PlayStationPads",-1) == 2);
++    assert(settings.number(L"EnabledAtStart",-1) == 0);
++    assert(settings.number(L"AirControls",-1) == 1);
++    assert(settings.number(L"RampDiagnostics",-1) == 0);
++    assert(settings.number(L"UnknownFutureTuning",-1) == 456);
++    assert(settings.number(L"StockGrabAir",-1) == 0);
++    assert(settings.load(5));
++    assert(settings.number(L"StockTransitionGround",-1) == 1);
++    assert(!settings.load(2));
++    assert(!settings.save(0) && !settings.save(6));
++    Section readback;
++    assert(settings.read(readback));
++    assert(readback.count(L"OneFootFlips") == 1);
++    assert(SetFileAttributesW(name.data(),FILE_ATTRIBUTE_READONLY));
++    assert(!settings.set(L"OneFootFlips",1));
++    assert(!settings.preset(false));
++    assert(SetFileAttributesW(name.data(),FILE_ATTRIBUTE_NORMAL));
++    assert(DeleteFileW(name.data()));
++    assert(!settings.available());
++    assert(!settings.set(L"OneFootFlips",1) && !settings.preset(false) && !settings.save(1));
++    assert(GetFileAttributesW(name.data()) == INVALID_FILE_ATTRIBUTES);
++    std::cout << "Dual Stick settings integration checks passed\n";
++}
+diff --git a/Extension/UI/Overlay/Test/gamepad_navigation_tests.cpp b/Extension/UI/Overlay/Test/gamepad_navigation_tests.cpp
+new file mode 100644
+index 0000000..96d37a7
+--- /dev/null
++++ b/Extension/UI/Overlay/Test/gamepad_navigation_tests.cpp
+@@ -0,0 +1,111 @@
++#ifdef NDEBUG
++#undef NDEBUG
++#endif
++#include "../gamepad_navigation.h"
++#include "../menu_navigation.h"
++#include <cassert>
++#include <iostream>
++
++static int first_clicks{}, second_clicks{};
++static ImGuiWindow* sidebar{}, *content{}, *nested{};
++static bool enter_nested{}, open_options{}, focus_sidebar{};
++static void menu_frame() {
++    using namespace dingosdk::overlay::menu;
++    claim_menu_back(true);
++    ImGui::NewFrame();
++    ImGui::Begin("Back navigation");
++    menu_back(sidebar, content);
++    ImGui::BeginChild("Sidebar", ImVec2(180, 400));
++    sidebar = ImGui::GetCurrentWindow();
++    if (focus_sidebar) { focus_menu_panel(sidebar,true); focus_sidebar = false; }
++    const bool enter = ImGui::InvisibleButton("Page", ImVec2(160,40), ImGuiButtonFlags_EnableNav);
++    ImGui::SetItemDefaultFocus();
++    ImGui::EndChild(); ImGui::SameLine();
++    ImGui::BeginChild("Content", ImVec2(400,400));
++    content = ImGui::GetCurrentWindow();
++    if (enter) focus_menu_panel(content,true);
++    ImGui::Button("Page tab");
++    ImGui::BeginChild("Nested options", ImVec2(300,200));
++    nested = ImGui::GetCurrentWindow();
++    if (enter_nested) { focus_menu_panel(nested,true); enter_nested = false; }
++    ImGui::Button("Setting");
++    if (open_options) { ImGui::OpenPopup("Options"); open_options = false; }
++    if (ImGui::BeginPopup("Options")) { ImGui::Button("Popup option"); ImGui::EndPopup(); }
++    ImGui::EndChild(); ImGui::EndChild(); ImGui::End(); ImGui::Render();
++}
++static void frame() {
++    ImGui::NewFrame();
++    ImGui::Begin("Controller navigation");
++    // The Insert sidebar, category tabs and option tiles are custom-drawn
++    // InvisibleButtons. Their default flags exclude navigation entirely.
++    if (ImGui::InvisibleButton("First", ImVec2(160,40), ImGuiButtonFlags_EnableNav)) ++first_clicks;
++    ImGui::SetItemDefaultFocus();
++    if (ImGui::InvisibleButton("Second", ImVec2(160,40), ImGuiButtonFlags_EnableNav)) ++second_clicks;
++    ImGui::End(); ImGui::Render();
++}
++int main() {
++    ImGui::CreateContext();
++    auto& io = ImGui::GetIO();
++    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
++    io.ConfigInputTrickleEventQueue = false;
++    io.DisplaySize = ImVec2(1000,1000); io.DeltaTime = 1.f/60;
++    io.IniFilename = nullptr;
++    unsigned char* pixels{}; int width{},height{};
++    io.Fonts->GetTexDataAsRGBA32(&pixels,&width,&height);
++    using dingosdk::overlay::detail::feed_gamepad_navigation;
++    feed_gamepad_navigation(io,true,0x1002,0,0,0,0); frame();
++    assert(io.BackendFlags & ImGuiBackendFlags_HasGamepad);
++    assert(ImGui::IsKeyDown(ImGuiKey_GamepadFaceDown));
++    assert(ImGui::IsKeyDown(ImGuiKey_GamepadDpadDown));
++    feed_gamepad_navigation(io,true,0,32767,-32768,255,0); frame();
++    assert(!ImGui::IsKeyDown(ImGuiKey_GamepadFaceDown));
++    assert(ImGui::IsKeyDown(ImGuiKey_GamepadLStickRight));
++    assert(ImGui::IsKeyDown(ImGuiKey_GamepadLStickDown));
++    assert(ImGui::IsKeyDown(ImGuiKey_GamepadL2));
++    feed_gamepad_navigation(io,true,0,4000,-4000,20,20); frame();
++    assert(!ImGui::IsKeyDown(ImGuiKey_GamepadLStickRight));
++    assert(!ImGui::IsKeyDown(ImGuiKey_GamepadLStickDown));
++    assert(!ImGui::IsKeyDown(ImGuiKey_GamepadL2));
++    feed_gamepad_navigation(io,true,0x2000,-32768,32767,0,255); frame();
++    assert(ImGui::IsKeyDown(ImGuiKey_GamepadFaceRight));
++    assert(ImGui::IsKeyDown(ImGuiKey_GamepadLStickLeft));
++    feed_gamepad_navigation(io,false,0xffff,-32768,32767,255,255); frame();
++    assert(!(io.BackendFlags & ImGuiBackendFlags_HasGamepad));
++    assert(!ImGui::IsKeyDown(ImGuiKey_GamepadFaceRight));
++    assert(!ImGui::IsKeyDown(ImGuiKey_GamepadLStickLeft));
++    assert(!ImGui::IsKeyDown(ImGuiKey_GamepadR2));
++    first_clicks = second_clicks = 0;
++    ImGui::SetWindowFocus("Controller navigation");
++    for (int i=0;i<3;++i) { feed_gamepad_navigation(io,true,0,0,0,0,0); frame(); }
++    feed_gamepad_navigation(io,true,0x0002,0,0,0,0); frame();
++    for (int i=0;i<2;++i) { feed_gamepad_navigation(io,true,0,0,0,0,0); frame(); }
++    feed_gamepad_navigation(io,true,0x1000,0,0,0,0); frame();
++    feed_gamepad_navigation(io,true,0,0,0,0,0); frame();
++    assert(first_clicks == 0 && second_clicks == 1);
++    ImGui::SetWindowFocus(nullptr);
++    for (int i=0;i<3;++i) { feed_gamepad_navigation(io,true,0,0,0,0,0); menu_frame(); }
++    focus_sidebar = true;
++    menu_frame(); menu_frame();
++    assert(ImGui::GetCurrentContext()->NavWindow == sidebar);
++    feed_gamepad_navigation(io,true,0x1000,0,0,0,0); menu_frame();
++    feed_gamepad_navigation(io,true,0,0,0,0,0); menu_frame();
++    assert(ImGui::GetCurrentContext()->NavWindow == content);
++    enter_nested = true; menu_frame(); menu_frame();
++    assert(ImGui::GetCurrentContext()->NavWindow == nested);
++    open_options = true; menu_frame(); menu_frame();
++    assert(!ImGui::GetCurrentContext()->OpenPopupStack.empty());
++    feed_gamepad_navigation(io,true,0x2000,0,0,0,0); menu_frame();
++    assert(ImGui::GetCurrentContext()->OpenPopupStack.empty());
++    assert(ImGui::GetCurrentContext()->NavWindow == nested);
++    feed_gamepad_navigation(io,true,0,0,0,0,0); menu_frame();
++    feed_gamepad_navigation(io,true,0x2000,0,0,0,0); menu_frame();
++    assert(ImGui::GetCurrentContext()->NavWindow == content);
++    feed_gamepad_navigation(io,true,0,0,0,0,0); menu_frame();
++    feed_gamepad_navigation(io,true,0x2000,0,0,0,0); menu_frame();
++    assert(ImGui::GetCurrentContext()->NavWindow == sidebar);
++    feed_gamepad_navigation(io,true,0,0,0,0,0); menu_frame();
++    feed_gamepad_navigation(io,true,0x2000,0,0,0,0); menu_frame();
++    assert(ImGui::GetCurrentContext()->NavWindow == sidebar);
++    ImGui::DestroyContext();
++    std::cout << "Controller navigation: buttons, analog, deadzones, ownership release and D-pad/A widget interaction passed\n";
++}
+diff --git a/Extension/UI/Overlay/dual_stick_settings.h b/Extension/UI/Overlay/dual_stick_settings.h
+new file mode 100644
+index 0000000..1c0ce57
+--- /dev/null
++++ b/Extension/UI/Overlay/dual_stick_settings.h
+@@ -0,0 +1,152 @@
++#pragma once
++#include <Windows.h>
++#include <array>
++#include <map>
++#include <string>
++#include <cwchar>
++#include <utility>
++
++// Optional companion mod settings. Never install hooks or create a configuration
++// when the mod is absent. Resolve beside Skate.exe, independently of working dir.
++namespace dingosdk::dual_stick {
++inline constexpr wchar_t section[] = L"SessionControls";
++struct Choice {
++    const wchar_t* key;
++    const char* label;
++    int fallback;
++    std::array<int, 4> values;
++    std::array<const char*, 4> labels;
++    int count;
++};
++inline constexpr std::array choices{
++    Choice{L"PopOnRelease", "Pop style", 0, {0,1}, {"Flick","Release"},2},
++    Choice{L"OneFootFlips", "One-stick flips", 0, {0,1}, {"Blocked","Allowed"},2},
++    Choice{L"StickSteering", "Stick steering", 0, {0,1,2}, {"Off","Front foot","Left stick"},3},
++    Choice{L"SwitchInvertX", "Switch flick / scoop directions", 0, {0,1}, {"Standard","Reversed"},2},
++    Choice{L"SwitchInvertY", "Switch up / down directions", 0, {0,1}, {"Standard","Reversed"},2},
++    Choice{L"DisableHoldFakie", "Disable hold-fakie", 1, {0,1}, {"Off","On"},2},
++    Choice{L"RevertDoubleTapMs", "Revert double-tap window", 300, {150,300,450,600}, {"150 ms","300 ms","450 ms","600 ms"},4},
++    Choice{L"SpinWindUpSteer", "Crouched trigger handling", 0, {0,1}, {"Normal","Light steers"},2},
++    Choice{L"SpinWindUpTriggerPercent", "Wind-up trigger strength", 90, {50,65,80,90}, {"50%","65%","80%","90%"},4},
++    Choice{L"RevertInput", "Reverts", 2, {0,1,2}, {"Off","Double tap","Both triggers"},3},
++    Choice{L"SpinWindUp", "Spin wind-up", 1, {0,1}, {"Off","On"},2},
++    Choice{L"BodyFlips", "Body flips", 1, {0,1}, {"Off","On"},2},
++    Choice{L"AirControls", "Air controls", 1, {0,1}, {"Off","On"},2},
++    Choice{L"Powerslides", "Powerslides", 1, {0,1}, {"Off","On"},2},
++    Choice{L"GrindBumpMs", "Grind bump", 250, {0,250}, {"Off","On"},2}
++};
++struct KeyLess {
++    bool operator()(const std::wstring& a, const std::wstring& b) const { return _wcsicmp(a.c_str(), b.c_str()) < 0; }
++};
++using Section = std::map<std::wstring, std::wstring, KeyLess>;
++class Settings {
++    std::wstring path_;
++public:
++    explicit Settings(std::wstring path) : path_(std::move(path)) {}
++    static std::wstring game_path() {
++        std::array<wchar_t, 32768> buffer{};
++        const DWORD n = GetModuleFileNameW(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
++        if (!n || n >= buffer.size()) return {};
++        std::wstring path(buffer.data(), n);
++        const auto slash = path.find_last_of(L"\\/");
++        if (slash == std::wstring::npos) return {};
++        return path.substr(0, slash + 1) + L"session_controls.ini";
++    }
++    bool available() const {
++        if (path_.empty()) return false;
++        const DWORD a = GetFileAttributesW(path_.c_str());
++        return a != INVALID_FILE_ATTRIBUTES && !(a & FILE_ATTRIBUTE_DIRECTORY);
++    }
++    int number(const wchar_t* key, int fallback, const wchar_t* from = section) const {
++        return static_cast<int>(GetPrivateProfileIntW(from, key, fallback, path_.c_str()));
++    }
++    std::wstring text(const wchar_t* key, const wchar_t* fallback, const wchar_t* from = section) const {
++        std::array<wchar_t, 256> buffer{};
++        GetPrivateProfileStringW(from, key, fallback, buffer.data(), static_cast<DWORD>(buffer.size()), path_.c_str());
++        return buffer.data();
++    }
++    bool read(Section& entries, const wchar_t* from = section) const {
++        std::array<wchar_t, 32768> buffer{};
++        const DWORD n = GetPrivateProfileSectionW(from, buffer.data(), static_cast<DWORD>(buffer.size()), path_.c_str());
++        if (n >= buffer.size() - 2) return false;
++        entries.clear();
++        for (const wchar_t* p = buffer.data(); *p; p += std::wcslen(p) + 1) {
++            const wchar_t* eq = std::wcschr(p, L'=');
++            if (eq) entries.emplace(std::wstring(p, eq), eq + 1);
++        }
++        return true;
++    }
++    bool write(const Section& entries, const wchar_t* to = section) const {
++        if (!available()) return false;
++        std::wstring buffer;
++        for (const auto& [key, value] : entries) {
++            buffer += key + L"=" + value;
++            buffer.push_back(L'\0');
++        }
++        buffer.push_back(L'\0');
++        if (entries.empty()) buffer.push_back(L'\0');
++        if (buffer.size() >= 32766) return false;
++        return WritePrivateProfileSectionW(to, buffer.c_str(), path_.c_str()) != FALSE;
++    }
++    bool set(const wchar_t* key, int value) const {
++        return available() && WritePrivateProfileStringW(section, key, std::to_wstring(value).c_str(), path_.c_str());
++    }
++    int layout() const {
++        return number(L"FrontBackFoot",1) ? 0 : number(L"SwitchStance",1) != 3 ? 3 : number(L"XLFootDirections",0) ? 2 : 1;
++    }
++    static void layout_keys(Section& entries, int kind) {
++        entries[L"FrontBackFoot"] = kind == 0 ? L"1" : L"0";
++        entries[L"SwitchStance"] = kind == 0 ? L"1" : L"3";
++        entries[L"XLFootDirections"] = kind == 2 ? L"1" : L"0";
++        entries[L"SwitchSource"] = L"4";
++        entries[L"PresetFeetSwapped"] = L"0";
++    }
++    bool set_layout(int kind) const {
++        Section entries;
++        if (kind < 0 || kind > 2 || !available() || !read(entries)) return false;
++        layout_keys(entries,kind);
++        return write(entries);
++    }
++    bool preset(bool xl) const {
++        Section entries;
++        if (!available() || !read(entries)) return false;
++        layout_keys(entries,xl ? 2 : 0);
++        for (const auto* key : {L"PopOnRelease",L"OneFootFlips"}) entries[key] = xl ? L"1" : L"0";
++        entries[L"StickSteering"] = xl ? L"2" : L"0";
++        for (const auto* key : {L"SwitchInvertX",L"SwitchInvertY",L"MirrorFlicks"}) entries[key] = L"0";
++        return write(entries);
++    }
++    bool active(bool xl) const {
++        const int flag = xl ? 1 : 0;
++        return layout() == (xl ? 2 : 0) && number(L"PopOnRelease",0) == flag &&
++            number(L"StickSteering",0) == (xl ? 2 : 0) && number(L"OneFootFlips",0) == flag &&
++            number(L"SwitchSource",4) == 4 && !number(L"PresetFeetSwapped",0) &&
++            !number(L"SwitchInvertX",0) && !number(L"SwitchInvertY",0) && !number(L"MirrorFlicks",0);
++    }
++    static std::wstring slot_name(int slot) { return L"CustomPreset" + std::to_wstring(slot); }
++    bool filled(int slot) const { return slot >= 1 && slot <= 5 && number(L"PresetSaved",0,slot_name(slot).c_str()) == 1; }
++    bool save(int slot) const {
++        Section entries;
++        if (slot < 1 || slot > 5 || !available() || !read(entries)) return false;
++        for (const auto& c : choices) entries[c.key] = std::to_wstring(number(c.key,c.fallback));
++        for (const auto* key : {L"AutoStance",L"StockGrabAir",L"StockTransitionGround"})
++            entries[key] = std::to_wstring(number(key, std::wcscmp(key,L"AutoStance") == 0 ? 1 : 0));
++        entries[L"Stance"] = text(L"Stance",L"regular");
++        entries[L"SwitchSource"] = std::to_wstring(number(L"SwitchSource",4));
++        for (const auto* key : {L"FrontBackFoot",L"SwitchStance",L"XLFootDirections",L"PresetFeetSwapped",L"MirrorFlicks"})
++            entries[key] = std::to_wstring(number(key, std::wcscmp(key,L"FrontBackFoot") == 0 || std::wcscmp(key,L"SwitchStance") == 0 ? 1 : 0));
++        entries[L"PresetSaved"] = L"1";
++        return write(entries,slot_name(slot).c_str());
++    }
++    bool load(int slot) const {
++        Section current, saved;
++        if (!available() || !filled(slot) || !read(current) || !read(saved,slot_name(slot).c_str())) return false;
++        // Gameplay only: menu, recording and launch preferences remain global.
++        // Merge the supported keys so unrelated tuning and unknown future keys survive.
++        for (const auto& c : choices) if (saved.contains(c.key)) current[c.key] = saved[c.key];
++        for (const auto* key : {L"FrontBackFoot",L"SwitchStance",L"XLFootDirections",L"PresetFeetSwapped",L"MirrorFlicks",L"SwitchSource",L"StockGrabAir",L"StockTransitionGround"})
++            if (saved.contains(key)) current[key] = saved[key];
++        return write(current);
++    }
++};
++} // namespace dingosdk::dual_stick
+diff --git a/Extension/UI/Overlay/gamepad_navigation.h b/Extension/UI/Overlay/gamepad_navigation.h
+new file mode 100644
+index 0000000..091fdb8
+--- /dev/null
++++ b/Extension/UI/Overlay/gamepad_navigation.h
+@@ -0,0 +1,31 @@
++#pragma once
++#include <imgui.h>
++#include <algorithm>
++#include <cstdint>
++
++namespace dingosdk::overlay::detail {
++// Feed the existing raw multi-device reader rather than ImGui's slot-zero
++// XInput backend. That backend is disabled; it would also miss native HID pads.
++inline void feed_gamepad_navigation(ImGuiIO& io, bool available, std::uint16_t buttons,
++                                    short lx, short ly, unsigned char lt, unsigned char rt) {
++    if (available) io.BackendFlags |= ImGuiBackendFlags_HasGamepad;
++    else io.BackendFlags &= ~ImGuiBackendFlags_HasGamepad;
++    const auto digital = [&](ImGuiKey key, unsigned mask) { io.AddKeyEvent(key,available && (buttons & mask) != 0); };
++    digital(ImGuiKey_GamepadStart,0x0010); digital(ImGuiKey_GamepadBack,0x0020);
++    digital(ImGuiKey_GamepadFaceDown,0x1000); digital(ImGuiKey_GamepadFaceRight,0x2000);
++    digital(ImGuiKey_GamepadFaceLeft,0x4000); digital(ImGuiKey_GamepadFaceUp,0x8000);
++    digital(ImGuiKey_GamepadDpadUp,0x0001); digital(ImGuiKey_GamepadDpadDown,0x0002);
++    digital(ImGuiKey_GamepadDpadLeft,0x0004); digital(ImGuiKey_GamepadDpadRight,0x0008);
++    digital(ImGuiKey_GamepadL1,0x0100); digital(ImGuiKey_GamepadR1,0x0200);
++    digital(ImGuiKey_GamepadL3,0x0040); digital(ImGuiKey_GamepadR3,0x0080);
++    const auto analog = [&](ImGuiKey key, float value, float low, float high) {
++        const float amount = available ? std::clamp((value-low)/(high-low),0.f,1.f) : 0.f;
++        io.AddKeyAnalogEvent(key,amount > .1f,amount);
++    };
++    analog(ImGuiKey_GamepadL2,lt,30,255); analog(ImGuiKey_GamepadR2,rt,30,255);
++    analog(ImGuiKey_GamepadLStickLeft,-static_cast<float>(lx),7849,32767);
++    analog(ImGuiKey_GamepadLStickRight,lx,7849,32767);
++    analog(ImGuiKey_GamepadLStickUp,ly,7849,32767);
++    analog(ImGuiKey_GamepadLStickDown,-static_cast<float>(ly),7849,32767);
++}
++} // namespace dingosdk::overlay::detail
+diff --git a/Extension/UI/Overlay/hub_page.cpp b/Extension/UI/Overlay/hub_page.cpp
+index 6aefeeb..9e7a5f3 100644
+--- a/Extension/UI/Overlay/hub_page.cpp
++++ b/Extension/UI/Overlay/hub_page.cpp
+@@ -2,6 +2,7 @@
+ #include "skate_style.h"
+ #include "cursor.h"
+ #include "input_capture.h"
++#include "dual_stick_settings.h"
+ #include "Extension/UI/NativeMenu/native_menu_view.h"
+ #include "Extension/UI/NativeMenu/native_tools_view.h"
+ #include "Extension/Boot/discord_presence.h"
+@@ -953,7 +954,7 @@ void failed_page(Ui &ui, ImVec2 a, ImVec2 z) {
+ 
+ // ---------------------------------------------------------------- Mod Options
+ 
+-enum ToolsTab : int { official_tab, custom_tab, world_tab, parks_tab, player_tab, online_tab, visuals_tab, binds_tab };
++enum ToolsTab : int { official_tab, custom_tab, world_tab, parks_tab, player_tab, online_tab, visuals_tab, binds_tab, dual_stick_tab };
+ 
+ // The next (or the one before) of a setting's steps from where it is now; it stops at the ends.
+ template<std::size_t N> float stepped(float current, const std::array<float, N> &steps, int direction) {
+@@ -1103,6 +1104,80 @@ void tools_page(Ui &ui, ImVec2 a, ImVec2 z) {
+     };
+ 
+     switch (h.tools_tab) {
++    case dual_stick_tab: {
++        static const dual_stick::Settings settings(dual_stick::Settings::game_path());
++        static int slot = 1, overwrite_slot = 0;
++        Column list(ui, hash("dual-stick"), a, ImVec2(a.x + column_width, z.y));
++        list.heading("DUAL STICK CONTROLS");
++        const bool installed = settings.available();
++        const auto apply = [&](bool success) {
++            overwrite_slot = 0;
++            say(h, success ? "Saved. The companion mod picks up gameplay settings within two seconds."
++                           : "Couldn't save session_controls.ini. Check that the file is writable.");
++        };
++        if (!installed) {
++            list.note("Install the Dual Stick Controls companion mod (v5.133 or later) beside Skate.exe first. This page manages its settings; ReSkate does not include the control translator.");
++            list.end();
++            break;
++        }
++        if (list.setting("Session-style preset", settings.active(false) ? "Active" : "Apply", true)) apply(settings.preset(false));
++        if (list.setting("XL-style preset", settings.active(true) ? "Active" : "Apply", true)) apply(settings.preset(true));
++        list.note("Both presets translate Skate controls across two sticks. Their inputs differ from Session and Skater XL.");
++        list.note("Session: front/back feet, flick pop, trigger steering, one-stick flips blocked. XL: fixed physical setup directions, jobs swap in switch, release pop, left-stick steering, one-stick flips allowed.");
++        if (const int way = list.adjust("Custom slot", std::to_string(slot), true)) {
++            slot = std::clamp(slot + way, 1, 5);
++            overwrite_slot = 0;
++        }
++        if (list.setting("Load custom controls", settings.filled(slot) ? "Load" : "Empty", settings.filled(slot))) apply(settings.load(slot));
++        if (list.setting("Save custom controls", overwrite_slot == slot ? "Confirm overwrite" : "Save", true)) {
++            if (settings.filled(slot) && overwrite_slot != slot) {
++                overwrite_slot = slot;
++                say(h, "Press Save custom controls again to replace this slot.");
++            } else apply(settings.save(slot));
++        }
++        list.note("Custom slots share the companion mod's five slots. Loading here restores the controls below; menu preferences and other tuning stay unchanged.");
++        list.title("YOUR SETTINGS");
++        const int stance = settings.number(L"AutoStance",1) ? 0 : _wcsicmp(settings.text(L"Stance",L"regular").c_str(),L"goofy") == 0 ? 2 : 1;
++        if (list.setting("Stance", stance == 0 ? "Automatic" : stance == 1 ? "Regular" : "Goofy", true)) {
++            dual_stick::Section entries;
++            if (settings.read(entries)) {
++                const int next = (stance + 1) % 3;
++                entries[L"AutoStance"] = next == 0 ? L"1" : L"0";
++                if (next) entries[L"Stance"] = next == 2 ? L"goofy" : L"regular";
++                apply(settings.write(entries));
++            } else apply(false);
++        }
++        const int layout = settings.layout();
++        const char* layouts[]{"Front / back foot", "Left / right foot", "Skater XL", "Legacy left / right"};
++        if (list.setting("Stick layout", layouts[layout], true)) apply(settings.set_layout((layout + 1) % 3));
++        for (const auto& c : dual_stick::choices) {
++            if (std::wcscmp(c.key,L"SwitchStance") == 0 && settings.number(L"FrontBackFoot",0)) continue;
++            const int value = settings.number(c.key,c.fallback);
++            int index = -1;
++            for (int i = 0; i < c.count; ++i) if (c.values[static_cast<std::size_t>(i)] == value) index = i;
++            const std::string label = index < 0 ? "Custom (" + std::to_string(value) + ")" : c.labels[static_cast<std::size_t>(index)];
++            if (list.setting(c.label,label,true)) apply(settings.set(c.key,c.values[static_cast<std::size_t>((index + 1) % c.count)]));
++        }
++        const int ramp = settings.number(L"StockGrabAir",0) ? settings.number(L"StockTransitionGround",0) ? 2 : 1 : 0;
++        if (list.setting("Stock ramp controls", ramp == 0 ? "Off" : ramp == 1 ? "Air only" : "Early on ramp",true)) {
++            dual_stick::Section entries;
++            if (settings.read(entries)) {
++                const int next = (ramp + 1) % 3;
++                entries[L"StockGrabAir"] = next ? L"1" : L"0";
++                entries[L"StockTransitionGround"] = next == 2 ? L"1" : L"0";
++                apply(settings.write(entries));
++            } else apply(false);
++        }
++        list.note("Stock ramp controls are experimental. Qualified transitions use physical Skate stick controls and trigger grabs; flat tricks keep foot controls. Pumping stays on R3.");
++        if (list.setting("Dual Stick on next launch",on_off(settings.number(L"EnabledAtStart",1) != 0),true)) {
++            if (settings.set(L"EnabledAtStart",!settings.number(L"EnabledAtStart",1))) say(h,"Saved for the next launch. Use the companion menu to toggle controls now.");
++            else apply(false);
++        }
++        list.note("The companion menu remains available on its configured hotkey (End by default), including control diagrams and additional tuning.");
++        list.note(h.notice);
++        list.end();
++        break;
++    }
+     case official_tab: levels(false, "FIND YOUR SPOT", "Waiting for available levels...", ""); break;
+     case custom_tab: levels(true, "CUSTOM MAPS", "No custom maps installed.", "Custom maps from the Mods folder appear here."); break;
+     case world_tab: {
+@@ -1577,7 +1652,7 @@ void draw_hub_page() {
+         int &open = tools ? h.tools_tab : multiplayer_tab;
+         if (tools) {
+             tabs = {{official_tab, "OFFICIAL MAPS"}, {custom_tab, "CUSTOM MAPS"}, {world_tab, "WORLD"}, {parks_tab, "PARKS"},
+-                    {player_tab, "PLAYER"}, {online_tab, "ONLINE"}, {visuals_tab, "VISUALS"}, {binds_tab, "BINDS"}};
++                    {player_tab, "PLAYER"}, {online_tab, "ONLINE"}, {visuals_tab, "VISUALS"}, {binds_tab, "BINDS"}, {dual_stick_tab, "DUAL STICK"}};
+         } else {
+             tabs = {{static_cast<int>(Tab::browser), "SERVER BROWSER"}, {static_cast<int>(Tab::host), "HOST LOBBY"}};
+             // The session and its voice chat are only there in one.
+diff --git a/Extension/UI/Overlay/input_capture.h b/Extension/UI/Overlay/input_capture.h
+index ce927d2..b7acd27 100644
+--- a/Extension/UI/Overlay/input_capture.h
++++ b/Extension/UI/Overlay/input_capture.h
+@@ -12,6 +12,8 @@ struct OverlayInputAccess {
+ // through GetRawInputData is then not noted a second time.
+ extern thread_local HRAWINPUT noted_raw_input;
+ bool block_polled_input();
++// Raw XInput/native HID navigation for the Insert overlay's ImGui context.
++void update_gamepad_navigation(bool enabled);
+ // How the game read its controllers while a card held its input (prompt_input_active), for the
+ // log when the hold ends: which of the ways the overlay can keep input from it the game used.
+ struct PromptReads {
+diff --git a/Extension/UI/Overlay/menu_navigation.h b/Extension/UI/Overlay/menu_navigation.h
+new file mode 100644
+index 0000000..cdfe139
+--- /dev/null
++++ b/Extension/UI/Overlay/menu_navigation.h
+@@ -0,0 +1,44 @@
++#pragma once
++#include <imgui_internal.h>
++
++namespace dingosdk::overlay::menu {
++// Own cancel before NewFrame so ImGui cannot cancel a child/popup and then
++// let the menu interpret the same press as another Back action.
++inline void claim_menu_back(bool enabled) {
++    if (enabled) ImGui::SetKeyOwner(ImGuiKey_GamepadFaceRight, ImHashStr("ReSkate menu back"));
++}
++inline void focus_menu_panel(ImGuiWindow* window, bool initialize = false) {
++    if (!window) return;
++    ImGui::FocusWindow(window);
++    ImGui::NavInitWindow(window, initialize);
++    ImGui::SetNavCursorVisibleAfterMove();
++}
++inline void menu_back(ImGuiWindow* sidebar, ImGuiWindow* content) {
++    auto& g = *ImGui::GetCurrentContext();
++    if (!ImGui::IsKeyPressed(ImGuiKey_GamepadFaceRight, false)) return;
++    if (g.ActiveId) { ImGui::ClearActiveID(); return; }
++    if (!g.OpenPopupStack.empty()) {
++        const auto* popup = g.OpenPopupStack.back().Window;
++        if (popup && !(popup->Flags & ImGuiWindowFlags_Modal))
++            ImGui::ClosePopupToLevel(g.OpenPopupStack.Size - 1, true);
++        return;
++    }
++    auto* window = g.NavWindow;
++    if (window && content && window != content) {
++        for (auto* parent = window->ParentWindow; parent; parent = parent->ParentWindow) {
++            if (parent == content) {
++                // Back out of one nested panel to its parent/tab controls.
++                auto* target = window->ParentWindow;
++                ImGui::FocusWindow(target);
++                ImGui::SetNavID(window->ChildId, ImGuiNavLayer_Main, target->NavRootFocusScopeId,
++                               ImGui::WindowRectAbsToRel(target, window->Rect()));
++                ImGui::SetNavCursorVisibleAfterMove();
++                return;
++            }
++        }
++    }
++    // The right-hand page is the outermost panel. Back returns to its sidebar
++    // selection; another Back there leaves the menu open.
++    focus_menu_panel(sidebar);
++}
++} // namespace dingosdk::overlay::menu
+diff --git a/Extension/UI/Overlay/overlay_input.cpp b/Extension/UI/Overlay/overlay_input.cpp
+index ff84664..b90f08f 100644
+--- a/Extension/UI/Overlay/overlay_input.cpp
++++ b/Extension/UI/Overlay/overlay_input.cpp
+@@ -3,6 +3,7 @@
+ #include "Extension/Boot/exit_watch.h"
+ #include "overlay_internal.h"
+ #include "input_capture.h"
++#include "gamepad_navigation.h"
+ #include "playstation_input.h"
+ #include "cursor.h"
+ 
+@@ -449,6 +450,16 @@ dingosdk::overlay::FlightInput read_player_flight_controller() {
+ }
+ }
+ 
++namespace dingosdk::overlay::detail {
++void update_gamepad_navigation(bool enabled) {
++    ControllerSample sample{};
++    if (enabled) sample = read_controller_sample();
++    const auto& pad = sample.pad;
++    feed_gamepad_navigation(ImGui::GetIO(),enabled && sample.device != 0,pad.wButtons,
++                            pad.sThumbLX,pad.sThumbLY,pad.bLeftTrigger,pad.bRightTrigger);
++}
++}
++
+ extern "C" void DingoSDKOverlaySetFreecamInputCapture(bool active) {
+     const bool previous = state().freecam_controller_active.exchange(active, std::memory_order_relaxed);
+     if (previous != active)
+@@ -456,6 +467,17 @@ extern "C" void DingoSDKOverlaySetFreecamInputCapture(bool active) {
+             "Freecam controller input capture %s.", active ? "enabled" : "disabled");
+ }
+ 
++// Optional companion DLLs can respect UI/freecam ownership without peeking at
++// internal offsets or guessing from whether the skater is still ticking.
++extern "C" __declspec(dllexport) unsigned long WINAPI ReSkateOverlayOwnsInputV1() {
++    const auto error = GetLastError();
++    const auto& s = state();
++    const unsigned long owns = owns_menu_cursor(s) || s.freecam_controller_active.load(std::memory_order_relaxed) ||
++           s.prompt_input_active.load(std::memory_order_relaxed) ? 1ul : 0ul;
++    SetLastError(error);
++    return owns;
++}
++
+ extern "C" void DingoSDKOverlaySetPromptInputCapture(bool active) {
+     const bool before = state().prompt_input_active.exchange(active, std::memory_order_relaxed);
+     if (before == active) return;
+diff --git a/Extension/UI/Overlay/overlay_render.cpp b/Extension/UI/Overlay/overlay_render.cpp
+index 7169615..7c45b85 100644
+--- a/Extension/UI/Overlay/overlay_render.cpp
++++ b/Extension/UI/Overlay/overlay_render.cpp
+@@ -7,6 +7,7 @@
+ #include "park_previews.h"
+ #include "chat_emotes.h"
+ #include "input_capture.h"
++#include "menu_navigation.h"
+ #include "cursor.h"
+ #include <dxgi1_6.h>
+ #include <imgui_internal.h>
+@@ -353,7 +354,7 @@ bool setup_graphics() {
+     ImGui::SetCurrentContext(s.context);
+     ImGui::GetIO().IniFilename = nullptr;
+     ImGui::GetIO().LogFilename = nullptr;
+-    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
++    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_NavEnableGamepad;
+     ImGui::StyleColorsDark();
+     dingosdk::overlay::load_skate_fonts(s.menu);
+     // Thumbnails are read from the game's own data at startup; the read is
+@@ -696,8 +697,13 @@ void render(IDXGISwapChain* presented, UINT flags) {
+     ImGui::GetIO().MouseDrawCursor = owns_menu_cursor(s);
+     ImGui_ImplDX12_NewFrame();
+     { OverlayInputAccess access; ImGui_ImplWin32_NewFrame(); }
++    {
++        const bool menu_input = s.visible.load() && game_window_foreground(s.window.load());
++        update_gamepad_navigation(menu_input);
++    }
+     update_menu_pointer();
+     fit_display_to_buffer(s, frame.buffer.Get());
++    menu::claim_menu_back(s.visible.load() && !s.editor_visible.load());
+     ImGui::NewFrame();
+     if (menu_frame) {
+         draw_menu();
+diff --git a/Extension/UI/Overlay/skate_menu.cpp b/Extension/UI/Overlay/skate_menu.cpp
+index 400c0db..53d63a3 100644
+--- a/Extension/UI/Overlay/skate_menu.cpp
++++ b/Extension/UI/Overlay/skate_menu.cpp
+@@ -3,6 +3,8 @@
+ #include "skate_menu.h"
+ #include "modding_menu.h"
+ #include "skate_style.h"
++#include "dual_stick_settings.h"
++#include "menu_navigation.h"
+ #include "Extension/UI/skate_theme.h"
+ 
+ #include <Windows.h>
+@@ -176,7 +178,7 @@ bool choice(SkateMenu& menu, const char* id, int& selected, std::initializer_lis
+         const auto at = ImGui::GetCursorScreenPos();
+         ImGui::PushID(i);
+         ImGui::BeginDisabled(!enabled);
+-        if (ImGui::InvisibleButton("##choice", ImVec2(width, height)) && selected != i) {
++        if (ImGui::InvisibleButton("##choice", ImVec2(width, height), ImGuiButtonFlags_EnableNav) && selected != i) {
+             selected = i;
+             changed = true;
+         }
+@@ -184,13 +186,13 @@ bool choice(SkateMenu& menu, const char* id, int& selected, std::initializer_lis
+         const bool hovered = enabled && ImGui::IsItemHovered();
+         const char* tooltip = i < static_cast<int>(tooltips.size()) ? tooltips.begin()[i] : nullptr;
+         if (tooltip && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) ImGui::SetTooltip("%s", tooltip);
+-        if (ImGui::IsItemFocused() && ImGui::GetIO().NavVisible)
+-            draw->AddRect(at, ImVec2(at.x + width, at.y + height), paper, 0, 0, px(2));
++        const bool focused = ImGui::IsItemFocused() && ImGui::GetIO().NavVisible;
+         ImGui::PopID();
+         const bool on = selected == i;
+         const ImU32 fill = on ? (enabled ? blue : IM_COL32(1, 131, 255, 120))
+                          : hovered ? skate_theme::tile_light : skate_theme::tile_grey;
+         skate_theme::rough_rect(draw, at, ImVec2(at.x + width, at.y + height), fill, static_cast<unsigned>(i + 29), ui_scale);
++        if (focused) draw->AddRect(at, ImVec2(at.x + width, at.y + height), paper, 0, 0, px(2));
+         const char* label = options.begin()[i];
+         const auto size = menu.bold->CalcTextSizeA(px(14), FLT_MAX, 0, label);
+         draw->PushClipRect(at, ImVec2(at.x + width, at.y + height), true);
+@@ -237,17 +239,17 @@ void category_tabs(SkateMenu& menu, int& selected, std::initializer_list<const c
+         if (i) ImGui::SameLine(0, gap);
+         const auto at = ImGui::GetCursorScreenPos();
+         ImGui::PushID(i);
+-        if (ImGui::InvisibleButton("##tab", ImVec2(tab_width, height)) && selected != i) {
++        if (ImGui::InvisibleButton("##tab", ImVec2(tab_width, height), ImGuiButtonFlags_EnableNav) && selected != i) {
+             selected = i;
+             menu.feedback.clear();
+         }
+         const bool hovered = ImGui::IsItemHovered();
+-        if (ImGui::IsItemFocused() && ImGui::GetIO().NavVisible)
+-            draw->AddRect(at, ImVec2(at.x + tab_width, at.y + height), paper, 0, 0, px(2));
++        const bool focused = ImGui::IsItemFocused() && ImGui::GetIO().NavVisible;
+         ImGui::PopID();
+         const bool on = selected == i;
+         skate_theme::rough_rect(draw, at, ImVec2(at.x + tab_width, at.y + height),
+             on ? blue : hovered ? skate_theme::tile_light : skate_theme::tile_grey, static_cast<unsigned>(i + 11), ui_scale);
++        if (focused) draw->AddRect(at, ImVec2(at.x + tab_width, at.y + height), paper, 0, 0, px(2));
+         const char* label = tabs.begin()[i];
+         const auto size = menu.bold->CalcTextSizeA(px(15), FLT_MAX, 0, label);
+         draw->PushClipRect(at, ImVec2(at.x + tab_width, at.y + height), true);
+@@ -278,12 +280,84 @@ ImFont* embedded_font(const wchar_t* name, float size, const ImWchar* ranges) {
+         &config, ranges);
+ }
+ 
+-enum Page { map, world, build, skater, training, multiplayer, progress, mods, music, settings, special, developer, page_count };
++
++void dual_stick_page(SkateMenu& menu) {
++    static const dual_stick::Settings config(dual_stick::Settings::game_path());
++    static int slot = 1, overwrite_slot = 0;
++    const auto saved = [&](bool success) {
++        overwrite_slot = 0;
++        feedback(menu, success ? "Saved. Controls refresh within two seconds."
++                               : "Could not save session_controls.ini.");
++    };
++    if (!config.available()) {
++        ImGui::TextWrapped("Install Dual Stick Controls beside Skate.exe first. This page edits its session_controls.ini; the companion mod is required.");
++        return;
++    }
++    section(menu, "PRESETS");
++    if (primary_button(menu, config.active(false) ? "Session-style (active)" : "Apply Session-style")) saved(config.preset(false));
++    if (primary_button(menu, config.active(true) ? "XL-style (active)" : "Apply XL-style")) saved(config.preset(true));
++    ImGui::TextWrapped("Both map Skate controls across two sticks. Inputs differ from Session and Skater XL. Session uses front/back feet and flick pop; XL keeps physical setup directions, swaps jobs in switch and uses release pop.");
++    const char* slots[]{"Slot 1", "Slot 2", "Slot 3", "Slot 4", "Slot 5"};
++    int selected_slot = slot - 1;
++    if (ImGui::Combo("Custom preset", &selected_slot, slots, 5)) { slot = selected_slot + 1; overwrite_slot = 0; }
++    if (primary_button(menu, "Load custom controls", config.filled(slot))) saved(config.load(slot));
++    if (primary_button(menu, overwrite_slot == slot ? "Confirm overwrite" : "Save custom controls")) {
++        if (config.filled(slot) && overwrite_slot != slot) {
++            overwrite_slot = slot;
++            feedback(menu, "Press Confirm overwrite to replace this slot.");
++        } else saved(config.save(slot));
++    }
++    section(menu, "YOUR CONTROLS");
++    int stance = config.number(L"AutoStance", 1) ? 0 :
++        _wcsicmp(config.text(L"Stance", L"regular").c_str(), L"goofy") == 0 ? 2 : 1;
++    const char* stances[]{"Automatic", "Regular", "Goofy"};
++    if (ImGui::Combo("Stance", &stance, stances, 3)) {
++        dual_stick::Section entries;
++        if (config.read(entries)) {
++            entries[L"AutoStance"] = stance == 0 ? L"1" : L"0";
++            if (stance) entries[L"Stance"] = stance == 2 ? L"goofy" : L"regular";
++            saved(config.write(entries));
++        } else saved(false);
++    }
++    int layout = config.layout();
++    const char* layouts[]{"Front / back foot", "Left / right foot", "Skater XL", "Legacy left / right"};
++    if (ImGui::Combo("Stick layout", &layout, layouts, 4)) {
++        if (layout < 3) saved(config.set_layout(layout));
++        else feedback(menu, "Choose a named layout; legacy settings are only retained for older INIs.");
++    }
++    for (const auto& choice : dual_stick::choices) {
++        if (std::wcscmp(choice.key, L"SwitchStance") == 0 && config.number(L"FrontBackFoot", 0)) continue;
++        const int value = config.number(choice.key, choice.fallback);
++        int index = -1;
++        for (int i = 0; i < choice.count; ++i)
++            if (choice.values[static_cast<std::size_t>(i)] == value) index = i;
++        if (ImGui::Combo(choice.label, &index, choice.labels.data(), choice.count))
++            saved(config.set(choice.key, choice.values[static_cast<std::size_t>(index)]));
++    }
++    int ramp = config.number(L"StockGrabAir", 0) ? config.number(L"StockTransitionGround", 0) ? 2 : 1 : 0;
++    const char* ramps[]{"Off", "Air only", "Early on ramp"};
++    if (ImGui::Combo("Stock ramp controls", &ramp, ramps, 3)) {
++        dual_stick::Section entries;
++        if (config.read(entries)) {
++            entries[L"StockGrabAir"] = ramp ? L"1" : L"0";
++            entries[L"StockTransitionGround"] = ramp == 2 ? L"1" : L"0";
++            saved(config.write(entries));
++        } else saved(false);
++    }
++    bool enabled = config.number(L"EnabledAtStart", 1) != 0;
++    if (toggle_row(menu, "Dual Stick on next launch", "Use the companion menu to toggle controls immediately.", enabled))
++        saved(config.set(L"EnabledAtStart", enabled ? 1 : 0));
++    ImGui::TextWrapped("Custom slots are shared with the companion menu. Loading here preserves menu preferences and other tuning. Ramp controls are experimental; pumping stays on R3. The companion menu (End by default) still has diagrams and additional tuning.");
++}
++
++
++enum Page { map, world, build, skater, training, dualstick, multiplayer, progress, mods, music, settings, special, developer, page_count };
+ constexpr std::array<const char*, page_count> page_names{
+-    "MAP", "WORLD", "BUILD", "SKATER", "TRAINER", "MULTIPLAYER", "PROGRESS", "MODS", "MUSIC", "SETTINGS", "SPECIAL", "DEVELOPER"};
++    "MAP", "WORLD", "BUILD", "SKATER", "TRAINER", "DUAL STICK", "MULTIPLAYER", "PROGRESS", "MODS", "MUSIC", "SETTINGS", "SPECIAL", "DEVELOPER"};
+ constexpr std::array<const char*, page_count> page_subtitles{
+     "Pick your spot.", "Set the vibe.", "Make the park yours.", "Ride it your way.", "Tune it. Drill it. Measure it.",
+-    "Bring your crew.", "Pick up where you want.", "Bring your own.", "Your sound, in the game.", "Your controls, your screen.", "Not everyone gets this page.",
++    "Two feet. Your controls.", "Bring your crew.", "Pick up where you want.", "Bring your own.", "Your sound, in the game.", "Your controls, your screen.", "Not everyone gets this page.",
++
+     "Under the hood."};
+ }
+ 
+@@ -317,6 +391,11 @@ void load_skate_fonts(SkateMenu& menu) {
+ 
+ void draw_skate_menu(SkateMenu& menu, const Model& model, const CallbacksV3& callbacks,
+                      bool& visible) {
++    static ImGuiContext* navigation_context{};
++    if (navigation_context != ImGui::GetCurrentContext()) {
++        navigation_context = ImGui::GetCurrentContext();
++        menu.navigation_sidebar = menu.navigation_content = nullptr;
++    }
+     const bool on_controls = menu.page == settings && menu.settings_tab == 0;
+     const bool on_voice = menu.page == multiplayer && menu.multiplayer_tab == multiplayer_voice_tab;
+     if (!visible || !on_controls || menu.last_menu_frame + 1 != ImGui::GetFrameCount()) menu.recording_bind = 0;
+@@ -349,6 +428,8 @@ void draw_skate_menu(SkateMenu& menu, const Model& model, const CallbacksV3& cal
+     ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarRounding, 0);
+     const int colours = skate_theme::push_widget_colours();
+     if (ImGui::Begin("ReSkate###skate-menu", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar)) {
++        menu_back(menu.navigation_sidebar, menu.navigation_content);
++        bool enter_content = false;
+         const auto size = ImGui::GetWindowSize();
+         const auto current = ImGui::GetWindowPos();
+         const ImVec2 bounded(std::clamp(current.x, 0.0f, std::max(0.0f, io.DisplaySize.x - size.x)),
+@@ -380,18 +461,21 @@ void draw_skate_menu(SkateMenu& menu, const Model& model, const CallbacksV3& cal
+         if (hidden(menu.page)) menu.page = map;
+         ImGui::SetCursorPos(ImVec2(px(10), px(96)));
+         ImGui::BeginChild("navigation", ImVec2(sidebar - px(20), size.y - px(140)), ImGuiChildFlags_None);
++        menu.navigation_sidebar = ImGui::GetCurrentWindow();
+         const float tab_height = px(40);
+         for (int i = 0; i < static_cast<int>(page_count); ++i) {
+             if (hidden(i)) continue;
+             const auto at = ImGui::GetCursorScreenPos();
+             const bool selected = menu.page == i;
+             ImGui::PushID(i);
+-            if (ImGui::InvisibleButton("##page", ImVec2(sidebar - px(20), tab_height)) && !selected) {
++            if (ImGui::InvisibleButton("##page", ImVec2(sidebar - px(20), tab_height), ImGuiButtonFlags_EnableNav)) {
+                 menu.page = i;
++                enter_content = true;
+                 menu.recording_bind = 0;
+                 menu.voice_bind_capture = 0;
+                 menu.feedback.clear();
+             }
++            if (selected) ImGui::SetItemDefaultFocus();
+             const bool hovered = ImGui::IsItemHovered();
+             auto* nav = ImGui::GetWindowDrawList();
+             const ImVec2 end(at.x + sidebar - px(20), at.y + tab_height - px(4));
+@@ -405,6 +489,7 @@ void draw_skate_menu(SkateMenu& menu, const Model& model, const CallbacksV3& cal
+         ImGui::EndChild();
+         // Keycap-style hint, like the game's "Esc Back" prompt.
+         {
++            draw->AddText(menu.body, px(12), ImVec2(origin.x + px(16), origin.y + size.y - px(56)), muted, "A Select   B Back");
+             static const auto label = dingosdk::launcher::key_cap(dingosdk::launcher::overlay_keys().menu);
+             keycap(draw, menu.bold, ui_scale, ImVec2(origin.x + px(16), origin.y + size.y - px(34)), label.c_str(), "Close");
+         }
+@@ -419,10 +504,10 @@ void draw_skate_menu(SkateMenu& menu, const Model& model, const CallbacksV3& cal
+             skate_theme::rotate_since(draw, start, -3.0f, ImVec2(at.x + extent.x * .5f, at.y + extent.y * .5f));
+             draw->AddText(menu.body, px(14), ImVec2(at.x + extent.x + px(18), at.y + px(22)), muted, page_subtitles[menu.page]);
+         }
+-        ImGui::SetCursorPos(ImVec2(size.x - px(44), px(16)));
+-        if (ImGui::Button("X", ImVec2(px(28), px(28)))) visible = false;
+         ImGui::SetCursorPos(ImVec2(sidebar + px(20), px(76)));
+         ImGui::BeginChild("page", ImVec2(size.x - sidebar - px(40), size.y - px(96)), ImGuiChildFlags_None);
++        menu.navigation_content = ImGui::GetCurrentWindow();
++        if (enter_content) focus_menu_panel(menu.navigation_content, true);
+         switch (menu.page) {
+         case map: map_page(menu, model, callbacks); break;
+         case world: world_page(menu, model, callbacks); break;
+@@ -445,6 +530,7 @@ void draw_skate_menu(SkateMenu& menu, const Model& model, const CallbacksV3& cal
+         case settings: settings_page(menu, model, callbacks); break;
+         case special: special_page(menu, model, callbacks); break;
+         case developer: developer_page(menu, model, callbacks); break;
++        case dualstick: dual_stick_page(menu); break;
+         }
+         if (!menu.feedback.empty() && ImGui::GetTime() < menu.feedback_until) {
+             // The feedback line sits in a dark strip with a blue edge, like the game's toasts.
+diff --git a/Extension/UI/Overlay/skate_menu.h b/Extension/UI/Overlay/skate_menu.h
+index 99feff1..8cefab4 100644
+--- a/Extension/UI/Overlay/skate_menu.h
++++ b/Extension/UI/Overlay/skate_menu.h
+@@ -6,6 +6,7 @@
+ #include <imgui.h>
+ #include <optional>
+ #include <map>
++struct ImGuiWindow;
+ 
+ namespace dingosdk::overlay {
+ struct AtmosphereEdit {
+@@ -68,6 +69,8 @@ struct SkateMenu {
+     ControllerComboCapture bind_capture;
+     double bind_capture_until = 0;
+     int last_menu_frame = -1;
++    ImGuiWindow* navigation_sidebar{};
++    ImGuiWindow* navigation_content{};
+     // Live while the scale slider is held; the saved value is authoritative otherwise.
+     float scale = default_menu_scale;
+     bool scale_editing{};
+diff --git a/contrib/dual-stick-controls.md b/contrib/dual-stick-controls.md
+new file mode 100644
+index 0000000..6bfde16
+--- /dev/null
++++ b/contrib/dual-stick-controls.md
+@@ -0,0 +1,20 @@
++# Optional Dual Stick Controls menu integration
++
++Based on ReSkate main 6df4f9a7bd4045aa74c853f088ff445011933175.
++Requires the separately installed Dual Stick Controls v5.133 or later companion and its session_controls.ini beside Skate.exe. No translator or DLL is bundled here; no configuration is created when the companion INI is missing.
++
++Insert adds Dual Stick immediately below Trainer. The native pause-menu Mod Options includes a Dual Stick tab. Both edit the same INI read by the companion every two seconds.
++
++Session-style selects Front/Back, flick pop, no stick steering and blocked single-stick flips. Skater XL-style selects the XL layout, release pop, physical left-stick steering and allowed single-stick flips. Both reset direction overrides and use automatic switch tracking. They translate Skate inputs; they do not implement the physics of Session or XL.
++
++Custom settings expose three stick layouts (Front/Back, Left/Right Foot, Skater XL), pop style, three steering choices, single-stick flips, switch axis overrides, revert input/window, pre-wind handling/strength, body flips, air controls, powerslides, grind bump-outs, and Disable hold-fakie. Stance and stock ramp controls are separate. The companion End menu retains its diagrams, hotkey and window options.
++
++Five custom slots are shared with the companion. Occupied slots require confirmation before replacement. Loading restores supported gameplay and layout keys, including XL directions and hold-fakie compatibility. Controller connection, base stance, menu/launch preferences, recording and unknown tuning remain global. Saved slots are not automatically rewritten by choosing a style. The INI helper preserves unknown active keys and unrelated sections, reports write failures and refuses missing-file writes.
++
++Dual Stick on next launch changes the saved startup choice only. Use the companion menu to toggle the running translator. Disable hold-fakie is implemented by the companion, with saved Skate settings preserved.
++
++The overlay uses ReSkate's raw multi-device reader for ImGui navigation only while visible and foreground. Ownership loss releases all navigation axes/buttons. Sidebar and option tiles show focus; A/Cross enters the right panel; B/Circle backs out through editing, popups and panels to the sidebar. Insert closes the overlay. Existing pages, including Music, remain present.
++
++ReSkateOverlayOwnsInputV1 is a versioned C export (unsigned long WINAPI(void)) returning whether UI/freecam/prompts own input. It allows the companion to suspend generated gestures while ReSkate menus are active. No new graphics or game-input hooks are installed by this patch.
++
++Configure DINGOSDK_BUILD_DUAL_STICK_TESTS=ON and run CTest -R "dual_stick_settings|gamepad_navigation". The temporary-INI tests check exact preset keys, layout changes, direction overrides, shared slots, global preferences, missing/read-only files and unknown-key preservation. Navigation tests check analog/button feed and release on ownership loss. In-game validation against the current upstream UI remains necessary before merging.
