@@ -4,12 +4,12 @@ Play Skate with two foot sticks using **Session-style**, **Skater XL-style**, or
 The mod translates Skate's controls across two sticks; it does not replace the game's skating physics.
 
 ## Download v5.134
-[GitHub Releases](https://github.com/GoalTrains/reskatedualstick/releases). The v5.134 downloads below are also available directly while the release is being published. Choose the Windows or Linux mod zip; Source code archives are for developers.
+[GitHub Release v5.134](https://github.com/GoalTrains/reskatedualstick/releases/tag/5.134). Choose the Windows or Linux mod zip; Source code archives are for developers.
 
 | Platform | Download |
 | --- | --- |
-| Windows | [Download Windows zip](https://github.com/GoalTrains/reskatedualstick/raw/refs/heads/main/releases/v5.134/Dual_Stick_Controls_v5.134.zip) |
-| Linux / Steam Deck (Proton) | [Download Linux / Steam Deck zip](https://github.com/GoalTrains/reskatedualstick/raw/refs/heads/main/releases/v5.134/Dual_Stick_Controls_v5.134_Linux.zip) |
+| Windows | [Download Windows zip](https://github.com/GoalTrains/reskatedualstick/releases/download/5.134/Dual_Stick_Controls_v5.134.zip) |
+| Linux / Steam Deck (Proton) | [Download Linux / Steam Deck zip](https://github.com/GoalTrains/reskatedualstick/releases/download/5.134/Dual_Stick_Controls_v5.134_Linux.zip) |
 
 [Changes since v5.108](CHANGELOG.md) · [Windows instructions](docs/INSTALL_WINDOWS.md) · [Linux instructions](docs/INSTALL_LINUX.md)
 
