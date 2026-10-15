@@ -1,34 +1,24 @@
-# Install Dual Stick Controls v5.128
+Dual Stick Controls v5.133 — installation
 
 1. Close Skate completely.
-2. Find the game folder containing Skate.exe.
+2. Open the game folder containing Skate.exe.
 3. Back up version.dll and session_controls.ini.
-4. Copy the downloaded version.dll into that folder, replacing the old mod DLL.
-5. A fresh session_controls.ini is recommended: replace it with the included INI after backing up. This resets settings and custom preset slots.
-6. Launch through your normal ReSkate setup, press End and choose Session-style or Skater XL-style. The fresh INI starts with Session-style.
+4. Copy the supplied version.dll into that folder, replacing the old mod DLL.
+5. A fresh session_controls.ini is recommended. Back up your old INI before replacing it: this resets settings and custom preset slots.
+6. Launch normally, press End and choose Session-style or Skater XL-style. Fresh settings start with Session-style.
 
-Keep the official ReSkate.dll.
+Keep the official ReSkate.dll. Do not replace it with a PR/test runtime.
+End opens Dual Stick. Insert opens official ReSkate. D-pad/arrows navigate, A/Enter selects, B goes back, and LB/RB browses diagrams. Hold LB + RB + L3 + R3 for three seconds to toggle Dual Stick. Pumping stays on R3.
 
-To keep your settings instead, retain your INI and reapply the XL preset for XL controls. To enable the experimental on-board recovery, set these under [SessionControls]:
+Disable hold-fakie is ON by default under Custom. It temporarily makes Skate's Hold Fakie Stance and Hold Fakie Push read as off while Dual Stick is active, without changing saved Skate preferences. Automatic pose resets and heavy diagnostics are OFF.
 
-```ini
-NativeMenuRespawnRecovery=1
-NativeGroundPoseRecovery=1
-```
+If keeping an old INI, reapply your preferred preset and set these under [SessionControls]:
+DisableHoldFakie=1
+NativeMenuRespawnRecovery=0
+NativeGroundPoseRecovery=0
+SteerCurvePercent=100
 
-Set both to 0 to disable the visible reset. Recovery is enabled in the included INI and may stop speed and flicker. The XL foot-job agreement check is separate and does not respawn.
-
-End opens the mod settings; Insert opens ReSkate's menu. D-pad/arrows navigate, A/Enter selects, B goes back, and LB/RB browses diagrams.
-Hold LB + RB + L3 + R3 for three seconds to toggle the mod.
-
-The latest goofy changes need gameplay feedback. Report the version, stance, preset and steps, with session_controls.log and session_controls_input.csv. Large pose diagnostics are disabled in the supplied INI.
-
-## Linux / Steam Deck with Proton
-
-This package contains the Windows DLL for Proton. Add this Steam launch option without discarding other arguments:
-
-```text
+Linux / Steam Deck (Proton)
+Both packages contain the Windows DLL. Add this launch option, preserving existing arguments:
 WINEDLLOVERRIDES="version=n,b" %command%
-```
-
-The Linux INI defaults to PlayStationPads=0 for an external controller route such as Steam Input. Use a keyboard or a Steam Input binding for End to open settings. If automatic stance detection is unavailable, select Regular or Goofy in the menu to match your skater.
+The Linux INI uses PlayStationPads=0 for an external controller route such as Steam Input. Bind End to open settings if needed.

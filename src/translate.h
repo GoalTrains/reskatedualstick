@@ -81,6 +81,7 @@ typedef struct {
     float grab_hold_ms;   /* in the air, a bumper held this long is a grab (shorter = dark catch tap) */
     int switch_flip;      /* 1 = riding switch turns the flick stick round (y), 2 = y and x, 3 = true foot */
     int switch_invert_x, switch_invert_y; /* optional custom foot-input directions; default unchanged */
+    int disable_hold_fakie; /* native hold-fakie compatibility; saved preferences untouched */
     int xl_layout;        /* physical feet; keep each physical stick setup direction in switch */
     int pop_on_release;   /* v1.1: letting go of a full crouch pops (Skater XL style) */
     int landing_manuals;  /* v2.6: a lean held into a landing is a manual: 0 never, 1 after a 180 only, 2 always */
@@ -158,7 +159,7 @@ typedef struct {
     int sw_lat, sw_lat_ok; /* v5.42: the switch turn-round in use on the game stick (kept while it is held) */
     int sw_prev; double sw_blend_until, sw_t; float sw_x, sw_y; /* easing across a stance change */
     int pw_side, pw_logged, pw_nollie, pw_block, pw_was_air; double pw_t, pw_crouch_t; /* spin wind-up (prewind) in progress: -1 left, +1 right */
-    int bump_side, bump_y, bump_prev; double bump_until; /* directional grind / lip exit */
+    int bump_side, bump_y, bump_prev; double bump_until,bump_neutral_until,bump_output_time; float bump_output_x,bump_output_y; /* directional grind / lip exit */
     int stock_air_active, stock_air_block_l, stock_air_block_r;
     float stock_air_langle, stock_air_rangle;
     int pump_r3;          /* standalone R3: stock R2 / RT crouch for pumping */
@@ -1576,8 +1577,8 @@ static sc_pad sc_translate(const sc_config* c, sc_state* s, sc_pad in, double no
         int foot_busy=s->d_front_on || s->d_back_on || s->d_front_full || s->d_back_full ||
                       (s->rp_t>0 && now-s->rp_t<70);
         if (!s->st_latch) {
-            if (ground && !foot_busy && s->phase == SC_IDLE && !s->ps_side && bmag < 0.3f && fax >= 0.35f && fax > 1.5f*sc_abs(sy)) s->st_latch=1;
-        } else if (fmag < 0.25f || !ground) s->st_latch=0;
+            if (ground && !foot_busy && s->phase == SC_IDLE && !s->ps_side && bmag < 0.3f && fax >= 0.15f && fax > 1.5f*sc_abs(sy)) s->st_latch=1;
+        } else if (fmag < 0.10f || !ground) s->st_latch=0;
         if (s->st_latch) {
             stick_turn=sx;
             if(steering_left==left_is_front){fx=0;fy=0;}else{bx=0;by=0;}
@@ -1928,7 +1929,14 @@ static sc_pad sc_translate(const sc_config* c, sc_state* s, sc_pad in, double no
             float cy = sc_axis((down & SC_RTHUMB) ? in.ry : in.ly);
             s->bump_y = sc_abs(cy) >= 0.5f && sc_abs(cy) > sc_abs(cx) ? (cy > 0 ? 1 : -1) : 0;
             s->bump_side = s->bump_y ? 0 : (down & SC_RTHUMB) ? 1 : -1;
-            s->bump_until = now + c->bump_ms;
+            /* A click must make a fresh native movement gesture, even if
+             * the same direction is already held by a prior exit/prewind.
+             * Only re-arm an already-held direction; fresh exits stay immediate. */
+            int held_direction=s->bump_y?sc_axis(out.ly)*s->bump_y>.5f:sc_axis(out.lx)*s->bump_side>.5f;
+            if(now-s->bump_output_time<=50 && s->bump_output_time>0)
+                held_direction|=s->bump_y?s->bump_output_y*s->bump_y>.5f:s->bump_output_x*s->bump_side>.5f;
+            s->bump_neutral_until=held_direction?now+20:0;
+            s->bump_until = now + c->bump_ms + (held_direction?20:0);
             s->d_log = 7; s->d_log_a = (float)s->bump_side; s->d_log_b = (float)s->bump_y;
         }
         /* v3.2 body flips (the game's Gesture_Body_FrontFlip: the LEFT stick from the middle to DOWN
@@ -1964,7 +1972,13 @@ static sc_pad sc_translate(const sc_config* c, sc_state* s, sc_pad in, double no
         float sx = sc_axis(out.lx); if (sx > 0.6f) sx = 0.6f; if (sx < -0.6f) sx = -0.6f;
         out.lx = sc_short(sx); out.ly = sc_short(y);
     }
-    if (now < s->bump_until) { out.lx = sc_short((float)s->bump_side); out.ly = sc_short((float)s->bump_y); }
+    if (now < s->bump_until) {
+        int neutral=now<s->bump_neutral_until;
+        out.lx = neutral?0:sc_short((float)s->bump_side); out.ly = neutral?0:sc_short((float)s->bump_y);
+        /* The held foot/board stick must not keep rail lock engaged while
+         * the movement stick requests an explicit clicked exit. */
+        out.rx=out.ry=0;
+    }
     else if (rv_active == 2) { out.lx = 0; out.ly = 0; }
 
     unsigned char glt = 0, grt = 0;
@@ -2025,7 +2039,9 @@ static sc_pad sc_translate(const sc_config* c, sc_state* s, sc_pad in, double no
     if (s->bf_side && s->bf_air_t > 0 && now - s->bf_air_t < c->bf_grab_ms) { if (s->bf_side > 0) grt = 255; else glt = 255; }
     out.lt = glt;
     out.rt = grt;
-    return sc_pump_output(s,out,now);
+    out=sc_pump_output(s,out,now);
+    s->bump_output_x=sc_axis(out.lx);s->bump_output_y=sc_axis(out.ly);s->bump_output_time=now;
+    return out;
 }
 
 #endif

@@ -15,7 +15,10 @@ static int g_nr_ground;
 static sc_ground_pose_guard g_ground_pose;
 static sc_xl_agreement g_xl_agreement;
 static volatile UINT64 g_xl_agreement_owner,g_xl_agreement_seen;
-static volatile int g_xl_agreement_hint=-1,g_xl_agreement_profile,g_xl_idle;
+static volatile int g_xl_agreement_hint=-1,g_xl_agreement_profile,g_xl_idle,g_xl_agreement_native;
+static nr_frame g_xl_agreement_frame;
+static volatile UINT64 g_xl_frame_owner,g_xl_frame_source,g_xl_frame_seen;
+static volatile int g_xl_frame_profile,g_xl_baseline_mirror;
 static volatile DWORD g_xl_input_user;
 static DWORD g_nr_user;
 static double g_nr_last,g_nr_arm,g_nr_until;
@@ -23,6 +26,10 @@ static UINT64 g_nr_next_hook;
 static volatile int g_nr_lock,g_nr_hooked;
 static volatile UINT64 g_native_owned_selector,g_native_owner_seen;
 static UINT64 g_native_owner_next;
+#ifdef SC_STANCE_FLIGHT_RECORDER
+#include "stance_flight.h"
+#include "stance_flight_native.h"
+#endif
 static int native_local_slot(void) {
     UINT64 now=GetTickCount64(),seen=g_native_owner_seen,selector=g_native_owned_selector;
     if(!selector || now<seen || now-seen>250)return -1;
@@ -132,10 +139,20 @@ static void nr_client_tick(UINT64 client,UINT64 update) {
             g_native_menu==0 && !g_menu && !g_ui_open && selector && g_local>=0 && g_slots[g_local].sel==selector;
         int xl_valid=xl_track && (valid || nr_read(selector,base,rd_copy,&frame));
         int hint=-1;
-        if(xl_track && !xl_valid)sc_xl_agreement_missing(&g_xl_agreement);
+        /* UI/unreadable frames cannot redefine the owned rider's baseline.
+         * The next valid frame still resets on owner/core/profile changes. */
+        if(!xl_valid)sc_xl_agreement_missing(&g_xl_agreement);
         else hint=sc_xl_agreement_step(&g_xl_agreement,xl_valid?&frame:0,xl_valid?(int)g_slots[g_local].state:-1,g_xl_idle,g_cfg.goofy,(double)now);
+#ifdef SC_STANCE_FLIGHT_RECORDER
+        if(g_stance_flight)sf_native_capture(base,selector,now,valid,track,triggered,xl_track,xl_valid,hint);
+#endif
+        g_xl_frame_owner=0;
+        if(xl_valid && g_xl_agreement.baseline_valid){
+            g_xl_frame_profile=g_cfg.goofy;g_xl_baseline_mirror=g_xl_agreement.mirror;
+            g_xl_frame_source=frame.source;g_xl_frame_seen=now;g_xl_frame_owner=selector;
+        }
         g_xl_agreement_owner=0;
-        if(hint>=0){g_xl_agreement_profile=g_cfg.goofy;g_xl_agreement_hint=hint;g_xl_agreement_seen=now;g_xl_agreement_owner=selector;}
+        if(hint>=0){g_xl_agreement_frame=frame;g_xl_agreement_native=frame.native_frame;g_xl_agreement_profile=g_cfg.goofy;g_xl_agreement_hint=hint;g_xl_agreement_seen=now;g_xl_agreement_owner=selector;}
         if(triggered && !__sync_lock_test_and_set(&g_nr_lock,1)) {
             if(!g_nr_pending) {
                 g_nr_before=g_nr_last_motion=frame;g_nr_last=g_now_ms;g_nr_goofy=g_cfg.goofy;
@@ -148,6 +165,17 @@ static void nr_client_tick(UINT64 client,UINT64 update) {
     }
     nr_service(client);SetLastError(error);
 }
+/* Read a single source flag bundle from this owned rider. The paired native
+ * frame must still match the export, so a half-published update is ignored.
+ * This changes the physical stance evidence, never Skate's input frame. */
+static int nr_xl_physical_raw(UINT64 selector,int profile,int native) {
+    UINT64 owner=g_xl_frame_owner,source=g_xl_frame_source,now=GetTickCount64(),seen=g_xl_frame_seen;
+    BYTE flags[5];
+    if(!owner || owner!=selector || profile!=g_xl_frame_profile || now<seen || now-seen>200 ||
+       !source || !rd_copy(source+0x10,flags,5) || flags[0]>1 || flags[2]>1 || flags[4]!=native ||
+       owner!=g_xl_frame_owner || source!=g_xl_frame_source)return -1;
+    return sc_xl_physical_raw(native,flags[2],g_xl_baseline_mirror);
+}
 static int nr_in_module(UINT64 module,UINT64 address) {
     DWORD pe,size,signature;BYTE sig[2];
     if(!module || !rd_copy(module,sig,2) || sig[0]!='M' || sig[1]!='Z' ||
@@ -156,7 +184,13 @@ static int nr_in_module(UINT64 module,UINT64 address) {
        size<0x1000 || size>0x30000000)return 0;
     return address>=module && address<module+size;
 }
+#ifdef SC_HOLD_FAKIE_COMPAT
+#include "hold_fakie_hook.h"
+#endif
 static void nr_try_hook(UINT64 now) {
+#ifdef SC_HOLD_FAKIE_COMPAT
+    hf_try_hook(now);
+#endif
     if(g_nr_hooked || now<g_nr_next_hook)return;
     g_nr_next_hook=now+500;UINT64 base=nr_base(),module=(UINT64)GetModuleHandleW(L"ReSkate.dll");
     if(!base || !module)return;

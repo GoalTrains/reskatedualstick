@@ -3,14 +3,13 @@
 Play Skate with two foot sticks using **Session-style**, **Skater XL-style**, or your own **Custom** settings.
 The mod translates Skate's controls across two sticks; it does not replace the game's skating physics.
 
-## Download v5.128
-
-[Release notes and downloads](https://github.com/GoalTrains/reskatedualstick/releases/tag/5.128). Download the Windows or Linux asset below; the automatically generated Source code archives are for developers.
+## Download v5.133
+[GitHub Releases](https://github.com/GoalTrains/reskatedualstick/releases). The v5.133 downloads below are also available directly while the release is being published. Choose the Windows or Linux mod zip; Source code archives are for developers.
 
 | Platform | Download |
 | --- | --- |
-| Windows | [Download Windows zip](https://github.com/GoalTrains/reskatedualstick/releases/download/5.128/Dual_Stick_Controls_v5.128.zip) |
-| Linux / Steam Deck (Proton) | [Download Linux / Steam Deck zip](https://github.com/GoalTrains/reskatedualstick/releases/download/5.128/Dual_Stick_Controls_v5.128_Linux.zip) |
+| Windows | [Download Windows zip](https://github.com/GoalTrains/reskatedualstick/raw/refs/heads/main/releases/v5.133/Dual_Stick_Controls_v5.133.zip) |
+| Linux / Steam Deck (Proton) | [Download Linux / Steam Deck zip](https://github.com/GoalTrains/reskatedualstick/raw/refs/heads/main/releases/v5.133/Dual_Stick_Controls_v5.133_Linux.zip) |
 
 [Changes since v5.108](CHANGELOG.md) · [Windows instructions](docs/INSTALL_WINDOWS.md) · [Linux instructions](docs/INSTALL_LINUX.md)
 
@@ -27,7 +26,7 @@ The fresh INI starts with Session-style controls. Select XL in the menu to use i
 Keep the official `ReSkate.dll`; these downloads contain the standalone mod.
 
 To retain your settings instead, keep your INI and reapply the XL preset if you want XL controls.
-For experimental pose recovery, enable both settings shown below.
+Hold-fakie compatibility is on by default. Automatic pose resets are off; see the compatibility notes below.
 
 ## Choose your controls
 
@@ -67,13 +66,9 @@ R3 remains the pumping crouch. With the foot sticks centred, hold it to crouch a
 
 
 ## Menu guide
-
 The home page has three large choices: **Session-style**, **Skater XL-style**, and **Custom**. Applying either style changes the core control settings. Editing a core setting changes the active profile to Custom; it does not create a saved slot automatically.
-
 The remaining home-page options are **Dual Stick controls**, **Stance**, **Stock ramp controls**, **Menu settings**, and **Close**. The control diagrams stay alongside the settings; use LB/RB to browse them. There is no separate Controls page to open.
-
 ### Custom: choose how the sticks behave
-
 | Option | What it changes |
 | --- | --- |
 | Stick layout | FRONT/BACK keeps left = front and right = back. LEFT/RIGHT FOOT follows physical feet with front-up/back-down setup. SKATER XL keeps each physical stick's setup direction when riding switch. |
@@ -82,11 +77,8 @@ The remaining home-page options are **Dual Stick controls**, **Stance**, **Stock
 | Allow single-stick flips | BLOCKED requires two-foot inputs for flip tricks. One-stick shove-its, 360 shove-its and impossibles remain available. ALLOWED also permits single-stick flips. |
 | Switch flick / scoop directions | STANDARD or REVERSED for left/right foot gestures in switch. Does not swap foot ownership or reverse steering. |
 | Switch up / down directions | STANDARD or REVERSED for vertical foot gestures in switch. Does not swap which foot each stick controls. |
-
 **True Foot is the old name for physical-foot job swapping.** Choose **Left/Right Foot** or **Skater XL** for that behavior. The distinction is their setup directions, as explained above. Front/Back already keeps its jobs consistent through a 180.
-
 ### Custom: skating options
-
 | Option | What it changes |
 | --- | --- |
 | Reverts | OFF, DOUBLE TAP on either trigger, or BOTH TRIGGERS. With both triggers, the first pressed chooses the direction. |
@@ -95,58 +87,43 @@ The remaining home-page options are **Dual Stick controls**, **Stance**, **Stock
 | Crouched trigger handling | NORMAL uses the existing wind-up handling. LIGHT STEERS lets weaker pulls turn and stronger pulls wind up; easing below the threshold cancels the wind-up. |
 | Wind-up trigger strength | Threshold for LIGHT STEERS, from 50-90%. Does not change ordinary turning sensitivity. |
 | Body flips | Front/back foot stick clicks request frontflips/backflips while foot-crouched or airborne. R3 pumping and grind exits are separate. |
-| Air controls | Moves each board end with its foot stick in the air and on rails. To pop out of a rail or stall, prepare a foot and flick the opposite foot. |
+| Air controls | Moves each board end with its foot stick in the air and on rails. To pop out of a rail or stall, prepare a foot and flick the opposite foot. Bump-outs release held board controls and re-arm a direction that was already held. |
 | Powerslides | Both sticks inward for toe-side, outward for heel-side. No activation delay; add vertical movement to adjust the approach angle. |
 | Grind bump-out | Tilt a stick up/down and click it to exit a rail or lip. With centred sticks, L3 exits left and R3 exits right. |
 | Legacy switch mode | Compatibility option shown for physical layouts. SWAP JOBS is the physical-foot behavior. KEEP JOBS or OFF changes the layout to LEGACY L/R; start with a named layout instead. |
 | Ramp diagnostic recording | OFF, RAMP or FLAT. These labels describe the attempts you record; they do not select a control layout. Leave OFF for normal play. |
+| Disable hold-fakie | Temporarily disables Skate's hold-fakie stance and push reads while Dual Stick is enabled; saved Skate preferences are preserved. |
 | Saved custom presets | Opens five slots for saving and loading your settings. |
-
 ### Save your own preset
-
 1. Apply the closest style, then adjust options in **Custom**.
 2. Open **Saved custom presets** and choose **Custom slot** 1-5.
 3. Select **Save current settings**. For an occupied slot, select Save again to confirm replacement.
 4. To restore it later, select that slot and **Load saved settings**.
-
 Settings are written to `session_controls.ini`. Loading a saved preset preserves this installation's controller connection, menu preferences and regular/goofy selection. Back up the INI before replacing it; a fresh INI clears the slots.
-
 ### Stance and ramp controls
-
 **Stance** is your skater's base regular/goofy setting, not a manual normal/switch toggle. AUTO follows the game's configured stance; REGULAR or GOOFY overrides it.
-
 **Stock ramp controls** is separate from the Session/XL preset:
-
 | Mode | Behavior |
 | --- | --- |
 | OFF | Keep dual-stick foot controls. |
 | AIR ONLY | On a qualifying ramp air, a trigger grab activates stock air handling until landing. |
 | EARLY ON RAMP | Activate stock handling during a qualifying ramp climb, allowing stock setup/pre-wind, and retain it through the air until landing. A cancelled approach returns to foot controls. |
-
 During stock ramp handling, triggers grab and the sticks use Skate's handling. R3 remains pumping. The transition detector uses an experimental tilt cue; it is intended to keep flat-ground tricks in dual-stick controls.
-
 ### Menu preferences
-
 **Menu settings** contains **Show menu on startup**, **Menu hotkey**, and **Menu size** (75-250%). Select Menu hotkey and press your preferred keyboard key; Left restores End, and Escape/B cancels binding.
-
 Use D-pad/arrow keys to move, A/Enter to select, and left/right to change values. B returns from a subpage; on the home page it closes the menu. End controls this standalone menu; Insert remains the official ReSkate menu.
 
-
-## Experimental pose recovery
-
-This feedback build enables pose recovery in the supplied INI. It may perform a visible on-board reset that stops your speed.
-It is a workaround for specific recorded stance failures, not a complete repair of Skate's animation system.
-
-If retaining an older INI, add or change these lines under `[SessionControls]`:
-
+## Stance compatibility
+**Custom → Disable hold-fakie** is ON by default. While Dual Stick is enabled, this makes Skate read **Hold Fakie Stance** and **Hold Fakie Push** as off. Your saved Skate preferences are preserved; turning the option or Dual Stick off restores the normal reads. This applies to regular and goofy.
+The foot-job correction distinguishes riding direction from Skate's input frame and animation mirror. It preserves the physical-foot reference through menus and remounts.
+Automatic pose resets are **OFF** by default so they do not interrupt skating or stop your speed. If keeping an older INI, set these under `[SessionControls]`:
 ```ini
-NativeMenuRespawnRecovery=1
-NativeGroundPoseRecovery=1
+DisableHoldFakie=1
+NativeMenuRespawnRecovery=0
+NativeGroundPoseRecovery=0
+SteerCurvePercent=100
 ```
-
-Set both to `0` to disable the on-board reset. The separate XL foot-job agreement check can resynchronise stale jobs with neutral feet without respawning or braking.
-Large pose diagnostics are off in the supplied INI. The latest goofy changes still need gameplay feedback.
-
+Large pose and flight diagnostics are off in the fresh INI. Turn diagnostic recording on only when investigating a problem.
 ## Controller setup
 
 On Windows, `PlayStationPads=1` reads supported PlayStation pads and presents Xbox input.

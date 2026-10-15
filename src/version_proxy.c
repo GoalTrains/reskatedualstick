@@ -86,6 +86,7 @@ static int g_precise_log = 1;
 static int g_ramp_diag;
 static int g_remount_diag;
 static int g_pose_diag;
+static int g_stance_flight;
 static int g_menu_pose_recovery;
 static int g_native_pose_restore;
 static int g_native_property_restore;
@@ -210,6 +211,7 @@ static void load_config(int keep_runtime) {
     /* Front/back always keeps its jobs in switch. Preserve the stored key
      * so switching back to left/right restores that layout's switch choice. */
     if (g_cfg.front_back) g_cfg.switch_flip = 1;
+    g_cfg.disable_hold_fakie = ini_int(L"DisableHoldFakie", 1) != 0;
     g_cfg.one_foot_flips = ini_int(L"OneFootFlips", 0) != 0;  /* v5.27 */
     g_toggle_ms = ini_int(L"ToggleHoldMs", 3000); if (g_toggle_ms < 400) g_toggle_ms = 400;
     g_cfg.switch_goofy_flip = ini_int(L"SwitchFlipGoofy", 0) != 0;
@@ -229,7 +231,7 @@ static void load_config(int keep_runtime) {
     g_switch_src = ini_int(L"SwitchSource", 4);
     g_cfg.deadzone = ini_percent(L"FootDeadzonePercent", 15);
     g_cfg.steer_scale = ini_percent(L"SteerStrengthPercent", 100);
-    g_cfg.steer_curve = ini_percent(L"SteerCurvePercent", 150);
+    g_cfg.steer_curve = ini_percent(L"SteerCurvePercent", 100);
     if (g_cfg.deadzone < 0 || g_cfg.deadzone > 0.9f) g_cfg.deadzone = 0.15f;
     if (g_cfg.steer_curve < 1.0f) g_cfg.steer_curve = 1.0f;
     if (g_cfg.steer_curve > 3.0f) g_cfg.steer_curve = 3.0f;
@@ -286,13 +288,14 @@ static void load_config(int keep_runtime) {
     g_cfg.stock_transition_ground = ini_int(L"StockTransitionGround", 0) != 0;
     g_remount_diag = ini_int(L"RemountDiagnostics", 0) != 0;
     g_pose_diag = ini_int(L"StancePoseDiagnostics", 0) != 0;
+    g_stance_flight = ini_int(L"StanceFlightRecorder", 0) != 0;
     g_menu_pose_recovery = ini_int(L"MenuPoseRecovery", 0) != 0;
     /* Legacy pair-only restore stays disabled. New frame recovery is opt-in. */
     g_native_pose_restore = 0; /* v5.106 restore was overwritten; disabled. */
     g_native_property_restore = 0; /* v5.109 retained but changed push/board behaviour. */
     g_native_animation_reset = 0; /* v5.114 request ran but did not fix the pose. */
-    g_native_respawn = ini_int(L"NativeMenuRespawnRecovery",1)!=0;
-    g_native_ground_respawn = ini_int(L"NativeGroundPoseRecovery",1)!=0;
+    g_native_respawn = ini_int(L"NativeMenuRespawnRecovery",0)!=0;
+    g_native_ground_respawn = ini_int(L"NativeGroundPoseRecovery",0)!=0;
     g_motion_stance = ini_int(L"RemountStanceMotion", 1) != 0;
     g_ramp_diag = ini_int(L"RampDiagnostics", 0); if(g_ramp_diag<0 || g_ramp_diag>2)g_ramp_diag=0;
     g_cfg.air_controls = ini_int(L"AirControls", 1) != 0;
@@ -1014,6 +1017,8 @@ static int read_switched(void) {
 #include "native_pose_poll.h"
 #include "native_property_poll.h"
 #include "native_animation_poll.h"
+#define SC_HOLD_FAKIE_COMPAT
+#define SC_STANCE_FLIGHT_RECORDER
 #include "native_respawn_poll.h"
 static sc_menu_pose_recovery g_pose_recovery;
 static DWORD g_pose_recovery_user;
@@ -1225,8 +1230,13 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
         int spawned = g_now_ms - g_spawn_t < 1500.0;
         /* Keep direct d for the tested regular route. Goofy True Foot uses
          * one turn relative to takeoff because its d resets on the ground. */
+        int stance_raw=motion_sw>=0?motion_sw:sw;
+        if(g_cfg.xl_layout && g_switch_src==4 && g_local>=0){
+            int physical_raw=nr_xl_physical_raw(g_slots[g_local].sel,g_cfg.goofy,native_sw);
+            if(physical_raw>=0)stance_raw=physical_raw;
+        }
         sw = sc_resolve_stance(&tracking,g_switch_src,g_cfg.goofy,g_cfg.switch_flip,
-                               g_cfg.front_back,state,motion_sw>=0?motion_sw:sw,spawned,g_switched,g_now_ms);
+                               g_cfg.front_back,state,stance_raw,spawned,g_switched,g_now_ms);
         if (motion_sw >= 0) {
             /* The game's turn flag resets at remount. Use the corrected
              * riding direction for feet, but the native flag for its input
@@ -1235,13 +1245,16 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
         }
         int agreement=g_cfg.xl_layout && user==g_xl_input_user && g_local>=0?
             sc_xl_agreement_cached(GetTickCount64(),g_xl_agreement_seen,g_xl_agreement_owner,g_slots[g_local].sel,
-                g_xl_agreement_profile,g_cfg.goofy,g_xl_agreement_hint,native_sw):-1;
-        if(sc_xl_agreement_can_apply(agreement,sw,state,g_xl_idle && nr_xl_feet_neutral(&s->Gamepad,g_cfg.deadzone))) {
+                g_xl_agreement_profile,g_cfg.goofy,g_xl_agreement_hint,g_xl_agreement_native,native_sw):-1;
+        nr_frame agreement_frame;
+        int apply_agreement=sc_xl_agreement_can_apply(agreement,sw,state,g_xl_idle && nr_xl_feet_neutral(&s->Gamepad,g_cfg.deadzone));
+        if(apply_agreement && nr_read(g_slots[g_local].sel,nr_base(),rd_copy,&agreement_frame) &&
+           sc_xl_agreement_frame_matches(agreement,g_xl_agreement.mirror,&g_xl_agreement_frame,&agreement_frame)) {
             tracking.stance=agreement;tracking.reference=tracking.takeoff_stance=tracking.pending_reference=-1;
             tracking.saw_air_edge=tracking.air_zero_pending=0;tracking.turn_time=0;
-            tracking.prev_state=100;tracking.prev_raw=native_sw;tracking.rode_before_walk=1;
+            tracking.prev_state=100;tracking.prev_raw=stance_raw;tracking.rode_before_walk=1;
             sw=agreement;
-            log_text(agreement?"XL stance: settled native frame and facing agree on SWITCH; retained foot jobs resynchronised":"XL stance: settled native frame and facing agree on REGULAR; retained foot jobs resynchronised");
+            log_text(agreement?"XL stance: settled physical-foot frame and facing agree on SWITCH; retained foot jobs resynchronised":"XL stance: settled physical-foot frame and facing agree on REGULAR; retained foot jobs resynchronised");
         }
         if (g_state_log && tracking.landing_turn_ms >= 0)
             log_num("  stance turned in the air, ms before landing: ", (UINT64)tracking.landing_turn_ms);
@@ -1669,7 +1682,7 @@ static void setup(HMODULE self) {
     GetModuleFileNameW(0, exe, 519);
     if (!wieq(wbase(exe), "skate.exe")) return; /* only the game; stay a plain version.dll elsewhere */
 
-    log_text("---- Dual Stick Controls 5.128 XL GOOFY FRAME TEST loaded (version.dll route)");
+    log_text("---- Dual Stick Controls 5.133 STEERING AND GRIND EXIT TEST loaded (version.dll route)");
     log_wide("process: ", exe);
     load_config(0);
     if (GetFileAttributesW(g_ini) == 0xFFFFFFFFu) log_text("no session_controls.ini found; using defaults");

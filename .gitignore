@@ -18,7 +18,6 @@ __pycache__/
 /session_controls.ini
 /CMakeUserPresets.json
 
-# Intentionally published standalone download archives.
 !/releases/
-!/releases/v5.128/
-!/releases/v5.128/*.zip
+!/releases/v5.133/
+!/releases/v5.133/*.zip

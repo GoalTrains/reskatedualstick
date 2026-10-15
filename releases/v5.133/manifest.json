@@ -1,0 +1,14 @@
+{
+  "version": "5.133",
+  "dll_sha256": "1b5b2c900000e2fae3ff6bdc9b15e663ad7f25a419b935485390159e283e3df4",
+  "packages": {
+    "Dual_Stick_Controls_v5.133.zip": {
+      "sha256": "47cb0fa9615d63dad127a2b51ad3363e81a25e3d998735c511d205faab385153",
+      "size": 155397
+    },
+    "Dual_Stick_Controls_v5.133_Linux.zip": {
+      "sha256": "b080a8c4062affd42ed9cade92ed95937ff1b6ca38e5e3aae8f4b3747bcc35d4",
+      "size": 155459
+    }
+  }
+}

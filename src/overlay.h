@@ -74,7 +74,7 @@ static HWND ui_foreground_game(void) {
 
 
 /* v5.12: PURE only. Trick input and Kick / heel sides rows removed; Menu size moved to the bottom. */
-enum { UI_PRESET_SESSION, UI_PRESET_XL, UI_SESSION, UI_STANCE, UI_LAYOUT, UI_SWITCH, UI_POPSTYLE, UI_ONEFOOT, UI_STEER, UI_REVERTS, UI_WINDUP, UI_FLIPS, UI_AIR, UI_SLIDES, UI_BUMP, UI_SIZE, UI_CLOSE, UI_ADVANCED, UI_BACK, UI_CUSTOM, UI_SLOT, UI_SAVE, UI_LOAD, UI_STARTUP, UI_HOTKEY, UI_STOCKAIR, UI_RAMPDIAG, UI_PRESET_FB_RELEASE, UI_PRESET_PHYS_FLICK, UI_TAPWINDOW, UI_WINDSTEER, UI_WINDTHRESH, UI_XLEXTRAS, UI_SAVED, UI_MENUSETTINGS, UI_INVERTX, UI_INVERTY, UI_COUNT };
+enum { UI_PRESET_SESSION, UI_PRESET_XL, UI_SESSION, UI_STANCE, UI_LAYOUT, UI_SWITCH, UI_POPSTYLE, UI_ONEFOOT, UI_STEER, UI_REVERTS, UI_WINDUP, UI_FLIPS, UI_AIR, UI_SLIDES, UI_BUMP, UI_SIZE, UI_CLOSE, UI_ADVANCED, UI_BACK, UI_CUSTOM, UI_SLOT, UI_SAVE, UI_LOAD, UI_STARTUP, UI_HOTKEY, UI_STOCKAIR, UI_RAMPDIAG, UI_PRESET_FB_RELEASE, UI_PRESET_PHYS_FLICK, UI_TAPWINDOW, UI_WINDSTEER, UI_WINDTHRESH, UI_XLEXTRAS, UI_SAVED, UI_MENUSETTINGS, UI_INVERTX, UI_INVERTY, UI_HOLDFAKIE, UI_COUNT };
 /* v5.8: wider menu, an explanation box for the highlighted line, and a controls page */
 #define UI_SETTINGS_W 700
 #define UI_CONTROLS_W 700
@@ -95,7 +95,7 @@ static volatile int g_ui_draw_scale=100;
 static int g_ui_controls_page;   /* six large cards per page */
 
 static const int k_ui_main[] = {UI_PRESET_SESSION, UI_PRESET_XL, UI_CUSTOM, UI_SESSION, UI_STANCE, UI_STOCKAIR, UI_MENUSETTINGS, UI_CLOSE};
-static const int k_ui_basic[] = {UI_LAYOUT, UI_POPSTYLE, UI_STEER, UI_ONEFOOT, UI_INVERTX, UI_INVERTY, UI_REVERTS, UI_TAPWINDOW, UI_WINDUP, UI_WINDSTEER, UI_WINDTHRESH, UI_FLIPS, UI_AIR, UI_SLIDES, UI_BUMP, UI_SWITCH, UI_RAMPDIAG, UI_SAVED, UI_BACK};
+static const int k_ui_basic[] = {UI_LAYOUT, UI_POPSTYLE, UI_STEER, UI_ONEFOOT, UI_INVERTX, UI_INVERTY, UI_REVERTS, UI_TAPWINDOW, UI_WINDUP, UI_WINDSTEER, UI_WINDTHRESH, UI_FLIPS, UI_AIR, UI_SLIDES, UI_BUMP, UI_SWITCH, UI_RAMPDIAG, UI_SAVED, UI_HOLDFAKIE, UI_BACK};
 static const int k_ui_advanced[] = {UI_SWITCH, UI_REVERTS, UI_TAPWINDOW, UI_WINDUP, UI_WINDSTEER, UI_WINDTHRESH, UI_FLIPS, UI_AIR, UI_SLIDES, UI_BUMP, UI_RAMPDIAG, UI_BACK};
 static const int k_ui_menu[] = {UI_STARTUP, UI_HOTKEY, UI_SIZE, UI_BACK};
 static int g_ui_slot = 1, g_ui_overwrite;
@@ -166,6 +166,7 @@ static void ui_value(int item, WCHAR* out) {
     case UI_SAVE: v = g_ui_overwrite==g_ui_slot ? "CONFIRM SAVE" : ui_slot_filled() ? "OVERWRITE" : "SAVE"; break;
     case UI_LOAD: v = ui_slot_filled() ? "LOAD" : "EMPTY"; break;
     case UI_INVERTX: v=g_cfg.switch_invert_x?"REVERSED":"STANDARD";break;
+    case UI_HOLDFAKIE: v=g_cfg.disable_hold_fakie?"ON":"OFF";break;
     case UI_INVERTY: v=g_cfg.switch_invert_y?"REVERSED":"STANDARD";break;
     case UI_SAVED: case UI_MENUSETTINGS:
     case UI_ADVANCED: v = "OPEN"; break;
@@ -198,7 +199,7 @@ static void ui_value(int item, WCHAR* out) {
 }
 static const WCHAR* const k_ui_labels[UI_COUNT] = {
     L"Session-style", L"Skater XL-style", L"Dual Stick controls", L"Stance", L"Stick layout", L"Legacy switch mode", L"Pop style", L"Allow single-stick flips", L"Stick steering", L"Reverts", L"Spin wind-up",
-    L"Body flips", L"Air controls", L"Powerslides", L"Grind bump-out", L"Menu size", L"Close", L"Advanced settings", L"Back", L"Custom", L"Custom slot", L"Save current settings", L"Load saved settings", L"Show menu on startup", L"Menu hotkey", L"Stock ramp controls", L"Ramp diagnostic recording", L"Front/Back - Release", L"Left/Right Foot - Flick", L"Revert double-tap window", L"Crouched trigger handling", L"Wind-up trigger strength", L"Skater XL extras", L"Saved custom presets", L"Menu settings", L"Switch flick / scoop directions", L"Switch up / down directions"};
+    L"Body flips", L"Air controls", L"Powerslides", L"Grind bump-out", L"Menu size", L"Close", L"Advanced settings", L"Back", L"Custom", L"Custom slot", L"Save current settings", L"Load saved settings", L"Show menu on startup", L"Menu hotkey", L"Stock ramp controls", L"Ramp diagnostic recording", L"Front/Back - Release", L"Left/Right Foot - Flick", L"Revert double-tap window", L"Crouched trigger handling", L"Wind-up trigger strength", L"Skater XL extras", L"Saved custom presets", L"Menu settings", L"Switch flick / scoop directions", L"Switch up / down directions", L"Disable hold-fakie"};
 static const WCHAR* const k_ui_help[UI_COUNT] = {
     L"Applies FRONT/BACK FOOT, FLICK pop, steering OFF and one-stick flips BLOCKED. Left = front, right = back in every stance. These translate Skate controls across two sticks; inputs differ from Session.",
     L"Applies SKATER XL layout: fixed stick directions, RELEASE to pop; physical feet swap front/back jobs in switch. LEFT-STICK steering and one-stick flips ALLOWED. Opposite-foot flicks also work. Skate trick inputs still differ from XL.",
@@ -236,7 +237,8 @@ static const WCHAR* const k_ui_help[UI_COUNT] = {
     L"Save or load one of five custom slots. Controller connection, menu preferences and your regular/goofy selection stay with this installation.",
     L"Choose the opening key, startup display and menu size. These preferences are independent of your control profile.",
     L"STANDARD keeps the current switch flick/scoop mapping. REVERSED exchanges left and right for foot gestures in switch. Foot ownership, steering, trigger reverts and inward/outward powerslides stay the same.",
-    L"STANDARD keeps the current switch setup directions. REVERSED exchanges up and down for foot gestures in switch. This changes ollie/nollie setup directions; each stick still controls its chosen foot."};
+    L"STANDARD keeps the current switch setup directions. REVERSED exchanges up and down for foot gestures in switch. This changes ollie/nollie setup directions; each stick still controls its chosen foot.",
+    L"ON makes Skate read Hold Fakie Stance and Hold Fakie Push as OFF while Dual Stick is enabled. Prevents their native stance-hold behavior from fighting the foot controls. Saved game preferences are retained; OFF restores native behavior."};
 /* v5.9 controls page as Flick-it style pictures: each card shows the two sticks (L = front foot,
  * R = back foot, regular stance) with the moves drawn on them. kind 0 = line from (a,b) to (c,d),
  * 1 = arc of radius a from angle b to c (0 = up, clockwise), 2 = stick click. end: 0 arrow (flick),
@@ -431,6 +433,7 @@ static void ui_change(int item, int dir) {
     case UI_SAVED: g_ui_page=3;g_ui_sel=0;g_ui_dirty=1;return;
     case UI_MENUSETTINGS: g_ui_page=5;g_ui_sel=0;g_ui_dirty=1;return;
     case UI_INVERTX: ui_set(L"SwitchInvertX",g_cfg.switch_invert_x?L"0":L"1");break;
+    case UI_HOLDFAKIE: ui_set(L"DisableHoldFakie",g_cfg.disable_hold_fakie?L"0":L"1");break;
     case UI_INVERTY: ui_set(L"SwitchInvertY",g_cfg.switch_invert_y?L"0":L"1");break;
     case UI_ADVANCED: g_ui_page = 2; g_ui_sel = 0; g_ui_dirty = 1; return;
     case UI_BACK: ui_back();return;

@@ -100,7 +100,10 @@ static void prepare_hook(int indirect){
  else {entry[0]=0xe9;int rel=0x100-(0x2e77190+5);memcpy(entry+1,&rel,4);entry[5]=0x90;entry[6]=0x90;entry[7]=0x90;
   hook_code[0x100]=0xff;hook_code[0x101]=0x25;memcpy(hook_code+0x106,&target,8);}
 }
-int main(void){
+#ifndef NR_FIXTURE_MAIN
+#define NR_FIXTURE_MAIN main
+#endif
+int NR_FIXTURE_MAIN(void){
  property_fixture_main();g_nr_tick_prev=original_tick;
  const UINT64 base=0x140000000ULL;
  unsigned s=13;memcpy(client+0xc4,&s,4);native_context[0x100]=1;
@@ -167,6 +170,17 @@ int main(void){
  flags(1,1);xl_forward[2]=-1;memcpy(core+0x150,xl_forward,12);
  for(int i=0;i<20;i++){xl_position[2]+=.2f;memcpy(core+0x100,xl_position,12);native_clock+=40;tick();}
  assert(g_xl_agreement_owner==(UINT64)selector && g_xl_agreement_hint==1 && calls==agreement_calls);
+ assert(g_xl_frame_owner==(UINT64)selector && nr_xl_physical_raw((UINT64)selector,0,1)==1);
+ int baseline_before_menu=g_xl_agreement.mirror;
+ g_paused=1;native_clock+=40;tick();assert(g_xl_agreement.baseline_valid && g_xl_agreement.mirror==baseline_before_menu && !g_xl_frame_owner);
+ g_paused=0;native_clock+=40;tick();assert(g_xl_agreement.baseline_valid && g_xl_frame_owner==(UINT64)selector);
+
+ unsigned before_reads=writes;
+ flags(0,0);assert(nr_xl_physical_raw((UINT64)selector,0,0)==1); /* paired native/mirror reset */
+ assert(nr_xl_physical_raw((UINT64)selector,0,1)==-1); /* export/source disagree */
+ assert(nr_xl_physical_raw((UINT64)selector,1,0)==-1 && nr_xl_physical_raw((UINT64)root,0,0)==-1);
+ source[0x12]=2;assert(nr_xl_physical_raw((UINT64)selector,0,0)==-1);source[0x12]=0;
+ native_clock+=201;assert(nr_xl_physical_raw((UINT64)selector,0,0)==-1);assert(writes==before_reads);
  g_cfg.xl_layout=0;native_clock+=40;tick();assert(!g_xl_agreement_owner);
  sc_pad steering={0},steered={0};steering.lt=255;steered.lx=-32768;
  nr_note_menu(g_now_ms,0,&steering,&steered);assert(g_xl_idle); /* Trigger steering is not held foot input. */

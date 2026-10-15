@@ -32,10 +32,10 @@ int main(int argc,char** argv){
   f.core++;assert(step(&g,100,1,profile)==-1 && !g.baseline_valid);f.core--;
   assert(sc_xl_agreement_step(&g,0,-1,1,profile,now)==-1 && !g.baseline_valid);
  }
- assert(sc_xl_agreement_cached(1100,1000,7,7,0,0,0,0)==0);
- assert(sc_xl_agreement_cached(1300,1000,7,7,0,0,0,0)==-1);
- assert(sc_xl_agreement_cached(1100,1000,7,8,0,0,0,0)==-1);
- assert(sc_xl_agreement_cached(1100,1000,7,7,1,0,0,0)==-1);
- assert(sc_xl_agreement_cached(1100,1000,7,7,0,0,0,1)==-1);
- puts("PASS: settled native/facing agreement restores XL normal/switch reference for regular/goofy without pose writes; native reset while actual switch, reversed basis/mirror, active controls, air/grind/UI, teleport, stale/foreign cache excluded");
+ assert(sc_xl_agreement_cached(1100,1000,7,7,0,0,0,0,0)==0);
+ assert(sc_xl_agreement_cached(1300,1000,7,7,0,0,0,0,0)==-1);
+ assert(sc_xl_agreement_cached(1100,1000,7,8,0,0,0,0,0)==-1);
+ assert(sc_xl_agreement_cached(1100,1000,7,7,1,0,0,0,0)==-1);
+ assert(sc_xl_agreement_cached(1100,1000,7,7,0,0,0,0,1)==-1);
+ puts("PASS: settled native/facing agreement restores XL normal/switch reference for regular/goofy without pose writes; native reset while actual switch, contradictory normalized frame, active controls, air/grind/UI, teleport, stale/foreign cache excluded");
 }

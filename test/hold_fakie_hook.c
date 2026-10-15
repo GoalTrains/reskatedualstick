@@ -1,0 +1,33 @@
+#define NR_FIXTURE_MAIN native_respawn_fixture_main
+#include "native_respawn_poll.c"
+static BYTE settings_mem[1024];
+static int setting_read(UINT64 a,void*out,UINT64 n){if(a>=(UINT64)settings_mem && a+n<=(UINT64)settings_mem+sizeof settings_mem){memcpy(out,(void*)a,n);return 1;}return respawn_read(a,out,n);}
+#define rd_copy setting_read
+#define np_base test_base
+#define GetModuleHandleW test_module
+#include "../src/hold_fakie_hook.h"
+#undef rd_copy
+#undef np_base
+#undef GetModuleHandleW
+static unsigned bool_calls;
+static BYTE original_bool(UINT64 cache,const void* reference){assert(cache==7 && reference==settings_mem);bool_calls++;last_error=77;return 1;}
+static void setup_setting_hook(int indirect){
+ prepare_hook(indirect);hf_hooked=0;hf_next=0;BYTE*entry=hook_code+0x804f60;memset(entry,0x90,16);
+ if(indirect){entry[0]=0xff;entry[1]=0x25;int rel=(int)((hook_code+0x100)-(entry+6));memcpy(entry+2,&rel,4);UINT64 dest=(UINT64)official_module+0x200;memcpy(hook_code+0x100,&dest,8);}
+ else {entry[0]=0xe9;int rel=(int)((official_module+0x200)-(entry+5));memcpy(entry+1,&rel,4);}
+}
+int main(void){
+ ptr(settings_mem,0,((UINT64)settings_mem+64)|4);ptr(settings_mem,64+0x60,(UINT64)settings_mem+512);strcpy((char*)settings_mem+512,"egf_holdfakiestance");
+ hf_previous=original_bool;g_user_enabled=1;g_cfg.disable_hold_fakie=1;
+ assert(hf_get_bool(7,settings_mem)==0 && bool_calls==1 && last_error==77);
+ strcpy((char*)settings_mem+512,"egf_holdfakiepush");assert(hf_get_bool(7,settings_mem)==0 && bool_calls==2 && last_error==77);
+ strcpy((char*)settings_mem+512,"another_setting");assert(hf_get_bool(7,settings_mem)==1 && bool_calls==3 && last_error==77);
+ strcpy((char*)settings_mem+512,"egf_holdfakiepush");g_user_enabled=0;assert(hf_get_bool(7,settings_mem)==1);g_user_enabled=1;g_cfg.disable_hold_fakie=0;assert(hf_get_bool(7,settings_mem)==1);g_cfg.disable_hold_fakie=1;
+ for(int indirect=0;indirect<2;indirect++){
+  setup_setting_hook(indirect);hf_try_hook(1000);assert(hf_hooked==1 && (UINT64)hf_previous==(UINT64)official_module+0x200);
+  BYTE*entry=hook_code+0x804f60;assert(entry[6]==(indirect?0x90:0x90) && entry[7]==0x90);
+ }
+ setup_setting_hook(0);hook_race=1;hf_try_hook(1000);assert(hf_hooked==-1 && hook_code[0x804f60]==0xcc);
+ setup_setting_hook(0);official_module[0x80]=0;hf_try_hook(1000);assert(!hf_hooked);
+ puts("PASS: hold-fakie hook calls original once, preserves native error, overrides only two bool results, disabled pass-through, E9/FF25 official chaining and race/foreign rejection");
+}
