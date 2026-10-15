@@ -1,10 +1,10 @@
-Dual Stick Controls v5.133 — installation
+Dual Stick Controls v5.134 — installation
 
 1. Close Skate completely.
 2. Open the game folder containing Skate.exe.
 3. Back up version.dll and session_controls.ini.
 4. Copy the supplied version.dll into that folder, replacing the old mod DLL.
-5. A fresh session_controls.ini is recommended. Back up your old INI before replacing it: this resets settings and custom preset slots.
+5. Updating from v5.133: keep your INI. For older installs a fresh session_controls.ini is recommended; back up first, because replacing it resets settings and custom preset slots.
 6. Launch normally, press End and choose Session-style or Skater XL-style. Fresh settings start with Session-style.
 
 Keep the official ReSkate.dll. Do not replace it with a PR/test runtime.

@@ -3,13 +3,13 @@
 Play Skate with two foot sticks using **Session-style**, **Skater XL-style**, or your own **Custom** settings.
 The mod translates Skate's controls across two sticks; it does not replace the game's skating physics.
 
-## Download v5.133
-[GitHub Releases](https://github.com/GoalTrains/reskatedualstick/releases). The v5.133 downloads below are also available directly while the release is being published. Choose the Windows or Linux mod zip; Source code archives are for developers.
+## Download v5.134
+[GitHub Releases](https://github.com/GoalTrains/reskatedualstick/releases). The v5.134 downloads below are also available directly while the release is being published. Choose the Windows or Linux mod zip; Source code archives are for developers.
 
 | Platform | Download |
 | --- | --- |
-| Windows | [Download Windows zip](https://github.com/GoalTrains/reskatedualstick/raw/refs/heads/main/releases/v5.133/Dual_Stick_Controls_v5.133.zip) |
-| Linux / Steam Deck (Proton) | [Download Linux / Steam Deck zip](https://github.com/GoalTrains/reskatedualstick/raw/refs/heads/main/releases/v5.133/Dual_Stick_Controls_v5.133_Linux.zip) |
+| Windows | [Download Windows zip](https://github.com/GoalTrains/reskatedualstick/raw/refs/heads/main/releases/v5.134/Dual_Stick_Controls_v5.134.zip) |
+| Linux / Steam Deck (Proton) | [Download Linux / Steam Deck zip](https://github.com/GoalTrains/reskatedualstick/raw/refs/heads/main/releases/v5.134/Dual_Stick_Controls_v5.134_Linux.zip) |
 
 [Changes since v5.108](CHANGELOG.md) · [Windows instructions](docs/INSTALL_WINDOWS.md) · [Linux instructions](docs/INSTALL_LINUX.md)
 
@@ -19,7 +19,7 @@ The mod translates Skate's controls across two sticks; it does not replace the g
 2. Open the game folder containing `Skate.exe`.
 3. Back up your existing `version.dll` and `session_controls.ini`.
 4. Copy the downloaded `version.dll` beside `Skate.exe`.
-5. **A fresh INI is recommended for this release:** replace `session_controls.ini` with the included one. This resets settings and custom preset slots, so keep your backup.
+5. **Updating from v5.133:** keep your INI. For older installs, a fresh INI is recommended; back up before replacing it, because this resets settings and custom preset slots.
 6. Launch through your normal reSkate setup. Press **End** and choose **Session-style** or **Skater XL-style**.
 
 The fresh INI starts with Session-style controls. Select XL in the menu to use its new layout.
@@ -89,6 +89,7 @@ The remaining home-page options are **Dual Stick controls**, **Stance**, **Stock
 | Body flips | Front/back foot stick clicks request frontflips/backflips while foot-crouched or airborne. R3 pumping and grind exits are separate. |
 | Air controls | Moves each board end with its foot stick in the air and on rails. To pop out of a rail or stall, prepare a foot and flick the opposite foot. Bump-outs release held board controls and re-arm a direction that was already held. |
 | Powerslides | Both sticks inward for toe-side, outward for heel-side. No activation delay; add vertical movement to adjust the approach angle. |
+| Rail shove-outs | Quickly scoop from a foot's pop direction to use the same trick-input direction as on flat ground. Held sideways positions and gradual circles remain rail adjustments. |
 | Grind bump-out | Tilt a stick up/down and click it to exit a rail or lip. With centred sticks, L3 exits left and R3 exits right. |
 | Legacy switch mode | Compatibility option shown for physical layouts. SWAP JOBS is the physical-foot behavior. KEEP JOBS or OFF changes the layout to LEGACY L/R; start with a named layout instead. |
 | Ramp diagnostic recording | OFF, RAMP or FLAT. These labels describe the attempts you record; they do not select a control layout. Leave OFF for normal play. |

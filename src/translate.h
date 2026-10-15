@@ -188,6 +188,9 @@ typedef struct {
     int d_land_hold;      /* feet held through a landing: they are manual leans, not pops */
     int grind;            /* set by the caller: the game says the skater is grinding */
     int grind_prev, grind_pop, grind_fpop, grind_bpop;
+    int rail_scoop_track, rail_scoop_exit; /* 1 front / 2 back: explicit quick scoop versus rail pivot */
+    float rail_scoop_angle, rail_scoop_sweep, rail_scoop_x, rail_scoop_y;
+    double rail_scoop_last, rail_scoop_turn;
     int grind_fflick, grind_bflick; double grind_fpop_t, grind_bpop_t; /* separate rail adjustment from a fresh pop setup */
     int hold_foot; float hold_x, hold_y; /* v5.19: held trick: 1 front / 2 back foot still holding its flick, and the stick the game had */
     float tk_fa, tk_ba;   /* v5.16: angle each held foot had at take-off */
@@ -204,6 +207,7 @@ typedef struct {
  * Without this, an already-held stick inherited the other foot's spent/ignored
  * state and could disappear or become a fresh flick during a 180. */
 static void sc_remap_foot_history(sc_state* s) {
+    s->rail_scoop_track=s->rail_scoop_exit=0; s->rail_scoop_last=s->rail_scoop_turn=0;
 #define SC_SWAP_FIELD(type, a, b) do { type v = s->a; s->a = s->b; s->b = v; } while (0)
     SC_SWAP_FIELD(int, d_front_on, d_back_on);
     SC_SWAP_FIELD(int, d_front_spent, d_back_spent);
@@ -1046,6 +1050,42 @@ static void sc_lone_clamp(sc_state* s, int k, float* x, float* y) {
     if (off <= lim) return;
     sc_vec_at(k, soff < 0 ? -lim : lim, m, x, y);
 }
+/* A quick continuous sweep away from a foot's own pop end is a trick-out,
+ * not the slow/held tail pivot. Decide from actual motion, without a wait or
+ * a generated trick path. The rest of the gesture uses the ground translator. */
+static int sc_rail_scoop(sc_state* s, double now, float fx, float fy, float bx, float by, float off) {
+    float fm=sc_sqrt(fx*fx+fy*fy), bm=sc_sqrt(bx*bx+by*by);
+    int foot = fm>=.5f && bm<off ? 1 : bm>=.5f && fm<off ? 2 : 0;
+    if(!s->grind || s->grind_pop || !foot) { s->rail_scoop_track=0; return 0; }
+    float x=foot==1?fx:bx, y=foot==1?fy:by;
+    float own=foot==1?y:-y, a=sc_angle(x,y);
+    double dt=now-s->rail_scoop_last;
+    if(s->rail_scoop_track==foot && dt>0 && dt<=100) {
+        float delta=sc_wrap(a-s->rail_scoop_angle);
+        if(sc_abs(delta)<=110) {
+            s->rail_scoop_sweep+=delta;
+            if(sc_abs(s->rail_scoop_sweep)<8) s->rail_scoop_turn=0;
+            else if(!s->rail_scoop_turn) s->rail_scoop_turn=s->rail_scoop_last;
+            if(s->rail_scoop_turn) {
+                double elapsed=now-s->rail_scoop_turn;
+                if(sc_abs(s->rail_scoop_sweep)>=35 && elapsed>0 &&
+                   sc_abs(s->rail_scoop_sweep)*1000.0>=400.0*elapsed) {
+                    s->rail_scoop_exit=foot; s->rail_scoop_track=0; return foot;
+                }
+            }
+            s->rail_scoop_angle=a;s->rail_scoop_last=now;
+            /* Slow motion stays in the pivot frame; don't let a later twitch
+             * reinterpret an already sideways-held board adjustment. */
+            if(sc_abs(s->rail_scoop_sweep)<35 || own>.6f) return 0;
+        }
+        s->rail_scoop_track=0;
+    }
+    if(own>=.35f && sc_abs(x)<=.7f*own) {
+        s->rail_scoop_track=foot;s->rail_scoop_angle=a;s->rail_scoop_last=now;
+        s->rail_scoop_sweep=0;s->rail_scoop_turn=0;s->rail_scoop_x=x;s->rail_scoop_y=y;
+    } else s->rail_scoop_track=0;
+    return 0;
+}
 static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float fy, float bx, float by,
                     float* out_x, float* out_y) {
     sc_deadzone(&fx, &fy, c->deadzone);
@@ -1120,6 +1160,7 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
     int front_pop_dir = fy > 0 && f_off <= pop_lim, back_pop_dir = by < 0 && b_off <= pop_lim;
     float side_lim = c->windup_deg > 0 ? 120.0f : pop_lim;
 
+    if(!c->air_controls) {s->rail_scoop_track=s->rail_scoop_exit=0;}
     /* A rail foot remains a board adjustment across vertical and sideways
      * positions. A fresh opposite-foot flick confirms a Flick exit; a full
      * vertical setup followed by release confirms a Release exit. */
@@ -1129,8 +1170,9 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
         int fflick = fm >= on && (fy > 0.2f * fm || sc_abs(fx) > 0.7f * fm);
         int bflick = bm >= on && (by < -0.2f * bm || sc_abs(bx) > 0.7f * bm);
         int release_back=0,release_front=0;
+        int scoop_foot=sc_rail_scoop(s,now,fx,fy,bx,by,off);
         if (!s->grind) {
-            s->grind_pop = 0; s->grind_fpop_t = s->grind_bpop_t = 0;
+            s->grind_pop = 0; s->rail_scoop_exit=0; s->grind_fpop_t = s->grind_bpop_t = 0;
         } else {
             if(fpop && (!s->grind_prev || !s->grind_fpop))s->grind_fpop_t=now;
             if(bpop && (!s->grind_prev || !s->grind_bpop))s->grind_bpop_t=now;
@@ -1138,7 +1180,7 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
             if(!bpop)s->grind_bpop_t=0;
             release_back=c->pop_on_release && s->grind_prev && s->grind_bpop && s->d_back_full && bm<off;
             release_front=c->pop_on_release && s->grind_prev && s->grind_fpop && s->d_front_full && fm<off;
-            if (fm < off && bm < off && !(s->rp_t>0 && now-s->rp_t<70)) s->grind_pop = 0;
+            if (fm < off && bm < off && !(s->rp_t>0 && now-s->rp_t<70)) {s->grind_pop = 0;s->rail_scoop_exit=0;}
             /* A held stall position remains an adjustment. A fresh flick of
              * the opposite foot after a firm held pop is an explicit trick-out. */
             int held_back = s->grind_prev && bpop && fflick && !s->grind_fflick &&
@@ -1146,7 +1188,7 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
             int held_front = s->grind_prev && fpop && bflick && !s->grind_bflick &&
                              s->grind_fpop_t > 0 && now-s->grind_fpop_t >= 70.0;
             if (s->grind_prev && !s->grind_pop &&
-                (held_back || held_front || (bpop && fflick && !s->grind_fflick) ||
+                (scoop_foot || held_back || held_front || (bpop && fflick && !s->grind_fflick) ||
                  (fpop && bflick && !s->grind_bflick) || release_back || release_front)) {
                 s->grind_pop = 1;
                 s->d_front_on = s->d_back_on = 0;
@@ -1154,7 +1196,14 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
                 s->d_front_ignored = s->d_back_ignored = 0;
                 s->d_land_hold = s->d_front_carry = s->d_back_carry = 0;
                 s->d_windup=0;
-                if(held_back || (bpop && fflick)) {s->d_back_on=1;s->d_back_seq=++s->d_seq;s->pf_t[1]=s->grind_bpop_t;}
+                if(scoop_foot) {
+                    int k=scoop_foot==2;
+                    if(k){s->d_back_on=1;s->d_back_seq=++s->d_seq;s->pf_t[1]=s->rail_scoop_turn;}
+                    else {s->d_front_on=1;s->d_front_seq=++s->d_seq;s->pf_t[0]=s->rail_scoop_turn;}
+                    s->lone_side[k]=0;sc_lone_start(s,k,s->rail_scoop_x,s->rail_scoop_y);
+                    s->last_name=k?"back-foot rail scoop":"front-foot rail scoop";s->fired++;
+                }
+                else if(held_back || (bpop && fflick)) {s->d_back_on=1;s->d_back_seq=++s->d_seq;s->pf_t[1]=s->grind_bpop_t;}
                 else if(held_front || (fpop && bflick)) {s->d_front_on=1;s->d_front_seq=++s->d_seq;s->pf_t[0]=s->grind_fpop_t;}
             }
         }
@@ -1320,7 +1369,7 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
 
     if(c->pop_on_release && fl && bl)s->rp_two_foot=1;
     /* PopOnRelease: let go of a full one-foot crouch = the stick snaps to the other end */
-    if (c->pop_on_release && !s->rp_two_foot) {
+    if (c->pop_on_release && !s->rp_two_foot && !s->rail_scoop_exit) {
         if (s->d_windup || s->d_front_on || s->d_back_spent) { s->d_back_full = 0; s->d_back_peak = 0; }
         else if (bl && bm >= 0.8f && back_pop_dir) { s->d_back_full = 1; if (bm > s->d_back_peak) s->d_back_peak = bm; }
         if (s->d_windup || s->d_back_on || s->d_front_spent) { s->d_front_full = 0; s->d_front_peak = 0; }

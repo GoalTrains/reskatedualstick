@@ -1,3 +1,12 @@
+# v5.134 - changes since v5.133
+
+- Fixed quick shove-outs using the reversed tail-pivot input frame while grinding.
+- A quick scoop from the foot's pop direction now uses the same trick-input mapping as a flat-ground shove-it, for front and back feet.
+- Held sideways positions and gradual circular movements remain grind adjustments. Quick scoops are distinguished by their movement; there is no extra button or activation timer.
+- Covers regular/goofy, normal/switch, all three layouts and Flick/Release pop styles.
+- Added precise grind-pop and scoop-mode logging to make future reports easier to diagnose.
+- Keeps the v5.133 steering, bump-out, hold-fakie and replay/menu fixes. Automatic pose resets remain off by default.
+
 # v5.133 — changes since v5.128
 
 - Improved stale stance and foot-job correction for regular and goofy, including after turns, menus and remounts.
