@@ -5,7 +5,7 @@ The mod translates Skate's controls across two sticks; it does not replace the g
 
 ## v5.136 preview
 
-[Windows preview zip](https://github.com/GoalTrains/reskatedualstick/raw/refs/heads/main/releases/v5.136/Dual_Stick_Controls_v5.136.zip) | [Linux / Steam Deck preview zip](https://github.com/GoalTrains/reskatedualstick/raw/refs/heads/main/releases/v5.136/Dual_Stick_Controls_v5.136_Linux.zip)
+[Windows preview zip](https://github.com/GoalTrains/reskatedualstick/releases/download/5.136/Dual_Stick_Controls_v5.136.zip) | [Linux / Steam Deck preview zip](https://github.com/GoalTrains/reskatedualstick/releases/download/5.136/Dual_Stick_Controls_v5.136_Linux.zip)
 
 Changes XL physical stance resolution and keeps board adjustment directions consistent during air/rail sequences. Native animation-mirror compensation is separate from board adjustments. Automated checks pass; in-game confirmation is pending. Keep your v5.133 or newer INI.
 
