@@ -42,6 +42,8 @@ __declspec(dllimport) DWORD WINAPI GetModuleFileNameW(HMODULE, WCHAR*, DWORD);
 __declspec(dllimport) HANDLE WINAPI CreateFileW(const WCHAR*, DWORD, DWORD, void*, DWORD, DWORD, HANDLE);
 __declspec(dllimport) BOOL WINAPI WriteFile(HANDLE, const void*, DWORD, DWORD*, void*);
 __declspec(dllimport) BOOL WINAPI CloseHandle(HANDLE);
+__declspec(dllimport) BOOL WINAPI GetFileSizeEx(HANDLE, INT64*);
+__declspec(dllimport) BOOL WINAPI SetFilePointerEx(HANDLE, INT64, INT64*, DWORD);
 __declspec(dllimport) DWORD WINAPI GetPrivateProfileIntW(const WCHAR*, const WCHAR*, int, const WCHAR*);
 __declspec(dllimport) DWORD WINAPI GetPrivateProfileStringW(const WCHAR*, const WCHAR*, const WCHAR*, WCHAR*, DWORD, const WCHAR*);
 __declspec(dllimport) BOOL WINAPI WritePrivateProfileStringW(const WCHAR*, const WCHAR*, const WCHAR*, const WCHAR*);
@@ -1178,7 +1180,7 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
     st->game_known = g_sel_status == 2 && g_local >= 0;
     st->game_crouch = (g_sel_status == 2 && g_local >= 0) ? (g_slots[g_local].state == 103) : -1;
     st->sw_raw = (g_sel_status == 2 && g_local >= 0) ? read_switch_b() : -1;   /* v2.6: facing now, for landing manuals */
-    st->game_switch_known=0;
+    st->game_switch_known=0;st->game_mirror_known=0;st->xl_absolute_raw=-1;
     if (g_sel_status == 2 && g_cfg.switch_flip) {
         int sw = read_switched();
         int native_sw=sw;
@@ -1217,12 +1219,14 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
          * overwrite this after landing, which produced normal -> switch -> normal
          * under the same held stick. It is still logged, but never changes stance. */
         static sc_stance_track tracking;
-        static int track_slot=-2, track_source=-1, track_goofy=-1, track_mode=-1, track_layout=-1;
+        static sc_xl_absolute xl_absolute;
+        static int track_slot=-2, track_source=-1, track_goofy=-1, track_mode=-1, track_layout=-1,track_xl=-1;
         if (track_slot!=g_local || track_source!=g_switch_src || track_goofy!=g_cfg.goofy ||
-            track_mode!=g_cfg.switch_flip || track_layout!=g_cfg.front_back) {
+            track_mode!=g_cfg.switch_flip || track_layout!=g_cfg.front_back || track_xl!=g_cfg.xl_layout) {
             sc_stance_track zero={0}; tracking=zero;
+            sc_xl_absolute abs_zero={0};xl_absolute=abs_zero;
             track_slot=g_local; track_source=g_switch_src; track_goofy=g_cfg.goofy;
-            track_mode=g_cfg.switch_flip; track_layout=g_cfg.front_back;
+            track_mode=g_cfg.switch_flip; track_layout=g_cfg.front_back;track_xl=g_cfg.xl_layout;
             if (g_switch_src==4 && g_cfg.switch_flip==3 && !g_cfg.front_back)
                 log_text("true foot: retaining completed turns through ground probe resets");
         }
@@ -1230,13 +1234,18 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
         int spawned = g_now_ms - g_spawn_t < 1500.0;
         /* Keep direct d for the tested regular route. Goofy True Foot uses
          * one turn relative to takeoff because its d resets on the ground. */
+        int physical_raw=-1,mirror_delta=-1;
         int stance_raw=motion_sw>=0?motion_sw:sw;
         if(g_cfg.xl_layout && g_switch_src==4 && g_local>=0){
-            int physical_raw=nr_xl_physical_raw(g_slots[g_local].sel,g_cfg.goofy,native_sw);
-            if(physical_raw>=0)stance_raw=physical_raw;
+            physical_raw=nr_xl_physical_raw(g_slots[g_local].sel,g_cfg.goofy,native_sw,&mirror_delta);
+            st->xl_absolute_raw=physical_raw;
+            if(physical_raw>=0){st->game_mirror_known=1;st->game_mirror=mirror_delta;}
         }
         sw = sc_resolve_stance(&tracking,g_switch_src,g_cfg.goofy,g_cfg.switch_flip,
                                g_cfg.front_back,state,stance_raw,spawned,g_switched,g_now_ms);
+        if(state==300 || state==700){sc_xl_absolute zero={0};xl_absolute=zero;}
+        if(g_cfg.xl_layout && g_switch_src==4 && g_cfg.switch_flip==3 && !g_cfg.front_back)
+            sw=sc_xl_absolute_step(&xl_absolute,physical_raw,sw,g_now_ms);
         if (motion_sw >= 0) {
             /* The game's turn flag resets at remount. Use the corrected
              * riding direction for feet, but the native flag for its input
@@ -1541,7 +1550,7 @@ static void process(DWORD user, XINPUT_STATE* s,int route) {
             timing[2]?(int)(timing[2]-timing[1]):0,
             timing[3]?(int)(timing[3]-timing[2]):0,
             (int)(r.end_us-(timing[3]?timing[3]:timing[1]?timing[1]:start)),
-            g_cfg.switch_invert_x,g_cfg.switch_invert_y,g_cfg.pop_on_release,g_cfg.stick_steer,g_cfg.one_foot_flips,g_native_menu,(int)packet,route,g_cfg.xl_layout,st->grind_pop,st->rail_scoop_exit,(int)(st->rail_scoop_sweep*1000)};
+            g_cfg.switch_invert_x,g_cfg.switch_invert_y,g_cfg.pop_on_release,g_cfg.stick_steer,g_cfg.one_foot_flips,g_native_menu,(int)packet,route,g_cfg.xl_layout,st->grind_pop,st->rail_scoop_exit,(int)(st->rail_scoop_sweep*1000),st->xl_absolute_raw,st->game_mirror_known,st->game_mirror,st->board_frame_valid,st->board_frame_left};
         typedef char trace_shape_check[(sizeof values/sizeof values[0]==PT_FIELDS)?1:-1];
         for(int i=0;i<PT_FIELDS;i++) r.v[i]=values[i];
         pt_enqueue(&r);
@@ -1685,7 +1694,7 @@ static void setup(HMODULE self) {
     GetModuleFileNameW(0, exe, 519);
     if (!wieq(wbase(exe), "skate.exe")) return; /* only the game; stay a plain version.dll elsewhere */
 
-    log_text("---- Dual Stick Controls 5.134 RAIL SCOOP DIRECTION TEST loaded (version.dll route)");
+    log_text("---- Dual Stick Controls 5.136 XL CONTINUOUS FRAME TEST loaded (version.dll route)");
     log_wide("process: ", exe);
     load_config(0);
     if (GetFileAttributesW(g_ini) == 0xFFFFFFFFu) log_text("no session_controls.ini found; using defaults");

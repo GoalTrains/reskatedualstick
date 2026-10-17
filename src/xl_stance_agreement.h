@@ -63,4 +63,15 @@ static int sc_xl_physical_raw(int native,int mirror,int baseline_mirror){
     return native>=0 && native<=1 && mirror>=0 && mirror<=1 && baseline_mirror>=0 && baseline_mirror<=1?
         native^mirror^baseline_mirror:-1;
 }
+/* This evidence is already absolute anatomical stance, not a takeoff edge.
+ * Retain it through a missing read; briefly confirm changed samples. */
+typedef struct {int valid,stance,candidate,pending;double since;} sc_xl_absolute;
+static int sc_xl_absolute_step(sc_xl_absolute* s,int raw,int fallback,double now){
+    if(raw<0 || raw>1){s->pending=0;return s->valid?s->stance:fallback;}
+    if(!s->valid){s->valid=1;s->stance=raw;s->pending=0;}
+    else if(raw==s->stance)s->pending=0;
+    else if(!s->pending || s->candidate!=raw){s->pending=1;s->candidate=raw;s->since=now;}
+    else if(now-s->since>=12){s->stance=raw;s->pending=0;}
+    return s->stance;
+}
 #endif

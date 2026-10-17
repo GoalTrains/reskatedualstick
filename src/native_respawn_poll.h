@@ -168,12 +168,13 @@ static void nr_client_tick(UINT64 client,UINT64 update) {
 /* Read a single source flag bundle from this owned rider. The paired native
  * frame must still match the export, so a half-published update is ignored.
  * This changes the physical stance evidence, never Skate's input frame. */
-static int nr_xl_physical_raw(UINT64 selector,int profile,int native) {
+static int nr_xl_physical_raw(UINT64 selector,int profile,int native,int* mirror_delta) {
     UINT64 owner=g_xl_frame_owner,source=g_xl_frame_source,now=GetTickCount64(),seen=g_xl_frame_seen;
     BYTE flags[5];
     if(!owner || owner!=selector || profile!=g_xl_frame_profile || now<seen || now-seen>200 ||
        !source || !rd_copy(source+0x10,flags,5) || flags[0]>1 || flags[2]>1 || flags[4]!=native ||
        owner!=g_xl_frame_owner || source!=g_xl_frame_source)return -1;
+    *mirror_delta=flags[2]^g_xl_baseline_mirror;
     return sc_xl_physical_raw(native,flags[2],g_xl_baseline_mirror);
 }
 static int nr_in_module(UINT64 module,UINT64 address) {

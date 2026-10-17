@@ -154,6 +154,9 @@ typedef struct {
     int tr_down[2], rv_block, rv_hold, rv_both; /* v4.7 rv_hold: 1 = LT / 2 = RT of a revert still held: no steering from it */ double tr_press[2], tr_rel[2]; /* LT / RT double taps */
     int g_down[2], g_grab[2]; double g_press[2], g_rel[2], g_pulse[2]; /* LB / RB: handplant / dark catch / grab */
     int switched;         /* set by the caller: riding the other way round from the spawn */
+    int xl_absolute_raw;
+    int game_mirror_known, game_mirror; /* owned rider animation frame relative to normal baseline */
+    int board_frame_valid, board_frame_left; /* continuous XL air/rail adjustment frame */
     int game_switch_known, game_switch; /* native input frame can reset separately on remount */
     int feet_map_ok, feet_map_left; /* v5.45: which physical stick owns each foot history */
     int sw_lat, sw_lat_ok; /* v5.42: the switch turn-round in use on the game stick (kept while it is held) */
@@ -1460,7 +1463,7 @@ static sc_pad sc_pump_output(sc_state* s,sc_pad out,double now) {
 
 /* Translate one physical pad state into the state the game should see. */
 static sc_pad sc_translate(const sc_config* c, sc_state* s, sc_pad in, double now) {
-    if (!c->enabled) return in;
+    if (!c->enabled) {s->board_frame_valid=0;return in;}
     /* v5.25 RADIAL MENUS: holding the D-pad opens the game's radial menus, where you pick with the
      * sticks. While a D-pad button is held (and 0.25 s after, while you let go on your pick) the pad
      * goes to the game untouched - the sticks were being turned into foot moves / steering. */
@@ -1602,6 +1605,18 @@ static sc_pad sc_translate(const sc_config* c, sc_state* s, sc_pad in, double no
      * feet stay on their ends of the board, so riding switch the front-foot stick becomes the back
      * foot (regular: left stick down + right stick up = switch ollie). */
     if (c->switch_flip == 3 && s->switched && !c->front_back) left_is_front = !left_is_front;
+    /* XL board positioning keeps its takeoff foot frame through a continuous
+     * air/rail sequence. Riding stance can still update for the next trick.
+     * A body turn is not a new inward/outward thumb gesture. */
+    int board_position=c->pure && c->xl_layout && c->air_controls &&
+                       (s->air || s->takeoff>0 || s->grind);
+    if(board_position) {
+        if(!s->board_frame_valid){
+            s->board_frame_valid=1;
+            s->board_frame_left=s->feet_map_ok?s->feet_map_left:left_is_front;
+        }
+        left_is_front=s->board_frame_left;
+    }else s->board_frame_valid=0;
     /* A late ground correction must not flip a held manual into a fresh pop.
      * Keep that manual's roles until it ends; fresh input then uses the stance. */
     if (s->feet_map_ok && s->d_land_hold && !s->air && s->takeoff <= 0)
@@ -1638,8 +1653,11 @@ static sc_pad sc_translate(const sc_config* c, sc_state* s, sc_pad in, double no
     /* Custom switch directions affect foot gestures, not steering, pumping,
      * trigger reverts or the physical inward/outward powerslide gesture. */
     /* XL keeps the physical stick direction while its front/back job swaps. */
-    if(c->xl_layout && !c->front_back && c->switch_flip==3 && s->switched){fy=-fy;by=-by;}
-    if(s->switched) {
+    int foot_switch=s->switched;
+    if(board_position && !c->front_back && c->switch_flip==3)
+        foot_switch=left_is_front!=((!c->goofy)!=!!c->feet_swapped);
+    if(c->xl_layout && !c->front_back && c->switch_flip==3 && foot_switch){fy=-fy;by=-by;}
+    if(foot_switch) {
         if(c->switch_invert_x){fx=-fx;bx=-bx;}
         if(c->switch_invert_y){fy=-fy;by=-by;}
     }
@@ -1820,6 +1838,11 @@ static sc_pad sc_translate(const sc_config* c, sc_state* s, sc_pad in, double no
     else if (c->pure) sc_pure(c, s, now, fx, fy, bx, by, &vx, &vy);
     else if (c->direct) sc_direct(c, s, now, fx, fy, bx, by, &vx, &vy);
     else sc_feet_to_flick(c, s, now, fx, fy, bx, by, &vx, &vy);
+    /* Skate mirrors trick recognition when its animation frame changes.
+     * XL preserves physical flick/scoop directions across that change.
+     * Air and rail pivots have their own continuous frame above. */
+    if(c->pure && c->xl_layout && s->game_mirror_known && s->game_mirror &&
+       !board_position)vx=-vx;
     s->ox = vx; s->oy = vy;
     /* v0.19k switch: the game says you are riding the other way round from your spawn, so the
      * board's nose is now behind you. Turn the flick stick round so the front foot still pops the

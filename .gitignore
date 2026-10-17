@@ -24,3 +24,6 @@ __pycache__/
 
 !/releases/v5.134/
 !/releases/v5.134/*.zip
+
+!/releases/v5.136/
+!/releases/v5.136/*.zip

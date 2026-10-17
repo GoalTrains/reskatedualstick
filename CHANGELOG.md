@@ -1,3 +1,20 @@
+v5.136 preview - changes since v5.134
+
+- XL now treats validated physical stance as an absolute stance, rather than counting it as another turn relative to takeoff.
+- Keeps XL board adjustment directions consistent through continuous air and rail sequences. Fresh tricks after landing use the updated stance.
+- Adds native animation-mirror compensation for ground trick inputs, separate from air and rail adjustments.
+- Caps the precise input CSV at 16 MiB plus one 16 MiB previous file. An oversized existing CSV is reduced to complete recent rows on the next launch.
+- Stops timing jitter from filling the CSV with otherwise identical input rows. Timing data remains on recorded rows, with a 100 ms heartbeat.
+- Adds physical-stance and board-frame evidence to the CSV for clearer diagnosis.
+- Includes the v5.134 rail shove direction fix.
+
+Installation
+Close Skate and replace version.dll beside Skate.exe. Keep official ReSkate.dll.
+You can keep your v5.133 or newer INI; this update needs no new settings.
+For older installs, back up the INI before replacing it with the fresh one, which resets settings and custom slots.
+The fresh INI starts with Session-style controls; press End to select Skater XL-style if wanted.
+This preview has passed automated and recorded-input checks; in-game confirmation is pending.
+
 # v5.134 - changes since v5.133
 
 - Fixed quick shove-outs using the reversed tail-pivot input frame while grinding.

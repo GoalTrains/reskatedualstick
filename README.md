@@ -3,8 +3,16 @@
 Play Skate with two foot sticks using **Session-style**, **Skater XL-style**, or your own **Custom** settings.
 The mod translates Skate's controls across two sticks; it does not replace the game's skating physics.
 
-## Download v5.134
-[GitHub Release v5.134](https://github.com/GoalTrains/reskatedualstick/releases/tag/5.134). Choose the Windows or Linux mod zip; Source code archives are for developers.
+## v5.136 preview
+
+[Windows preview zip](https://github.com/GoalTrains/reskatedualstick/raw/refs/heads/main/releases/v5.136/Dual_Stick_Controls_v5.136.zip) | [Linux / Steam Deck preview zip](https://github.com/GoalTrains/reskatedualstick/raw/refs/heads/main/releases/v5.136/Dual_Stick_Controls_v5.136_Linux.zip)
+
+Changes XL physical stance resolution and keeps board adjustment directions consistent during air/rail sequences. Native animation-mirror compensation is separate from board adjustments. Automated checks pass; in-game confirmation is pending. Keep your v5.133 or newer INI.
+
+Precise input logs now retain at most 16 MiB in `session_controls_input.csv` and 16 MiB in `session_controls_input.previous.csv`. Rotation discards older rows, including oversized legacy logs; keep a separate copy if you need the full history. Timing jitter no longer produces duplicate input rows.
+
+## Stable download v5.134
+[GitHub Releases](https://github.com/GoalTrains/reskatedualstick/releases). Choose the Windows or Linux mod zip; Source code archives are for developers.
 
 | Platform | Download |
 | --- | --- |
