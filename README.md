@@ -1,3 +1,5 @@
+<a href="https://ko-fi.com/X8K128ZWSN" target="_blank"><img height="36" style="border:0px;height:36px;" src="https://storage.ko-fi.com/cdn/kofi6.png?v=6" border="0" alt="Buy Me a Coffee at ko-fi.com" /></a>
+
 # Dual Stick Controls for reSkate
 
 Play Skate with two foot sticks using **Session-style**, **Skater XL-style**, or your own **Custom** settings.
@@ -171,3 +173,5 @@ The source in this repository corresponds to the included standalone DLL.
 ## License
 
 GPLv3; see [LICENSE](LICENSE). ReSkate is a separate project by its contributors.
+
+<a href="https://ko-fi.com/X8K128ZWSN" target="_blank"><img height="36" style="border:0px;height:36px;" src="https://storage.ko-fi.com/cdn/kofi6.png?v=6" border="0" alt="Buy Me a Coffee at ko-fi.com" /></a>
