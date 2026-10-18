@@ -30,3 +30,6 @@ __pycache__/
 
 !/releases/v5.157/
 !/releases/v5.157/*.zip
+
+!/releases/v5.158/
+!/releases/v5.158/*.zip

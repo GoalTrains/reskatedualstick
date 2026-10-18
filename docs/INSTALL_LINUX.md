@@ -1,4 +1,4 @@
-Dual Stick Controls v5.157 â€” installation
+Dual Stick Controls v5.158 â€” installation
 
 1. Close Skate completely.
 2. Open the game folder containing Skate.exe.
@@ -22,3 +22,5 @@ Linux / Steam Deck (Proton)
 Both packages contain the Windows DLL. Add this launch option, preserving existing arguments:
 WINEDLLOVERRIDES="version=n,b" %command%
 The Linux INI uses PlayStationPads=0 for an external controller route such as Steam Input. Bind End to open settings if needed.
+
+FOOT SETUP grind controls are enabled in fresh settings. If keeping your INI, enable Custom > Grind setup > FOOT SETUP (SplitGrindControls=1). For dedicated two-foot setup, block single-stick flips.

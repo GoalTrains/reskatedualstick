@@ -1,3 +1,30 @@
+v5.158 - Stable release
+
+Includes the two-foot grind work omitted from v5.157, plus the XL fixes.
+
+Grinds
+- Adds FOOT SETUP grind controls: front and back sticks position the board during the approach and on the rail.
+- Includes the latest frontside/backside entry handling and tail/nose pressure corrections.
+- Holding the tail supported no longer flattens the board just because the back-foot stick moves sideways. Front-foot input can lower the nose into a two-foot grind.
+- Includes the native rail-entry correction, held trick/setup handoff, and split-control grind exits.
+- FOOT SETUP is enabled in fresh settings. With an existing INI, choose Custom > Grind setup > FOOT SETUP (SplitGrindControls=1). Keep your existing preferences if already testing it. For dedicated two-foot setup, block single-stick flips.
+
+XL controls
+- Keeps physical stance tracking active when the mod's Regular/Goofy setting differs from Skate's setting.
+- Separates Skate's live input frame from physical foot jobs after no-complys, automatic landing reverts and remounts.
+- Synchronises confirmed grounded stance corrections and restores switch-fakie mirror compensation in the affected setup.
+- Retains continuous XL air/rail adjustments for 360s.
+
+Other
+- Precise input logging stays capped at 16 MiB plus one 16 MiB previous file. Heavy native grind diagnostics are off.
+- The separate ReSkate menu PR is not included. End opens Dual Stick; Insert opens official ReSkate.
+
+Installation
+Close Skate. Replace version.dll beside Skate.exe. Keep official ReSkate.dll.
+Keep a v5.133 or newer session_controls.ini and custom presets. To try FOOT SETUP with an older INI, enable it in Custom as described above. Fresh settings start in Session-style with FOOT SETUP enabled; choose XL from the menu if wanted.
+Linux/Steam Deck instructions are included in the Linux zip.
+
+
 v5.157 - Stable release
 
 Changes since v5.136 preview

@@ -1,6 +1,6 @@
 /* Lossless changes at the controller-poll boundary. Only the worker writes files.
  * Duplicate polls get a heartbeat at 100 ms; changed values are never throttled. */
-#define PT_FIELDS 79
+#define PT_FIELDS 86
 #define PT_CAP 4096
 #ifndef PT_FILE_LIMIT
 #define PT_FILE_LIMIT (16u * 1024u * 1024u)
@@ -35,7 +35,7 @@ static unsigned pt_take(pt_record* batch, unsigned cap) {
     unsigned n=0; while(pt_read!=pt_write && n<cap) batch[n++]=pt_queue[pt_read++ % PT_CAP];
     __sync_lock_release(&pt_lock); return n;
 }
-static const char pt_header[] = "poll,start_qpc_us,return_qpc_us,dropped_total,user,state,mod_enabled,user_enabled,paused,game_menu,mod_menu,walking,goofy,auto_stance,front_back_layout,switch_mode,switch_source,switched,mapping_valid,front_is_left,output_switch_latch,takeoff,air,grind,held_trick_foot,front_on,back_on,front_spent,back_spent,front_ignored,back_ignored,front_carry,back_carry,front_carry_ignored,back_carry_ignored,raw_lx,raw_ly,raw_rx,raw_ry,raw_lt,raw_rt,raw_buttons,out_lx,out_ly,out_rx,out_ry,out_lt,out_rt,out_buttons,switch_probe_a,switch_probe_b,switch_probe_c,switch_probe_d,stock_grab_air_active,ramp_diagnostic_label,ramp_orientation_valid,ramp_vertical_milli,ramp_qualified,ramp_departing,ramp_curve_qualified,stock_early_active,setup_us,menu_us,stance_us,translate_us,tail_us,switch_invert_x,switch_invert_y,pop_on_release,stick_steering,single_stick_flips,native_game_menu,raw_packet_number,controller_route,xl_foot_directions,grind_pop,rail_scoop_foot,rail_scoop_degrees_milli,xl_absolute_raw,native_mirror_known,native_mirror_delta,board_frame_valid,board_frame_left\r\n";
+static const char pt_header[] = "poll,start_qpc_us,return_qpc_us,dropped_total,user,state,mod_enabled,user_enabled,paused,game_menu,mod_menu,walking,goofy,auto_stance,front_back_layout,switch_mode,switch_source,switched,mapping_valid,front_is_left,output_switch_latch,takeoff,air,grind,held_trick_foot,front_on,back_on,front_spent,back_spent,front_ignored,back_ignored,front_carry,back_carry,front_carry_ignored,back_carry_ignored,raw_lx,raw_ly,raw_rx,raw_ry,raw_lt,raw_rt,raw_buttons,out_lx,out_ly,out_rx,out_ry,out_lt,out_rt,out_buttons,switch_probe_a,switch_probe_b,switch_probe_c,switch_probe_d,stock_grab_air_active,ramp_diagnostic_label,ramp_orientation_valid,ramp_vertical_milli,ramp_qualified,ramp_departing,ramp_curve_qualified,stock_early_active,setup_us,menu_us,stance_us,translate_us,tail_us,switch_invert_x,switch_invert_y,pop_on_release,stick_steering,single_stick_flips,native_game_menu,raw_packet_number,controller_route,xl_foot_directions,grind_pop,rail_scoop_foot,rail_scoop_degrees_milli,xl_absolute_raw,native_mirror_known,native_mirror_delta,board_frame_valid,board_frame_left,fine_grind_controls,fine_grind_exit_stage,split_grind_controls,split_grind_active,split_grind_lean_milli,grind_setup_override,radial_passthrough\r\n";
 /* Worker-only bounded archive: retain complete recent rows, never preserve a
  * multi-gigabyte legacy file as the rotated copy. Source stays intact on error. */
 static int pt_archive(const WCHAR* path, const WCHAR* previous) {
@@ -74,7 +74,7 @@ static DWORD WINAPI pt_worker(void* unused) {
     while(*tail)previous[i++]=*tail++;previous[i]=0;
     HANDLE f=CreateFileW(path,4,1,0,4,0x80,0);
     if(f==INVALID_HANDLE_VALUE) { pt_failed=1; log_text("precise input log: could not open session_controls_input.csv"); return 0; }
-    const char marker[]="# Dual Stick Controls 5.157; routes 1=XInput 2=XInputEx 3=PS fallback 4=native HID; new segment; axes are signed 16-bit; timestamps are absolute QPC microseconds\r\n";
+    const char marker[]="# Dual Stick Controls 5.158; routes 1=XInput 2=XInputEx 3=PS fallback 4=native HID; new segment; axes are signed 16-bit; timestamps are absolute QPC microseconds\r\n";
     INT64 length=0;
     if(!GetFileSizeEx(f,&length))goto failed;
     UINT64 bytes=(UINT64)length;

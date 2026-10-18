@@ -11,11 +11,13 @@ static int ui_slot_filled(void){return GetPrivateProfileIntW(ui_slot_section(),L
 #include "../src/presets.h"
 int main(void){WCHAR dir[MAX_PATH];GetTempPathW(MAX_PATH,dir);GetTempFileNameW(dir,L"scp",0,g_ini);
  g_cfg.front_back=0;g_cfg.switch_flip=3;g_cfg.pop_on_release=1;g_cfg.feet_swapped=1;
- g_cfg.xl_layout=1;
+ g_cfg.xl_layout=1;g_cfg.fine_grinds=1;g_cfg.split_grinds=1;
  g_cfg.deadzone=.15f;g_cfg.active=.3f;g_cfg.manual_max=.85f;g_cfg.steer_scale=1;g_cfg.steer_curve=1.5f;g_cfg.grind_sensitivity=1.2f;
  g_cfg.prewind_steer=1;g_cfg.prewind_percent=80;g_cfg.revert_ms=450;
  WritePrivateProfileStringW(L"SessionControls",L"UnrelatedSetting",L"42",g_ini);
  assert(ui_custom_save());
+ assert(GetPrivateProfileIntW(ui_slot_section(),L"FineGrindControls",-1,g_ini)==1);
+ assert(GetPrivateProfileIntW(ui_slot_section(),L"SplitGrindControls",-1,g_ini)==1);
  assert(GetPrivateProfileIntW(ui_slot_section(),L"XLFootDirections",-1,g_ini)==1);
  assert(GetPrivateProfileIntW(ui_slot_section(),L"SpinWindUpSteer",-1,g_ini)==1);
  assert(GetPrivateProfileIntW(ui_slot_section(),L"SpinWindUpTriggerPercent",-1,g_ini)==80);
@@ -34,6 +36,8 @@ int main(void){WCHAR dir[MAX_PATH];GetTempPathW(MAX_PATH,dir);GetTempFileNameW(d
  assert(GetPrivateProfileIntW(L"SessionControls",L"FrontBackFoot",-1,g_ini)==1);
  assert(GetPrivateProfileIntW(L"SessionControls",L"SwitchStance",-1,g_ini)==1);
  assert(ui_custom_load());assert(g_cfg.feet_swapped);
+ assert(GetPrivateProfileIntW(L"SessionControls",L"FineGrindControls",-1,g_ini)==1);
+ assert(GetPrivateProfileIntW(L"SessionControls",L"SplitGrindControls",-1,g_ini)==1);
  assert(GetPrivateProfileIntW(L"SessionControls",L"SwitchStance",-1,g_ini)==3);
  assert(GetPrivateProfileIntW(L"SessionControls",L"PresetFeetSwapped",-1,g_ini)==1);
  assert(GetPrivateProfileIntW(L"SessionControls",L"ShowMenuOnStartup",-1,g_ini)==0);

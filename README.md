@@ -5,18 +5,20 @@
 Play Skate with two foot sticks using **Session-style**, **Skater XL-style**, or your own **Custom** settings.
 The mod translates Skate's controls across two sticks; it does not replace the game's skating physics.
 
-## Stable download v5.157
+## Stable download v5.158
 
-XL stance tracking now remains active with a manual Regular/Goofy override, and the game's native input frame stays separate from the foot jobs after no-complys, automatic landing reverts and remounts. This also restores the mirror correction used by switch fakie flip inputs in the affected configuration.
+Includes the latest **two-foot grind setup and rail-pressure controls**, together with the XL stance, no-comply/revert and native trick-frame corrections.
+
+Fresh settings enable **FOOT SETUP**. With an existing INI, enable it under **Custom > Grind setup > FOOT SETUP** (`SplitGrindControls=1`). For dedicated two-foot setup, block single-stick flips. Each stick contributes to board position; deliberate front-foot input can lower the nose while keeping tail support.
 
 | Platform | Download |
 | --- | --- |
-| Windows | [Download Windows zip](https://github.com/GoalTrains/reskatedualstick/releases/download/5.157/Dual_Stick_Controls_v5.157.zip) |
-| Linux / Steam Deck (Proton) | [Download Linux / Steam Deck zip](https://github.com/GoalTrains/reskatedualstick/releases/download/5.157/Dual_Stick_Controls_v5.157_Linux.zip) |
+| Windows | [Download Windows zip](https://github.com/GoalTrains/reskatedualstick/releases/download/5.158/Dual_Stick_Controls_v5.158.zip) |
+| Linux / Steam Deck (Proton) | [Download Linux / Steam Deck zip](https://github.com/GoalTrains/reskatedualstick/releases/download/5.158/Dual_Stick_Controls_v5.158_Linux.zip) |
 
-[Release notes](docs/RELEASE_5.157.txt) · [Full changelog](CHANGELOG.md) · [Windows instructions](docs/INSTALL_WINDOWS.md) · [Linux instructions](docs/INSTALL_LINUX.md)
+[Release notes](docs/RELEASE_5.158.txt) · [Full changelog](CHANGELOG.md) · [Windows instructions](docs/INSTALL_WINDOWS.md) · [Linux instructions](docs/INSTALL_LINUX.md)
 
-Includes the XL 360/air continuity improvements and bounded input logging from v5.136. This standalone release excludes the local experimental two-foot grind changes and the separate ReSkate menu PR.
+Includes the XL 360/air continuity improvements and bounded input logging from v5.136. The two-foot grind changes are included. The separate ReSkate menu PR remains separate.
 
 ## Install or update
 

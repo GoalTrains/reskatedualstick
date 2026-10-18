@@ -106,6 +106,8 @@ static int ui_custom_save(void) {
        !ui_snapshot_int(L"RevertInput",g_cfg.revert_input) ||
        !ui_snapshot_int(L"SpinWindUp",g_cfg.prewind) ||
        !ui_snapshot_int(L"BodyFlips",g_cfg.body_flips) ||
+       !ui_snapshot_int(L"FineGrindControls",g_cfg.fine_grinds) ||
+       !ui_snapshot_int(L"SplitGrindControls",g_cfg.split_grinds) ||
        !ui_snapshot_int(L"AirControls",g_cfg.air_controls) ||
        !ui_snapshot_int(L"StockGrabAir",g_cfg.stock_grab_air) ||
        !ui_snapshot_int(L"StockTransitionGround",g_cfg.stock_transition_ground) ||

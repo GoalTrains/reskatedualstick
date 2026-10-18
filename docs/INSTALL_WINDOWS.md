@@ -1,4 +1,4 @@
-Dual Stick Controls v5.157 â€” installation
+Dual Stick Controls v5.158 â€” installation
 
 1. Close Skate completely.
 2. Open the game folder containing Skate.exe.
@@ -20,3 +20,5 @@ SteerCurvePercent=100
 
 Windows controllers
 PlayStationPads=1 reads supported PlayStation pads and presents Xbox input. For native DualSense use PlayStationPads=2, disable Steam Input and restart. If Steam Input, DS4Windows or DSX supplies Xbox input, use PlayStationPads=0.
+
+FOOT SETUP grind controls are enabled in fresh settings. If keeping your INI, enable Custom > Grind setup > FOOT SETUP (SplitGrindControls=1). For dedicated two-foot setup, block single-stick flips.

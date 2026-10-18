@@ -88,6 +88,7 @@ static int g_precise_log = 1;
 static int g_ramp_diag;
 static int g_remount_diag;
 static int g_pose_diag;
+static int g_grind_diag;
 static int g_stance_flight;
 static int g_menu_pose_recovery;
 static int g_native_pose_restore;
@@ -301,6 +302,9 @@ static void load_config(int keep_runtime) {
     g_motion_stance = ini_int(L"RemountStanceMotion", 1) != 0;
     g_ramp_diag = ini_int(L"RampDiagnostics", 0); if(g_ramp_diag<0 || g_ramp_diag>2)g_ramp_diag=0;
     g_cfg.air_controls = ini_int(L"AirControls", 1) != 0;
+    g_cfg.fine_grinds = ini_int(L"FineGrindControls",0)!=0;
+    g_cfg.split_grinds = ini_int(L"SplitGrindControls",0)!=0;
+    g_grind_diag = ini_int(L"NativeGrindDiagnostics",0)!=0;
     g_cfg.grind_sensitivity = ini_percent(L"GrindSensitivityPercent", 120);
     if (g_cfg.grind_sensitivity < 0.5f) g_cfg.grind_sensitivity = 0.5f;
     if (g_cfg.grind_sensitivity > 2.0f) g_cfg.grind_sensitivity = 2.0f;
@@ -1022,6 +1026,7 @@ static int read_switched(void) {
 #define SC_HOLD_FAKIE_COMPAT
 #define SC_STANCE_FLIGHT_RECORDER
 #include "native_respawn_poll.h"
+#include "native_grind_entry.h"
 static sc_menu_pose_recovery g_pose_recovery;
 static DWORD g_pose_recovery_user;
 #include "overlay_handoff.h"
@@ -1048,6 +1053,7 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
         g_now_ms = f0 ? (double)t0 * 1000.0 / (double)f0 : (double)now;
     }
     nr_try_hook(now);
+    ne_try_hook(now);
     /* Native UI owns the sticks even when replay playback still ticks physics.
      * Do not let replayed skater states change live foot/stance tracking. */
     {
@@ -1304,7 +1310,9 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
     int pump_before = st->pump_r3;
     int rail_scoop_before = st->rail_scoop_exit;
     if(timing)timing[2]=pt_time();
+    ne_prepare(st);
     s->Gamepad = sc_translate(&g_cfg, st, s->Gamepad, now_ms);
+    ne_publish(st,now);
     if(timing)timing[3]=pt_time();
     if (st->rail_scoop_exit && st->rail_scoop_exit != rail_scoop_before)
         log_text(st->rail_scoop_exit==2 ? "rail scoop: back-foot shove-out uses trick input direction" : "rail scoop: front-foot shove-out uses trick input direction");
@@ -1486,9 +1494,11 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
 }
 /* Capture at the process boundary, including early returns for menus / walking.
  * The output is the actual translated pad, not a rounded summary or a trick guess. */
+#include "grind_diag.h"
 static void process(DWORD user, XINPUT_STATE* s,int route) {
     int tracing=g_precise_log && !pt_failed;
     sc_pad raw=s->Gamepad; DWORD packet=s->dwPacketNumber; UINT64 start=0;
+    if(user<4){g_state[user].split_grind_active=0;g_state[user].split_grind_lean=0;g_state[user].grind_setup_override=0;g_state[user].radial_passthrough=0;}
     static int both_reported[4];
     if(user<4) {
         int both=(raw.buttons&(SC_LTHUMB|SC_RTHUMB))==(SC_LTHUMB|SC_RTHUMB);
@@ -1527,6 +1537,7 @@ static void process(DWORD user, XINPUT_STATE* s,int route) {
         } else if(was_pulsing)log_text("experimental menu pose reset: brake released");
     }
     if(g_ramp_diag || g_remount_diag)rd_capture(GetTickCount64());
+    gd_capture(GetTickCount64(),user,&raw,&s->Gamepad,&g_state[user<4?user:0]);
     if(g_pose_diag && g_local>=0 && user<4) {
         switch_snapshot();
         pd_capture(GetTickCount64(),g_slots[g_local].sel,g_slots[g_local].state,user,
@@ -1552,7 +1563,7 @@ static void process(DWORD user, XINPUT_STATE* s,int route) {
             timing[2]?(int)(timing[2]-timing[1]):0,
             timing[3]?(int)(timing[3]-timing[2]):0,
             (int)(r.end_us-(timing[3]?timing[3]:timing[1]?timing[1]:start)),
-            g_cfg.switch_invert_x,g_cfg.switch_invert_y,g_cfg.pop_on_release,g_cfg.stick_steer,g_cfg.one_foot_flips,g_native_menu,(int)packet,route,g_cfg.xl_layout,st->grind_pop,st->rail_scoop_exit,(int)(st->rail_scoop_sweep*1000),st->xl_absolute_raw,st->game_mirror_known,st->game_mirror,st->board_frame_valid,st->board_frame_left};
+            g_cfg.switch_invert_x,g_cfg.switch_invert_y,g_cfg.pop_on_release,g_cfg.stick_steer,g_cfg.one_foot_flips,g_native_menu,(int)packet,route,g_cfg.xl_layout,st->grind_pop,st->rail_scoop_exit,(int)(st->rail_scoop_sweep*1000),st->xl_absolute_raw,st->game_mirror_known,st->game_mirror,st->board_frame_valid,st->board_frame_left,g_cfg.fine_grinds,st->fine_exit_stage,g_cfg.split_grinds,st->split_grind_active,(int)(st->split_grind_lean*1000),st->grind_setup_override,st->radial_passthrough};
         typedef char trace_shape_check[(sizeof values/sizeof values[0]==PT_FIELDS)?1:-1];
         for(int i=0;i<PT_FIELDS;i++) r.v[i]=values[i];
         pt_enqueue(&r);
@@ -1696,7 +1707,7 @@ static void setup(HMODULE self) {
     GetModuleFileNameW(0, exe, 519);
     if (!wieq(wbase(exe), "skate.exe")) return; /* only the game; stay a plain version.dll elsewhere */
 
-    log_text("---- Dual Stick Controls 5.157 loaded (version.dll route)");
+    log_text("---- Dual Stick Controls 5.158 loaded (version.dll route)");
     log_wide("process: ", exe);
     load_config(0);
     if (GetFileAttributesW(g_ini) == 0xFFFFFFFFu) log_text("no session_controls.ini found; using defaults");

@@ -15,8 +15,8 @@ static sc_pad foot(sc_config*c,int sw,int back,float angle,float mag) {
 int main(void) {
  int cases=0;
  for(int g=0;g<2;g++)for(int layout=0;layout<3;layout++)for(int sw=0;sw<2;sw++)
- for(int release=0;release<2;release++)for(int back=0;back<2;back++)for(int side=-1;side<=1;side+=2)for(int mirror=0;mirror<2;mirror++) {
-  sc_config c=config(g,layout,release,mirror);sc_state rail={0},ground={0};
+ for(int release=0;release<2;release++)for(int back=0;back<2;back++)for(int side=-1;side<=1;side+=2)for(int mirror=0;mirror<2;mirror++)for(int split=0;split<2;split++) {
+  sc_config c=config(g,layout,release,mirror);c.split_grinds=split;sc_state rail={0},ground={0};
   rail.grind=1;rail.switched=ground.switched=sw;rail.game_crouch=ground.game_crouch=-1;
   sc_pad zero={0};sc_translate(&c,&rail,zero,1000);sc_translate(&c,&ground,zero,1000);
   for(int i=0;i<6;i++) {
@@ -46,5 +46,5 @@ int main(void) {
   s.grind=0;sc_translate(&c,&s,foot(&c,0,1,0,1),1500);s.grind=1;sc_translate(&c,&s,foot(&c,0,1,60,1),1520);assert(!s.rail_scoop_exit);
   sc_translate(&c,&s,z,1600);sc_translate(&c,&s,foot(&c,0,1,0,1),1700);sc_translate(&c,&s,foot(&c,0,0,60,1),1720);assert(!s.rail_scoop_exit);
  }
- printf("PASS: %d quick rail scoops match ground shove directions for both ends, regular/goofy, three layouts, switch, pop styles and mirror; neutral clears, held/noisy/two-foot pivots preserved\n",cases);
+ printf("PASS: %d quick rail scoops match ground shove directions for both ends, regular/goofy, three layouts, switch, pop styles, mirror and optional Foot Setup; neutral clears, held/noisy/two-foot pivots preserved\n",cases);
 }
