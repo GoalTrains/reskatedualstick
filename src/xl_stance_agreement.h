@@ -63,6 +63,11 @@ static int sc_xl_physical_raw(int native,int mirror,int baseline_mirror){
     return native>=0 && native<=1 && mirror>=0 && mirror<=1 && baseline_mirror>=0 && baseline_mirror<=1?
         native^mirror^baseline_mirror:-1;
 }
+/* Physical foot jobs and Skate's input coordinates can legitimately disagree
+ * after a no-comply, landing revert or fakie hold release. */
+static int sc_xl_output_frame(int xl,int stance,int motion_bias,int native){
+    return xl?native:stance^motion_bias;
+}
 /* This evidence is already absolute anatomical stance, not a takeoff edge.
  * Retain it through a missing read; briefly confirm changed samples. */
 typedef struct {int valid,stance,candidate,pending;double since;} sc_xl_absolute;

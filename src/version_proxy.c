@@ -1246,11 +1246,11 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
         if(state==300 || state==700){sc_xl_absolute zero={0};xl_absolute=zero;}
         if(g_cfg.xl_layout && g_switch_src==4 && g_cfg.switch_flip==3 && !g_cfg.front_back)
             sw=sc_xl_absolute_step(&xl_absolute,physical_raw,sw,g_now_ms);
-        if (motion_sw >= 0) {
+        if (motion_sw >= 0 || g_cfg.xl_layout) {
             /* The game's turn flag resets at remount. Use the corrected
              * riding direction for feet, but the native flag for its input
              * frame, so a fakie input does not become a switch ollie. */
-            if (native_sw >= 0) {st->game_switch_known=1;st->game_switch=sw ^ (motion.bias_valid ? motion.bias : 0);}
+            if (native_sw >= 0) {st->game_switch_known=1;st->game_switch=sc_xl_output_frame(g_cfg.xl_layout,sw,motion.bias_valid?motion.bias:0,native_sw);}
         }
         int agreement=g_cfg.xl_layout && user==g_xl_input_user && g_local>=0?
             sc_xl_agreement_cached(GetTickCount64(),g_xl_agreement_seen,g_xl_agreement_owner,g_slots[g_local].sel,
@@ -1262,7 +1262,9 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
             tracking.stance=agreement;tracking.reference=tracking.takeoff_stance=tracking.pending_reference=-1;
             tracking.saw_air_edge=tracking.air_zero_pending=0;tracking.turn_time=0;
             tracking.prev_state=100;tracking.prev_raw=stance_raw;tracking.rode_before_walk=1;
+            xl_absolute.valid=1;xl_absolute.stance=agreement;xl_absolute.pending=0;
             sw=agreement;
+            if(g_cfg.xl_layout && native_sw>=0){st->game_switch_known=1;st->game_switch=native_sw;}
             log_text(agreement?"XL stance: settled physical-foot frame and facing agree on SWITCH; retained foot jobs resynchronised":"XL stance: settled physical-foot frame and facing agree on REGULAR; retained foot jobs resynchronised");
         }
         if (g_state_log && tracking.landing_turn_ms >= 0)
@@ -1694,7 +1696,7 @@ static void setup(HMODULE self) {
     GetModuleFileNameW(0, exe, 519);
     if (!wieq(wbase(exe), "skate.exe")) return; /* only the game; stay a plain version.dll elsewhere */
 
-    log_text("---- Dual Stick Controls 5.136 XL CONTINUOUS FRAME TEST loaded (version.dll route)");
+    log_text("---- Dual Stick Controls 5.157 loaded (version.dll route)");
     log_wide("process: ", exe);
     load_config(0);
     if (GetFileAttributesW(g_ini) == 0xFFFFFFFFu) log_text("no session_controls.ini found; using defaults");

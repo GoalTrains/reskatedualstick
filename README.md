@@ -5,23 +5,18 @@
 Play Skate with two foot sticks using **Session-style**, **Skater XL-style**, or your own **Custom** settings.
 The mod translates Skate's controls across two sticks; it does not replace the game's skating physics.
 
-## v5.136 preview
+## Stable download v5.157
 
-[Windows preview zip](https://github.com/GoalTrains/reskatedualstick/releases/download/5.136/Dual_Stick_Controls_v5.136.zip) | [Linux / Steam Deck preview zip](https://github.com/GoalTrains/reskatedualstick/releases/download/5.136/Dual_Stick_Controls_v5.136_Linux.zip)
-
-Changes XL physical stance resolution and keeps board adjustment directions consistent during air/rail sequences. Native animation-mirror compensation is separate from board adjustments. Automated checks pass; in-game confirmation is pending. Keep your v5.133 or newer INI.
-
-Precise input logs now retain at most 16 MiB in `session_controls_input.csv` and 16 MiB in `session_controls_input.previous.csv`. Rotation discards older rows, including oversized legacy logs; keep a separate copy if you need the full history. Timing jitter no longer produces duplicate input rows.
-
-## Stable download v5.134
-[GitHub Releases](https://github.com/GoalTrains/reskatedualstick/releases). Choose the Windows or Linux mod zip; Source code archives are for developers.
+XL stance tracking now remains active with a manual Regular/Goofy override, and the game's native input frame stays separate from the foot jobs after no-complys, automatic landing reverts and remounts. This also restores the mirror correction used by switch fakie flip inputs in the affected configuration.
 
 | Platform | Download |
 | --- | --- |
-| Windows | [Download Windows zip](https://github.com/GoalTrains/reskatedualstick/releases/download/5.134/Dual_Stick_Controls_v5.134.zip) |
-| Linux / Steam Deck (Proton) | [Download Linux / Steam Deck zip](https://github.com/GoalTrains/reskatedualstick/releases/download/5.134/Dual_Stick_Controls_v5.134_Linux.zip) |
+| Windows | [Download Windows zip](https://github.com/GoalTrains/reskatedualstick/releases/download/5.157/Dual_Stick_Controls_v5.157.zip) |
+| Linux / Steam Deck (Proton) | [Download Linux / Steam Deck zip](https://github.com/GoalTrains/reskatedualstick/releases/download/5.157/Dual_Stick_Controls_v5.157_Linux.zip) |
 
-[Changes since v5.108](CHANGELOG.md) · [Windows instructions](docs/INSTALL_WINDOWS.md) · [Linux instructions](docs/INSTALL_LINUX.md)
+[Release notes](docs/RELEASE_5.157.txt) · [Full changelog](CHANGELOG.md) · [Windows instructions](docs/INSTALL_WINDOWS.md) · [Linux instructions](docs/INSTALL_LINUX.md)
+
+Includes the XL 360/air continuity improvements and bounded input logging from v5.136. This standalone release excludes the local experimental two-foot grind changes and the separate ReSkate menu PR.
 
 ## Install or update
 
@@ -29,7 +24,7 @@ Precise input logs now retain at most 16 MiB in `session_controls_input.csv` and
 2. Open the game folder containing `Skate.exe`.
 3. Back up your existing `version.dll` and `session_controls.ini`.
 4. Copy the downloaded `version.dll` beside `Skate.exe`.
-5. **Updating from v5.133:** keep your INI. For older installs, a fresh INI is recommended; back up before replacing it, because this resets settings and custom preset slots.
+5. **Updating from v5.133 or newer:** keep your INI. For older installs, a fresh INI is recommended; back up before replacing it, because this resets settings and custom preset slots.
 6. Launch through your normal reSkate setup. Press **End** and choose **Session-style** or **Skater XL-style**.
 
 The fresh INI starts with Session-style controls. Select XL in the menu to use its new layout.
@@ -125,7 +120,7 @@ During stock ramp handling, triggers grab and the sticks use Skate's handling. R
 Use D-pad/arrow keys to move, A/Enter to select, and left/right to change values. B returns from a subpage; on the home page it closes the menu. End controls this standalone menu; Insert remains the official ReSkate menu.
 
 ## Stance compatibility
-**Custom → Disable hold-fakie** is ON by default. While Dual Stick is enabled, this makes Skate read **Hold Fakie Stance** and **Hold Fakie Push** as off. Your saved Skate preferences are preserved; turning the option or Dual Stick off restores the normal reads. This applies to regular and goofy.
+**Custom â†’ Disable hold-fakie** is ON by default. While Dual Stick is enabled, this makes Skate read **Hold Fakie Stance** and **Hold Fakie Push** as off. Your saved Skate preferences are preserved; turning the option or Dual Stick off restores the normal reads. This applies to regular and goofy.
 The foot-job correction distinguishes riding direction from Skate's input frame and animation mirror. It preserves the physical-foot reference through menus and remounts.
 Automatic pose resets are **OFF** by default so they do not interrupt skating or stop your speed. If keeping an older INI, set these under `[SessionControls]`:
 ```ini

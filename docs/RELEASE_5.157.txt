@@ -1,0 +1,21 @@
+v5.157 - Stable release
+
+Changes since v5.136 preview
+- Fixes an XL stance-reader restriction that disabled physical stance tracking when the mod's Regular/Goofy setting differed from Skate's setting. This affected the supplied goofy setup and left no-complys and automatic landing reverts using the older tracker.
+- Keeps Skate's live input frame separate from the physical foot jobs after no-complys, reverts and remounts.
+- Keeps the retained XL stance in sync after a confirmed grounded correction.
+- Restores native mirror compensation in the affected setup, addressing reversed kickflip/heelflip directions on switch fakie tricks.
+
+Included from v5.136 (since stable v5.134)
+- Consistent XL leg-adjustment directions throughout continuous airs and grinds, including full 360s.
+- Absolute physical stance tracking rather than counting an absolute flag as another turn.
+- Separate native mirror correction for ground tricks and continuous board adjustments.
+- Precise input logs capped at 16 MiB plus one 16 MiB previous file. Duplicate timing-only rows are suppressed.
+
+Installation
+Close Skate. Replace version.dll beside Skate.exe. Keep the official ReSkate.dll.
+Keep your v5.133 or newer session_controls.ini and custom settings. Older installs should back up their INI before using the supplied fresh one.
+Fresh settings start in Session-style; press End and choose Skater XL-style if wanted.
+Linux/Steam Deck uses the same DLL through Proton; see INSTALL.txt for launch options.
+
+This is the standalone release. Local experimental two-foot grind changes and the separate ReSkate menu PR are not included.

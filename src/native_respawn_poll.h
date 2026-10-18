@@ -134,8 +134,10 @@ static void nr_client_tick(UINT64 client,UINT64 update) {
             log_text(g_cfg.goofy?"native pose recovery: settled GOOFY mirror baseline learned":"native pose recovery: settled REGULAR mirror baseline learned");
             log_num("  learned mirror value ",g_ground_pose.baseline_mirror);
         }
+        /* A manual stance override changes physical stick ownership, not the
+         * native frame contract. Keep collecting when Skate reports a different
+         * configured stance; otherwise XL silently falls back after reverts. */
         int xl_track=g_cfg.xl_layout && g_user_enabled && g_cfg.enabled && !g_paused &&
-            g_game_goofy>=0 && g_game_goofy<=1 && g_cfg.goofy==g_game_goofy &&
             g_native_menu==0 && !g_menu && !g_ui_open && selector && g_local>=0 && g_slots[g_local].sel==selector;
         int xl_valid=xl_track && (valid || nr_read(selector,base,rd_copy,&frame));
         int hint=-1;

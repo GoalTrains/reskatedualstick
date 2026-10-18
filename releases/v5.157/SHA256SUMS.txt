@@ -1,0 +1,2 @@
+a5538ee73314f6d89653e237839baf3b5f6a0f855d4ce4ab22085bdc55b2610d  Dual_Stick_Controls_v5.157.zip
+385445a0a87822f9c3334f05ca7f21bf7693d6d487f58c25d5a9befcf69cb781  Dual_Stick_Controls_v5.157_Linux.zip

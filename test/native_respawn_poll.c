@@ -161,7 +161,8 @@ int NR_FIXTURE_MAIN(void){
  tick();assert(calls==ground_calls+1); /* Goofy reset also keeps the forward travel heading. */
  g_game_goofy=0;
  /* Native tick publishes the XL agreement independently of pose-reset flags. */
- begin_respawn();g_nr_pending=0;g_native_respawn=0;g_cfg.xl_layout=1;g_cfg.goofy=0;
+ /* Reported goofy override on a native regular profile must still collect XL evidence. */
+ begin_respawn();g_nr_pending=0;g_native_respawn=0;g_cfg.xl_layout=1;g_cfg.goofy=1;g_game_goofy=0;
  g_xl_agreement=(sc_xl_agreement){0};g_xl_idle=1;flags(1,0);basis(0);
  float xl_position[3]={0,0,0},xl_forward[3]={0,0,1};memcpy(core+0x150,xl_forward,12);
  unsigned agreement_calls=calls;
@@ -171,17 +172,31 @@ int NR_FIXTURE_MAIN(void){
  for(int i=0;i<20;i++){xl_position[2]+=.2f;memcpy(core+0x100,xl_position,12);native_clock+=40;tick();}
  assert(g_xl_agreement_owner==(UINT64)selector && g_xl_agreement_hint==1 && calls==agreement_calls);
  int mirror_delta=-1;
- assert(g_xl_frame_owner==(UINT64)selector && nr_xl_physical_raw((UINT64)selector,0,1,&mirror_delta)==1);
+ assert(g_xl_frame_owner==(UINT64)selector && nr_xl_physical_raw((UINT64)selector,1,1,&mirror_delta)==1);
  int baseline_before_menu=g_xl_agreement.mirror;
  g_paused=1;native_clock+=40;tick();assert(g_xl_agreement.baseline_valid && g_xl_agreement.mirror==baseline_before_menu && !g_xl_frame_owner);
  g_paused=0;native_clock+=40;tick();assert(g_xl_agreement.baseline_valid && g_xl_frame_owner==(UINT64)selector);
 
  unsigned before_reads=writes;
- flags(0,0);assert(nr_xl_physical_raw((UINT64)selector,0,0,&mirror_delta)==1); /* paired native/mirror reset */ assert(mirror_delta==1);
- assert(nr_xl_physical_raw((UINT64)selector,0,1,&mirror_delta)==-1); /* export/source disagree */
- assert(nr_xl_physical_raw((UINT64)selector,1,0,&mirror_delta)==-1 && nr_xl_physical_raw((UINT64)root,0,0,&mirror_delta)==-1);
+ flags(0,0);assert(nr_xl_physical_raw((UINT64)selector,1,0,&mirror_delta)==1); /* paired native/mirror reset */ assert(mirror_delta==1);
+ assert(nr_xl_physical_raw((UINT64)selector,1,1,&mirror_delta)==-1); /* export/source disagree */
+ assert(nr_xl_physical_raw((UINT64)selector,0,0,&mirror_delta)==-1 && nr_xl_physical_raw((UINT64)root,0,0,&mirror_delta)==-1);
  source[0x12]=2;assert(nr_xl_physical_raw((UINT64)selector,0,0,&mirror_delta)==-1);source[0x12]=0;
  native_clock+=201;assert(nr_xl_physical_raw((UINT64)selector,0,0,&mirror_delta)==-1);assert(writes==before_reads);
+ /* All configured/native stance combinations collect the same checked bundle.
+  * This is read-only; a manual override must never disable evidence. */
+ for(int profile=0;profile<2;profile++)for(int native_profile=0;native_profile<2;native_profile++){
+  g_cfg.goofy=profile;g_game_goofy=native_profile;g_xl_agreement=(sc_xl_agreement){0};
+  flags(1,0);basis(0);xl_forward[2]=1;memcpy(core+0x150,xl_forward,12);
+  for(int i=0;i<30;i++){xl_position[2]+=.2f;memcpy(core+0x100,xl_position,12);native_clock+=40;tick();}
+  assert(g_xl_frame_owner==(UINT64)selector && nr_xl_physical_raw((UINT64)selector,profile,0,&mirror_delta)==0);
+  /* No-comply/auto-revert may change native and mirror together. Their
+   * anatomical result is absolute, including transitions without an air edge. */
+  flags(0,1);assert(nr_xl_physical_raw((UINT64)selector,profile,1,&mirror_delta)==0 && mirror_delta==1);
+  flags(1,1);assert(nr_xl_physical_raw((UINT64)selector,profile,1,&mirror_delta)==1 && mirror_delta==0);
+  flags(0,0);assert(nr_xl_physical_raw((UINT64)selector,profile,0,&mirror_delta)==1 && mirror_delta==1);
+ }
+ assert(calls==agreement_calls);
  g_cfg.xl_layout=0;native_clock+=40;tick();assert(!g_xl_agreement_owner);
  sc_pad steering={0},steered={0};steering.lt=255;steered.lx=-32768;
  nr_note_menu(g_now_ms,0,&steering,&steered);assert(g_xl_idle); /* Trigger steering is not held foot input. */

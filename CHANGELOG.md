@@ -1,3 +1,26 @@
+v5.157 - Stable release
+
+Changes since v5.136 preview
+- Fixes an XL stance-reader restriction that disabled physical stance tracking when the mod's Regular/Goofy setting differed from Skate's setting. This affected the supplied goofy setup and left no-complys and automatic landing reverts using the older tracker.
+- Keeps Skate's live input frame separate from the physical foot jobs after no-complys, reverts and remounts.
+- Keeps the retained XL stance in sync after a confirmed grounded correction.
+- Restores native mirror compensation in the affected setup, addressing reversed kickflip/heelflip directions on switch fakie tricks.
+
+Included from v5.136 (since stable v5.134)
+- Consistent XL leg-adjustment directions throughout continuous airs and grinds, including full 360s.
+- Absolute physical stance tracking rather than counting an absolute flag as another turn.
+- Separate native mirror correction for ground tricks and continuous board adjustments.
+- Precise input logs capped at 16 MiB plus one 16 MiB previous file. Duplicate timing-only rows are suppressed.
+
+Installation
+Close Skate. Replace version.dll beside Skate.exe. Keep the official ReSkate.dll.
+Keep your v5.133 or newer session_controls.ini and custom settings. Older installs should back up their INI before using the supplied fresh one.
+Fresh settings start in Session-style; press End and choose Skater XL-style if wanted.
+Linux/Steam Deck uses the same DLL through Proton; see INSTALL.txt for launch options.
+
+This is the standalone release. Local experimental two-foot grind changes and the separate ReSkate menu PR are not included.
+
+
 v5.136 preview - changes since v5.134
 
 - XL now treats validated physical stance as an absolute stance, rather than counting it as another turn relative to takeoff.
@@ -24,7 +47,7 @@ This preview has passed automated and recorded-input checks; in-game confirmatio
 - Added precise grind-pop and scoop-mode logging to make future reports easier to diagnose.
 - Keeps the v5.133 steering, bump-out, hold-fakie and replay/menu fixes. Automatic pose resets remain off by default.
 
-# v5.133 — changes since v5.128
+# v5.133 â€” changes since v5.128
 
 - Improved stale stance and foot-job correction for regular and goofy, including after turns, menus and remounts.
 - Separated physical foot ownership from Skate's board/input frame and animation mirror to prevent incorrect stick swaps.
@@ -39,7 +62,7 @@ This preview has passed automated and recorded-input checks; in-game confirmatio
 
 ## Earlier changes since v5.108
 
-### v5.128 — changes since v5.108
+### v5.128 â€” changes since v5.108
 
 - Added Skater XL as a third layout alongside Front/Back Foot and Left/Right Foot.
 - XL keeps each stick's setup direction consistent while ollie/nollie jobs swap in switch.
