@@ -1,0 +1,26 @@
+v6.1 — Early manual-catch attempt
+
+First public update since v6.0; the intervening catch builds were private tests.
+
+Changes since v6.0
+- Refines two-foot grind entry and on-rail handling, including frontside/backside approaches, tail/nose support and grind exits.
+- Improves XL stance and input-frame handling after no-complys, automatic reverts, remounts and grounded stance corrections.
+- Adds an optional manual-catch attempt under Custom. It tries to keep flip and scoop inputs held after you release the stick.
+- While airborne, press L3, R3 or both to release the held input for a catch.
+- Manual catch is OFF in fresh settings (`ManualCatch=0`) and stays out of the Session-style and XL-style presets.
+- Catch diagnostics are bounded and read-only; diagnostics are OFF by default.
+- The optional Windows updater can replace the private v6.13-v6.15 manual-catch test builds with v6.1 and keeps existing settings.
+
+Known limitations
+- This is an early experiment, not a finished catch system. Many tricks still do not hold reliably, especially scoop and combo tricks.
+- Skate uses a shared held-trick input. Independent front-foot and back-foot catches are not implemented.
+- Dark catches and forced bails on side-board landings are not implemented.
+- Leave Manual catch OFF if the held-input experiment interferes with your tricks.
+
+Installation
+1. Close Skate completely.
+2. Back up version.dll and session_controls.ini in the game folder.
+3. Replace version.dll with the one from your Windows or Linux package. Keep the official ReSkate.dll.
+4. Keep your existing INI if it is from v5.133 or newer. Fresh settings have ManualCatch=0.
+5. If you want to try it, press End, open Custom, and enable Manual catch (early attempt).
+6. Linux / Steam Deck: follow the Proton instructions in INSTALL.txt.

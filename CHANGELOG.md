@@ -1,3 +1,36 @@
+## v6.1 - Early manual-catch attempt (stable release)
+
+Changes since v6.0:
+
+- Refines two-foot grind entry and on-rail handling, including frontside/backside approaches, tail/nose support, and grind exits. This is the latest tested grind work after v6.0.
+- Improves XL stance and input-frame handling after no-complys, automatic reverts, remounts, and grounded stance corrections. Keeps the live game input frame separate from the physical-foot mapping.
+- Adds an optional manual-catch experiment under **Custom**. It attempts to keep a flip or scoop input held after stick release; tap L3, R3 or both in the air to release the held input for a catch.
+- Manual catch is OFF in fresh settings (`ManualCatch=0`). It is not part of the Session or XL presets; enable it only from Custom.
+- Catch logging and native-state snapshots are bounded and read-only; diagnostics remain OFF by default.
+- The optional updater treats the author's private v6.13-v6.15 test builds as test builds so they can update to this first public release since v6.0; existing settings are preserved.
+- This is an early attempt, not a complete catch system. Many tricks, especially scoop and combo tricks, may still release instead of holding. Separate front/back catches, dark catches and forced bails are not implemented.
+
+## v6.10 - Local catch takeoff correction and landing diagnostics (included in v6.1)
+
+- Record named native dark, board-upright, landing, landing-on-board, landing-on-edge, preland-angle and wipeout flags alongside catch clicks. Each field is validated independently; unavailable values remain -1.
+- Fresh read-only samples on L3/R3/bumper edges and physics-state changes, otherwise limited to 50 Hz. Record sample age and sampled state.
+- Preserve scoop holds through pop state 103: prevent recorded 40-70 ms neutral gaps before airborne, while allowing the active scoop to finish.
+- Record validated native CurrentFlipTrick enum to separate which held-trick family Skate actually recognized.
+- No automatic dark catch or forced bail yet; the flags need validation in gameplay. Trace remains bounded to 16 MiB plus one previous file.
+
+## v6.9 - Local scoop-catch experiment (included in v6.1)
+
+- Include single-stick shuv, 360-shuv and impossible scoop paths in manual-catch detection, including with single-stick flips blocked.
+- Preserve the circular input through the pop state before holding its endpoint in the air.
+- Added candidate kind and scoop angle to the bounded trace for gameplay verification.
+
+## v6.8 - Local held-catch experiment (included in v6.1)
+
+- Optional Custom-menu manual catch: automatically retain the emitted flip input until a fresh L3, R3 or both click in the air.
+- Catch clicks take priority over body-flip clicks while a flip is held; landing, menus and disabled controls clear the hold.
+- Uses shared native held-trick release; requested foot is recorded, but independent one-foot catch animations are not implemented.
+- Added bounded trace fields for enable state, hold/catch phase and requested foot mask.
+
 v6.0 - Stable release
 
 New optional Windows updater
@@ -104,7 +137,7 @@ This preview has passed automated and recorded-input checks; in-game confirmatio
 - Added precise grind-pop and scoop-mode logging to make future reports easier to diagnose.
 - Keeps the v5.133 steering, bump-out, hold-fakie and replay/menu fixes. Automatic pose resets remain off by default.
 
-# v5.133 â€” changes since v5.128
+# v5.133 — changes since v5.128
 
 - Improved stale stance and foot-job correction for regular and goofy, including after turns, menus and remounts.
 - Separated physical foot ownership from Skate's board/input frame and animation mirror to prevent incorrect stick swaps.
@@ -119,7 +152,7 @@ This preview has passed automated and recorded-input checks; in-game confirmatio
 
 ## Earlier changes since v5.108
 
-### v5.128 â€” changes since v5.108
+### v5.128 — changes since v5.108
 
 - Added Skater XL as a third layout alongside Front/Back Foot and Left/Right Foot.
 - XL keeps each stick's setup direction consistent while ollie/nollie jobs swap in switch.

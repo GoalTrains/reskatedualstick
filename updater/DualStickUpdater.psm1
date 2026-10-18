@@ -16,6 +16,15 @@ function Get-DualStickInstalledVersion([string]$Path) {
     return [version]$match.Groups[1].Value
 }
 
+function Get-DualStickComparisonVersion([version]$Version) {
+    # These were local manual-catch test builds, never stable releases. Allow
+    # the v6.1 stable release to replace them despite their internal build tags.
+    if ($Version -and $Version.Major -eq 6 -and $Version.Minor -ge 13 -and $Version.Minor -le 15) {
+        return [version]'6.0'
+    }
+    return $Version
+}
+
 function Test-DualStickGameRunning([string]$GameDirectory) {
     foreach ($process in @(Get-Process -Name Skate -ErrorAction SilentlyContinue)) {
         try {
@@ -147,7 +156,7 @@ function Invoke-DualStickUpdate([string]$GameDirectory, [switch]$CheckOnly, [scr
         $release = Get-DualStickRelease
         $target = Join-Path $GameDirectory 'version.dll'
         $installed = Get-DualStickInstalledVersion $target
-        if ($installed -and $installed -gt $release.Version) { return 'newer-local-build' }
+        if ($installed -and (Get-DualStickComparisonVersion $installed) -gt $release.Version) { return 'newer-local-build' }
         if ([IO.File]::Exists($target) -and (Get-DualStickHash ([IO.File]::ReadAllBytes($target))) -eq $release.Manifest.dll_sha256) { return 'current' }
         if ($CheckOnly) { return ('available-' + $release.Version) }
         if ($config -and $config.PSObject.Properties['skipped_version'] -and

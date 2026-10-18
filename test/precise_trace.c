@@ -37,6 +37,7 @@ static void valid_csv(const WCHAR*p){
 int main(void){
  pt_record r={0};r.start_us=1;pt_enqueue(&r);assert(pt_write==1);
  for(int i=57;i<=61;i++){r.v[i]++;r.start_us++;pt_enqueue(&r);}assert(pt_write==1);
+ r.v[PT_FIELDS-2]++;pt_enqueue(&r);assert(pt_write==1); /* diagnostic sample age only */
  r.v[62]=1;pt_enqueue(&r);assert(pt_write==2); /* switch-invert setting */
  r.v[31]=200;pt_enqueue(&r);assert(pt_write==3); /* real stick change */
  r.start_us+=100000;pt_enqueue(&r);assert(pt_write==4);

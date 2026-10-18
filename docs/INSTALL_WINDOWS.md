@@ -1,4 +1,4 @@
-Dual Stick Controls v6.0 â€” installation
+Dual Stick Controls v6.1 — installation
 
 1. Close Skate completely.
 2. Open the game folder containing Skate.exe.
@@ -6,6 +6,8 @@ Dual Stick Controls v6.0 â€” installation
 4. Copy the supplied version.dll into that folder, replacing the old mod DLL.
 5. Updating from v5.133 or newer: keep your INI. For older installs a fresh session_controls.ini is recommended; back up first, because replacing it resets settings and custom preset slots.
 6. Launch normally, press End and choose Session-style or Skater XL-style. Fresh settings start with Session-style.
+
+Manual catch is OFF by default. To test this early attempt, open End > Custom > Manual catch (early attempt). It is incomplete and many tricks may not hold reliably; turn it back OFF if it interferes with tricks.
 
 Keep the official ReSkate.dll. Do not replace it with a PR/test runtime.
 End opens Dual Stick. Insert opens official ReSkate. D-pad/arrows navigate, A/Enter selects, B goes back, and LB/RB browses diagrams. Hold LB + RB + L3 + R3 for three seconds to toggle Dual Stick. Pumping stays on R3.

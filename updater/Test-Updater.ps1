@@ -50,6 +50,12 @@ $future = [byte[]]$old.Clone(); [Array]::Copy([Text.Encoding]::ASCII.GetBytes('5
 $failed = $false; try { Install-DualStickPackage $newer $package $release } catch { $failed = $true }
 Assert $failed 'Newer local build was downgraded'
 Assert ((Get-DualStickInstalledVersion (Join-Path $newer 'version.dll')) -eq [version]'5.999') 'Newer DLL changed'
+$preview = New-Case 'internal-catch-preview'; $previewDll=Join-Path $preview 'version.dll'
+[IO.File]::WriteAllText($previewDll,'---- Dual Stick Controls 6.15 EARLY MANUAL-CATCH TEST')
+Assert ((Get-DualStickInstalledVersion $previewDll) -eq [version]'6.15') 'Internal preview version was hidden'
+$previewVersion=[version]'6.15'; $futureVersion=[version]'6.16'
+Assert ((& $module { param($v) Get-DualStickComparisonVersion $v } $previewVersion) -eq [version]'6.0') 'Internal catch preview would block the v6.1 stable update'
+Assert ((& $module { param($v) Get-DualStickComparisonVersion $v } $futureVersion) -eq [version]'6.16') 'Future stable versions were incorrectly treated as previews'
 
 # Verify archive ambiguity, altered DLL and traversal names without extracting paths.
 foreach ($kind in @('duplicate','tampered','traversal')) {

@@ -14,14 +14,17 @@ int main(void){WCHAR dir[MAX_PATH];GetTempPathW(MAX_PATH,dir);GetTempFileNameW(d
  g_cfg.xl_layout=1;g_cfg.fine_grinds=1;g_cfg.split_grinds=1;
  g_cfg.deadzone=.15f;g_cfg.active=.3f;g_cfg.manual_max=.85f;g_cfg.steer_scale=1;g_cfg.steer_curve=1.5f;g_cfg.grind_sensitivity=1.2f;
  g_cfg.prewind_steer=1;g_cfg.prewind_percent=80;g_cfg.revert_ms=450;
+ g_cfg.stick_steer_angle=20;g_cfg.manual_catch=1;
  WritePrivateProfileStringW(L"SessionControls",L"UnrelatedSetting",L"42",g_ini);
  assert(ui_custom_save());
+ assert(GetPrivateProfileIntW(ui_slot_section(),L"ManualCatch",-1,g_ini)==1);
  assert(GetPrivateProfileIntW(ui_slot_section(),L"FineGrindControls",-1,g_ini)==1);
  assert(GetPrivateProfileIntW(ui_slot_section(),L"SplitGrindControls",-1,g_ini)==1);
  assert(GetPrivateProfileIntW(ui_slot_section(),L"XLFootDirections",-1,g_ini)==1);
  assert(GetPrivateProfileIntW(ui_slot_section(),L"SpinWindUpSteer",-1,g_ini)==1);
  assert(GetPrivateProfileIntW(ui_slot_section(),L"SpinWindUpTriggerPercent",-1,g_ini)==80);
  assert(GetPrivateProfileIntW(ui_slot_section(),L"RevertDoubleTapMs",-1,g_ini)==450);
+ assert(GetPrivateProfileIntW(ui_slot_section(),L"StickSteeringAngleDegrees",-1,g_ini)==20);
  assert(GetPrivateProfileIntW(ui_slot_section(),L"FootDeadzonePercent",-1,g_ini)==15);
  assert(GetPrivateProfileIntW(ui_slot_section(),L"PlayStationPads",-1,g_ini)==2);
  assert(GetPrivateProfileIntW(ui_slot_section(),L"UnrelatedSetting",-1,g_ini)==42);
@@ -36,12 +39,14 @@ int main(void){WCHAR dir[MAX_PATH];GetTempPathW(MAX_PATH,dir);GetTempFileNameW(d
  assert(GetPrivateProfileIntW(L"SessionControls",L"FrontBackFoot",-1,g_ini)==1);
  assert(GetPrivateProfileIntW(L"SessionControls",L"SwitchStance",-1,g_ini)==1);
  assert(ui_custom_load());assert(g_cfg.feet_swapped);
+ assert(GetPrivateProfileIntW(L"SessionControls",L"ManualCatch",-1,g_ini)==1);
  assert(GetPrivateProfileIntW(L"SessionControls",L"FineGrindControls",-1,g_ini)==1);
  assert(GetPrivateProfileIntW(L"SessionControls",L"SplitGrindControls",-1,g_ini)==1);
  assert(GetPrivateProfileIntW(L"SessionControls",L"SwitchStance",-1,g_ini)==3);
  assert(GetPrivateProfileIntW(L"SessionControls",L"PresetFeetSwapped",-1,g_ini)==1);
  assert(GetPrivateProfileIntW(L"SessionControls",L"ShowMenuOnStartup",-1,g_ini)==0);
  assert(ui_builtin_apply(1));
+ assert(GetPrivateProfileIntW(L"SessionControls",L"StickSteeringAngleDegrees",-1,g_ini)==20);
  assert(GetPrivateProfileIntW(L"SessionControls",L"OneFootFlips",-1,g_ini)==1);
  assert(GetPrivateProfileIntW(L"SessionControls",L"SwitchStance",-1,g_ini)==3);
  for(int physical=0;physical<2;physical++)for(int release=0;release<2;release++){

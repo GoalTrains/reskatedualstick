@@ -74,7 +74,7 @@ static HWND ui_foreground_game(void) {
 
 
 /* v5.12: PURE only. Trick input and Kick / heel sides rows removed; Menu size moved to the bottom. */
-enum { UI_PRESET_SESSION, UI_PRESET_XL, UI_SESSION, UI_STANCE, UI_LAYOUT, UI_SWITCH, UI_POPSTYLE, UI_ONEFOOT, UI_STEER, UI_REVERTS, UI_WINDUP, UI_FLIPS, UI_AIR, UI_SLIDES, UI_BUMP, UI_SIZE, UI_CLOSE, UI_ADVANCED, UI_BACK, UI_CUSTOM, UI_SLOT, UI_SAVE, UI_LOAD, UI_STARTUP, UI_HOTKEY, UI_STOCKAIR, UI_RAMPDIAG, UI_PRESET_FB_RELEASE, UI_PRESET_PHYS_FLICK, UI_TAPWINDOW, UI_WINDSTEER, UI_WINDTHRESH, UI_XLEXTRAS, UI_SAVED, UI_MENUSETTINGS, UI_INVERTX, UI_INVERTY, UI_HOLDFAKIE, UI_FINEGRIND, UI_COUNT };
+enum { UI_PRESET_SESSION, UI_PRESET_XL, UI_SESSION, UI_STANCE, UI_LAYOUT, UI_SWITCH, UI_POPSTYLE, UI_ONEFOOT, UI_STEER, UI_REVERTS, UI_WINDUP, UI_FLIPS, UI_AIR, UI_SLIDES, UI_BUMP, UI_SIZE, UI_CLOSE, UI_ADVANCED, UI_BACK, UI_CUSTOM, UI_SLOT, UI_SAVE, UI_LOAD, UI_STARTUP, UI_HOTKEY, UI_STOCKAIR, UI_RAMPDIAG, UI_PRESET_FB_RELEASE, UI_PRESET_PHYS_FLICK, UI_TAPWINDOW, UI_WINDSTEER, UI_WINDTHRESH, UI_XLEXTRAS, UI_SAVED, UI_MENUSETTINGS, UI_INVERTX, UI_INVERTY, UI_HOLDFAKIE, UI_FINEGRIND, UI_STEERANGLE, UI_MANUALCATCH, UI_COUNT };
 /* v5.8: wider menu, an explanation box for the highlighted line, and a controls page */
 #define UI_SETTINGS_W 700
 #define UI_CONTROLS_W 700
@@ -95,14 +95,14 @@ static volatile int g_ui_draw_scale=100;
 static int g_ui_controls_page;   /* six large cards per page */
 
 static const int k_ui_main[] = {UI_PRESET_SESSION, UI_PRESET_XL, UI_CUSTOM, UI_SESSION, UI_STANCE, UI_STOCKAIR, UI_MENUSETTINGS, UI_CLOSE};
-static const int k_ui_basic[] = {UI_LAYOUT, UI_POPSTYLE, UI_STEER, UI_ONEFOOT, UI_INVERTX, UI_INVERTY, UI_REVERTS, UI_TAPWINDOW, UI_WINDUP, UI_WINDSTEER, UI_WINDTHRESH, UI_FLIPS, UI_AIR, UI_SLIDES, UI_BUMP, UI_SWITCH, UI_RAMPDIAG, UI_SAVED, UI_HOLDFAKIE, UI_FINEGRIND, UI_BACK};
+static const int k_ui_basic[] = {UI_LAYOUT, UI_POPSTYLE, UI_STEER, UI_STEERANGLE, UI_ONEFOOT, UI_MANUALCATCH, UI_INVERTX, UI_INVERTY, UI_REVERTS, UI_TAPWINDOW, UI_WINDUP, UI_WINDSTEER, UI_WINDTHRESH, UI_FLIPS, UI_AIR, UI_SLIDES, UI_BUMP, UI_SWITCH, UI_RAMPDIAG, UI_SAVED, UI_HOLDFAKIE, UI_FINEGRIND, UI_BACK};
 static const int k_ui_advanced[] = {UI_SWITCH, UI_REVERTS, UI_TAPWINDOW, UI_WINDUP, UI_WINDSTEER, UI_WINDTHRESH, UI_FLIPS, UI_AIR, UI_SLIDES, UI_BUMP, UI_RAMPDIAG, UI_BACK};
 static const int k_ui_menu[] = {UI_STARTUP, UI_HOTKEY, UI_SIZE, UI_BACK};
 static int g_ui_slot = 1, g_ui_overwrite;
 static int g_ui_startup_input_sync;
 static const WCHAR* g_ui_preset_status = L"";
 static void ui_back(void) {
-    if(g_ui_page==3 || g_ui_page==4){g_ui_sel=17-(g_cfg.front_back?1:0);g_ui_page=2;}
+    if(g_ui_page==3 || g_ui_page==4){g_ui_sel=19-(g_cfg.front_back?1:0);g_ui_page=2;}
     else {g_ui_sel=g_ui_page==5?6:2;g_ui_page=0;}
     g_ui_preset_status=L"";g_ui_overwrite=0;g_ui_dirty=1;
 }
@@ -134,7 +134,7 @@ static void ui_startup_open(void) {
 }
 static int ui_item_for_row(int row) {
     if (row < 0 || row >= ui_row_count()) row = 0;
-    if(g_ui_page==2)return k_ui_basic[row+(g_cfg.front_back && row>=15?1:0)];
+    if(g_ui_page==2)return k_ui_basic[row+(g_cfg.front_back && row>=17?1:0)];
     if(g_ui_page==4)return k_ui_advanced[row+(g_cfg.front_back?1:0)];
     if(g_ui_page==5)return k_ui_menu[row];
     return g_ui_page == 3 ? k_ui_custom[row] : k_ui_main[row];
@@ -177,16 +177,18 @@ static void ui_value(int item, WCHAR* out) {
     case UI_SWITCH: v = g_cfg.front_back && g_cfg.switch_flip == 3 ? "ON" : g_cfg.switch_flip == 1 ? "KEEP JOBS" : g_cfg.switch_flip == 2 ? "KEEP + MIRROR" : g_cfg.switch_flip == 3 ? "SWAP JOBS" : "OFF"; break;
     case UI_POPSTYLE: v = g_cfg.pop_on_release ? "RELEASE" : "FLICK"; break;
     case UI_ONEFOOT: v = g_cfg.one_foot_flips ? "ALLOWED" : "BLOCKED"; break;
+    case UI_MANUALCATCH: v = g_cfg.manual_catch ? "ON (TEST)" : "OFF"; break;
     case UI_STEER: v = g_cfg.stick_steer==2 ? "LEFT STICK" : g_cfg.stick_steer ? "FRONT FOOT" : "OFF"; break;
     case UI_XLEXTRAS: v=g_cfg.stick_steer==2 && g_cfg.one_foot_flips ? "ON" : g_cfg.stick_steer || g_cfg.one_foot_flips ? "CUSTOM" : "OFF";break;
     case UI_REVERTS: v = g_cfg.revert_input == 2 ? "BOTH TRIGGERS" : g_cfg.revert_input == 1 ? "DOUBLE TAP" : "OFF"; break;
     case UI_WINDSTEER: v=g_cfg.prewind_steer?"LIGHT STEERS":"NORMAL";break;
+    case UI_STEERANGLE:
     case UI_TAPWINDOW:
     case UI_WINDTHRESH: {
-        int n=0,value=item==UI_TAPWINDOW?(int)g_cfg.revert_ms:g_cfg.prewind_percent;WCHAR rev[12];
+        int n=0,value=item==UI_STEERANGLE?sc_stick_steer_angle(&g_cfg):item==UI_TAPWINDOW?(int)g_cfg.revert_ms:g_cfg.prewind_percent;WCHAR rev[12];
         do{rev[n++]=(WCHAR)('0'+value%10);value/=10;}while(value);
         int j=0;while(n)out[j++]=rev[--n];
-        if(item==UI_TAPWINDOW){out[j++]=' ';out[j++]='m';out[j++]='s';}else out[j++]='%';
+        if(item==UI_TAPWINDOW){out[j++]=' ';out[j++]='m';out[j++]='s';}else if(item==UI_STEERANGLE){out[j++]=' ';out[j++]='d';out[j++]='e';out[j++]='g';}else out[j++]='%';
         out[j]=0;return;
     }
     case UI_WINDUP: v = g_cfg.prewind ? "ON" : "OFF"; break;
@@ -200,7 +202,7 @@ static void ui_value(int item, WCHAR* out) {
 }
 static const WCHAR* const k_ui_labels[UI_COUNT] = {
     L"Session-style", L"Skater XL-style", L"Dual Stick controls", L"Stance", L"Stick layout", L"Legacy switch mode", L"Pop style", L"Allow single-stick flips", L"Stick steering", L"Reverts", L"Spin wind-up",
-    L"Body flips", L"Air controls", L"Powerslides", L"Grind bump-out", L"Menu size", L"Close", L"Advanced settings", L"Back", L"Custom", L"Custom slot", L"Save current settings", L"Load saved settings", L"Show menu on startup", L"Menu hotkey", L"Stock ramp controls", L"Ramp diagnostic recording", L"Front/Back - Release", L"Left/Right Foot - Flick", L"Revert double-tap window", L"Crouched trigger handling", L"Wind-up trigger strength", L"Skater XL extras", L"Saved custom presets", L"Menu settings", L"Switch flick / scoop directions", L"Switch up / down directions", L"Disable hold-fakie", L"Grind setup"};
+    L"Body flips", L"Air controls", L"Powerslides", L"Grind bump-out", L"Menu size", L"Close", L"Advanced settings", L"Back", L"Custom", L"Custom slot", L"Save current settings", L"Load saved settings", L"Show menu on startup", L"Menu hotkey", L"Stock ramp controls", L"Ramp diagnostic recording", L"Front/Back - Release", L"Left/Right Foot - Flick", L"Revert double-tap window", L"Crouched trigger handling", L"Wind-up trigger strength", L"Skater XL extras", L"Saved custom presets", L"Menu settings", L"Switch flick / scoop directions", L"Switch up / down directions", L"Disable hold-fakie", L"Grind setup", L"Stick steering angle", L"Manual catch (early attempt)"};
 static const WCHAR* const k_ui_help[UI_COUNT] = {
     L"Applies FRONT/BACK FOOT, FLICK pop, steering OFF and one-stick flips BLOCKED. Left = front, right = back in every stance. These translate Skate controls across two sticks; inputs differ from Session.",
     L"Applies SKATER XL layout: fixed stick directions, RELEASE to pop; physical feet swap front/back jobs in switch. LEFT-STICK steering and one-stick flips ALLOWED. Opposite-foot flicks also work. Skate trick inputs still differ from XL.",
@@ -240,7 +242,9 @@ static const WCHAR* const k_ui_help[UI_COUNT] = {
     L"STANDARD keeps the current switch flick/scoop mapping. REVERSED exchanges left and right for foot gestures in switch. Foot ownership, steering, trigger reverts and inward/outward powerslides stay the same.",
     L"STANDARD keeps the current switch setup directions. REVERSED exchanges up and down for foot gestures in switch. This changes ollie/nollie setup directions; each stick still controls its chosen foot.",
     L"ON makes Skate read Hold Fakie Stance and Hold Fakie Push as OFF while Dual Stick is enabled. Prevents their native stance-hold behavior from fighting the foot controls. Saved game preferences are retained; OFF restores native behavior.",
-    L"CURRENT keeps the existing mapping. FOOT SETUP is experimental: both feet position the board before rail contact. A sideways setup overrides a leftover held flick; small direction changes respond sooner. Either foot gets full pivot range. No automatic body lean is added on the rail. This translates Skate controls, not independent foot physics."
+    L"CURRENT keeps the existing mapping. FOOT SETUP is experimental: both feet position the board before rail contact. A sideways setup overrides a leftover held flick; small direction changes respond sooner. Either foot gets full pivot range. No automatic body lean is added on the rail. This translates Skate controls, not independent foot physics.",
+    L"How close to straight sideways the stick must be to START steering (5-60 degrees; default 34). LOWER = a narrower steering zone, leaving more diagonal room for tre / 360-flip setups. Try 20. Centre the stick to end steering. No effect on triggers, air or rail controls.",
+    L"Early experimental attempt: the mod tries to hold a flip or scoop after stick release, then L3/R3/both releases it for a catch. It does not hold every trick reliably, and separate foot catches or dark catches are not implemented. Default OFF; enable only for testing."
 };
 /* v5.9 controls page as Flick-it style pictures: each card shows the two sticks (L = front foot,
  * R = back foot, regular stance) with the moves drawn on them. kind 0 = line from (a,b) to (c,d),
@@ -467,11 +471,17 @@ static void ui_change(int item, int dir) {
         ui_set(L"XLFootDirections",L"0");ui_set(L"SwitchStance", v == 1 ? L"1" : v == 3 ? L"3" : L"0"); break; }
     case UI_POPSTYLE: ui_set(L"PopOnRelease", g_cfg.pop_on_release ? L"0" : L"1"); break;
     case UI_ONEFOOT: ui_set(L"OneFootFlips", g_cfg.one_foot_flips ? L"0" : L"1"); break;
+    case UI_MANUALCATCH: ui_set(L"ManualCatch", g_cfg.manual_catch ? L"0" : L"1"); break;
     case UI_XLEXTRAS:
         if(!ui_xl_extras_apply(!(g_cfg.stick_steer==2 && g_cfg.one_foot_flips))) {
             g_ui_preset_status=L"Could not save XL extras. Check INI write access.";g_ui_dirty=1;return;
         }break;
     case UI_STEER: {int v=(g_cfg.stick_steer+(dir<0?2:1))%3;ui_set(L"StickSteering",v==2?L"2":v==1?L"1":L"0");break;}
+    case UI_STEERANGLE: {
+        int v=sc_next_stick_steer_angle(sc_stick_steer_angle(&g_cfg),dir);
+        WCHAR val[3]={(WCHAR)('0'+v/10),(WCHAR)('0'+v%10),0};
+        ui_set(L"StickSteeringAngleDegrees",val+(v<10));break;
+    }
     case UI_REVERTS: { int v = (g_cfg.revert_input + (dir < 0 ? 2 : 1)) % 3; ui_set(L"RevertInput", v == 2 ? L"2" : v == 1 ? L"1" : L"0"); break; }
     case UI_TAPWINDOW:
     case UI_WINDTHRESH: {

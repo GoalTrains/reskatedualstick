@@ -1,4 +1,4 @@
-Dual Stick Controls v6.0 â€” installation
+Dual Stick Controls v6.1 — installation
 
 1. Close Skate completely.
 2. Open the game folder containing Skate.exe.
@@ -26,3 +26,5 @@ The Linux INI uses PlayStationPads=0 for an external controller route such as St
 FOOT SETUP grind controls are enabled in fresh settings. If keeping your INI, enable Custom > Grind setup > FOOT SETUP (SplitGrindControls=1). For dedicated two-foot setup, block single-stick flips.
 
 The optional pre-launch updater download is Windows-only. Linux/Steam Deck uses the manual mod zip.
+
+Manual catch is OFF by default. To test this early attempt, open End > Custom > Manual catch (early attempt). It is incomplete and many tricks may not hold reliably; turn it back OFF if it interferes with tricks.

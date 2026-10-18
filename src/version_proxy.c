@@ -81,6 +81,8 @@ static HMODULE g_self;
 static WCHAR g_dir[520], g_ini[560], g_log[560];
 static sc_config g_cfg;
 static sc_state g_state[4];
+#include "manual_catch.h"
+static sc_manual_catch g_manual_catch[4];
 static sc_controller_hold g_controller_hold[4];
 static WORD g_board_button;
 static int g_debug;
@@ -88,7 +90,9 @@ static int g_precise_log = 1;
 static int g_ramp_diag;
 static int g_remount_diag;
 static int g_pose_diag;
+static int g_catch_backend;
 static int g_grind_diag;
+static int g_catch_diag;
 static int g_stance_flight;
 static int g_menu_pose_recovery;
 static int g_native_pose_restore;
@@ -207,6 +211,9 @@ static void load_config(int keep_runtime) {
     g_cfg.prewind = ini_int(L"SpinWindUp", 1);
     g_cfg.body_flips = ini_int(L"BodyFlips", 1) != 0;
     g_cfg.stick_steer = ini_int(L"StickSteering", 0);
+    g_cfg.stick_steer_angle=ini_int(L"StickSteeringAngleDegrees",34);
+    g_cfg.stick_steer_angle=sc_stick_steer_angle(&g_cfg);
+    g_cfg.manual_catch=ini_int(L"ManualCatch",0)!=0;
     if(g_cfg.stick_steer<0 || g_cfg.stick_steer>2)g_cfg.stick_steer=0;   /* v5.15 */
     g_cfg.front_back = ini_int(L"FrontBackFoot", 1) != 0;     /* v5.26 */
     g_cfg.xl_layout = ini_int(L"XLFootDirections", 0) != 0;
@@ -291,6 +298,8 @@ static void load_config(int keep_runtime) {
     g_cfg.stock_transition_ground = ini_int(L"StockTransitionGround", 0) != 0;
     g_remount_diag = ini_int(L"RemountDiagnostics", 0) != 0;
     g_pose_diag = ini_int(L"StancePoseDiagnostics", 0) != 0;
+    g_catch_diag=ini_int(L"CatchDiagnostics",0)!=0;
+    g_catch_backend=ini_int(L"CatchBackendDiagnostics",0)!=0;
     g_stance_flight = ini_int(L"StanceFlightRecorder", 0) != 0;
     g_menu_pose_recovery = ini_int(L"MenuPoseRecovery", 0) != 0;
     /* Legacy pair-only restore stays disabled. New frame recovery is opt-in. */
@@ -1022,6 +1031,7 @@ static int read_switched(void) {
 #include "menu_pose_recovery.h"
 #include "native_pose_poll.h"
 #include "native_property_poll.h"
+#include "catch_diag.h"
 #include "native_animation_poll.h"
 #define SC_HOLD_FAKIE_COMPAT
 #define SC_STANCE_FLIGHT_RECORDER
@@ -1311,7 +1321,19 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
     int rail_scoop_before = st->rail_scoop_exit;
     if(timing)timing[2]=pt_time();
     ne_prepare(st);
-    s->Gamepad = sc_translate(&g_cfg, st, s->Gamepad, now_ms);
+    sc_manual_catch* mc=&g_manual_catch[user<4?user:0];
+    int catch_trick_id=(g_catch_sample.valid&512) && g_catch_sample_state==(g_local>=0?(int)g_slots[g_local].state:-1) &&
+        GetTickCount64()-g_catch_sample_time<=100 ? g_catch_sample.trick_id : -1;
+    int catch_before=mc->phase,catch_feet=mc->requested,hold_before=mc->hold_window_id;
+    s->Gamepad = sc_manual_catch_translate_ex(&g_cfg,st,mc,s->Gamepad,now_ms,g_local>=0?(int)g_slots[g_local].state:-1,catch_trick_id);
+    if(mc->hold_window_id && mc->hold_window_id!=hold_before)log_num("manual catch: using native hold-angle window for flip trick id ",mc->hold_window_id);
+    if(mc->phase!=catch_before || mc->requested!=catch_feet) {
+        if(mc->phase==2)log_text(mc->candidate_kind==2?"manual catch: scoop endpoint held automatically; waiting for fresh L3/R3":"manual catch: native flip input held automatically; waiting for fresh L3/R3");
+        else if(mc->phase==3)log_text(mc->requested==3?"manual catch: BOTH feet requested; shared held-flip input released":
+            mc->requested==1?"manual catch: FRONT foot requested; shared held-flip input released":
+            "manual catch: BACK foot requested; shared held-flip input released");
+        else log_text("manual catch: hold cleared on landing, cancellation or passthrough");
+    }
     ne_publish(st,now);
     if(timing)timing[3]=pt_time();
     if (st->rail_scoop_exit && st->rail_scoop_exit != rail_scoop_before)
@@ -1496,8 +1518,15 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
  * The output is the actual translated pad, not a rounded summary or a trick guess. */
 #include "grind_diag.h"
 static void process(DWORD user, XINPUT_STATE* s,int route) {
-    int tracing=g_precise_log && !pt_failed;
+    int tracing=(g_precise_log || g_catch_diag) && !pt_failed;
     sc_pad raw=s->Gamepad; DWORD packet=s->dwPacketNumber; UINT64 start=0;
+    static WORD catch_buttons[4];
+    g_catch_manual_poll=g_cfg.manual_catch && g_cfg.enabled && g_user_enabled;
+    if(user<4){
+        WORD catch_bits=raw.buttons&(SC_LTHUMB|SC_RTHUMB|SC_LSHOULDER|SC_RSHOULDER);
+        sc_catch_poll_force(GetTickCount64(),catch_bits!=catch_buttons[user]);
+        catch_buttons[user]=catch_bits;
+    }
     if(user<4){g_state[user].split_grind_active=0;g_state[user].split_grind_lean=0;g_state[user].grind_setup_override=0;g_state[user].radial_passthrough=0;}
     static int both_reported[4];
     if(user<4) {
@@ -1512,6 +1541,8 @@ static void process(DWORD user, XINPUT_STATE* s,int route) {
     if(tracing) { pt_start(); tracing=!pt_failed; start=pt_time(); }
     UINT64 timing[4]={0};
     process_inner(user,s,tracing?timing:0);
+    if(!g_cfg.enabled || !g_user_enabled || g_ui_open || g_native_menu!=0 || g_menu || g_paused || g_walking)
+        sc_mc_cancel(&g_manual_catch[user<4?user:0],raw.buttons);
     np_note_menu_request(g_now_ms,user,&raw);
     np_finish(g_now_ms,user,&raw,&s->Gamepad);
     npp_note_menu_request(g_now_ms,user,&raw);
@@ -1538,13 +1569,19 @@ static void process(DWORD user, XINPUT_STATE* s,int route) {
     }
     if(g_ramp_diag || g_remount_diag)rd_capture(GetTickCount64());
     gd_capture(GetTickCount64(),user,&raw,&s->Gamepad,&g_state[user<4?user:0]);
-    if(g_pose_diag && g_local>=0 && user<4) {
+    if((g_pose_diag || g_catch_backend) && g_local>=0 && user<4 &&
+       (!g_catch_backend || (!g_ui_open && !g_menu && !g_paused && !g_native_menu && !g_walking))) {
+        pd_catch_mode=g_catch_backend;
+        sc_manual_catch* capture_mc=&g_manual_catch[user];
+        pd_catch_meta=(DWORD)capture_mc->phase|((DWORD)capture_mc->requested<<8)|((DWORD)capture_mc->candidate_kind<<16);
         switch_snapshot();
         pd_capture(GetTickCount64(),g_slots[g_local].sel,g_slots[g_local].state,user,
                    g_cfg.enabled,g_state[user].switched,g_switch_probes,&raw,&s->Gamepad);
     }
     if(tracing) {
         sc_state* st=&g_state[user<4?user:0]; sc_pad out=s->Gamepad;
+        unsigned catch_user=user<4?user:0;
+        UINT64 catch_now=GetTickCount64();
         pt_record r={0}; r.start_us=start; r.end_us=pt_time();
         int values[PT_FIELDS]={
             (int)user,g_local>=0?(int)g_slots[g_local].state:-1,
@@ -1563,7 +1600,7 @@ static void process(DWORD user, XINPUT_STATE* s,int route) {
             timing[2]?(int)(timing[2]-timing[1]):0,
             timing[3]?(int)(timing[3]-timing[2]):0,
             (int)(r.end_us-(timing[3]?timing[3]:timing[1]?timing[1]:start)),
-            g_cfg.switch_invert_x,g_cfg.switch_invert_y,g_cfg.pop_on_release,g_cfg.stick_steer,g_cfg.one_foot_flips,g_native_menu,(int)packet,route,g_cfg.xl_layout,st->grind_pop,st->rail_scoop_exit,(int)(st->rail_scoop_sweep*1000),st->xl_absolute_raw,st->game_mirror_known,st->game_mirror,st->board_frame_valid,st->board_frame_left,g_cfg.fine_grinds,st->fine_exit_stage,g_cfg.split_grinds,st->split_grind_active,(int)(st->split_grind_lean*1000),st->grind_setup_override,st->radial_passthrough};
+            g_cfg.switch_invert_x,g_cfg.switch_invert_y,g_cfg.pop_on_release,g_cfg.stick_steer,g_cfg.one_foot_flips,g_native_menu,(int)packet,route,g_cfg.xl_layout,st->grind_pop,st->rail_scoop_exit,(int)(st->rail_scoop_sweep*1000),st->xl_absolute_raw,st->game_mirror_known,st->game_mirror,st->board_frame_valid,st->board_frame_left,g_cfg.fine_grinds,st->fine_exit_stage,g_cfg.split_grinds,st->split_grind_active,(int)(st->split_grind_lean*1000),st->grind_setup_override,st->radial_passthrough,st->rail_scoop_candidate,sc_stick_steer_angle(&g_cfg),g_catch_diag,(int)g_catch_sample.valid,g_catch_sample.can_land,g_catch_sample.doing_trick,g_cfg.manual_catch,g_manual_catch[user<4?user:0].phase,g_manual_catch[user<4?user:0].requested,g_manual_catch[user<4?user:0].candidate_kind,(int)(g_manual_catch[user<4?user:0].scoop_sweep*1000),g_catch_sample.dark,g_catch_sample.upright,g_catch_sample.landing,g_catch_sample.on_board,g_catch_sample.on_edge,g_catch_sample.preland_allowed,g_catch_sample.wiping_out,g_catch_sample.trick_id,g_catch_sample_time?(int)(catch_now-g_catch_sample_time):-1,g_catch_sample_state};
         typedef char trace_shape_check[(sizeof values/sizeof values[0]==PT_FIELDS)?1:-1];
         for(int i=0;i<PT_FIELDS;i++) r.v[i]=values[i];
         pt_enqueue(&r);
@@ -1707,7 +1744,7 @@ static void setup(HMODULE self) {
     GetModuleFileNameW(0, exe, 519);
     if (!wieq(wbase(exe), "skate.exe")) return; /* only the game; stay a plain version.dll elsewhere */
 
-    log_text("---- Dual Stick Controls 6.0 loaded (version.dll route)");
+    log_text("---- Dual Stick Controls 6.1 EARLY MANUAL-CATCH ATTEMPT loaded (version.dll route)");
     log_wide("process: ", exe);
     load_config(0);
     if (GetFileAttributesW(g_ini) == 0xFFFFFFFFu) log_text("no session_controls.ini found; using defaults");

@@ -37,3 +37,10 @@ __pycache__/
 
 !/releases/v6.0/
 !/releases/v6.0/*.zip
+!/releases/v6.0/manifest.json
+!/releases/v6.0/SHA256SUMS.txt
+
+!/releases/v6.1/
+!/releases/v6.1/*.zip
+!/releases/v6.1/*.json
+!/releases/v6.1/*.txt

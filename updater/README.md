@@ -14,6 +14,8 @@ Only stable published releases are installed. The release manifest is read from 
 
 Existing INI files are preserved byte for byte. A fresh INI is created only when absent. The previous DLL is saved as `version.dll.dualstick-previous`. Newer local builds and unrelated version.dll files are left alone. Updates are skipped if Skate is already running; a file lock or failed replacement leaves the existing DLL intact.
 
+The v6.1 updater recognizes the author's private v6.13-v6.15 manual-catch test DLLs as previews, allowing them to update to the first public v6.1 release. Other newer local builds are still protected from downgrade.
+
 Offline, GitHub rate-limit and download failures do not block opening the official launcher. Network requests use short timeouts. The choice and confirmation windows stay open until you respond. Details are in `dual_stick_updater.log`. Do not run the wrapper as administrator unless your game folder already requires that access.
 
 ## Update choices

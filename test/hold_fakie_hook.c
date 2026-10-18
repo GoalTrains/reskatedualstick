@@ -10,7 +10,8 @@ static int setting_read(UINT64 a,void*out,UINT64 n){if(a>=(UINT64)settings_mem &
 #undef np_base
 #undef GetModuleHandleW
 static unsigned bool_calls;
-static BYTE original_bool(UINT64 cache,const void* reference){assert(cache==7 && reference==settings_mem);bool_calls++;last_error=77;return 1;}
+static BYTE bool_result=1;
+static BYTE original_bool(UINT64 cache,const void* reference){assert(cache==7 && reference==settings_mem);bool_calls++;last_error=77;return bool_result;}
 static void setup_setting_hook(int indirect){
  prepare_hook(indirect);hf_hooked=0;hf_next=0;BYTE*entry=hook_code+0x804f60;memset(entry,0x90,16);
  if(indirect){entry[0]=0xff;entry[1]=0x25;int rel=(int)((hook_code+0x100)-(entry+6));memcpy(entry+2,&rel,4);UINT64 dest=(UINT64)official_module+0x200;memcpy(hook_code+0x100,&dest,8);}
@@ -23,11 +24,23 @@ int main(void){
  strcpy((char*)settings_mem+512,"egf_holdfakiepush");assert(hf_get_bool(7,settings_mem)==0 && bool_calls==2 && last_error==77);
  strcpy((char*)settings_mem+512,"another_setting");assert(hf_get_bool(7,settings_mem)==1 && bool_calls==3 && last_error==77);
  strcpy((char*)settings_mem+512,"egf_holdfakiepush");g_user_enabled=0;assert(hf_get_bool(7,settings_mem)==1);g_user_enabled=1;g_cfg.disable_hold_fakie=0;assert(hf_get_bool(7,settings_mem)==1);g_cfg.disable_hold_fakie=1;
+ /* Manual catch supplies the native held-trick prerequisite independently of
+  * hold-fakie compatibility. Its saved value and unrelated keys are untouched. */
+ strcpy((char*)settings_mem+512,"HeldFlipTricks");assert(hf_reference((UINT64)settings_mem,setting_read)==3);
+ bool_result=0;g_cfg.enabled=1;g_cfg.pure=1;g_cfg.manual_catch=1;g_cfg.disable_hold_fakie=0;
+ assert(hf_get_bool(7,settings_mem)==1 && last_error==77);
+ g_cfg.manual_catch=0;assert(hf_get_bool(7,settings_mem)==0);g_cfg.manual_catch=1;
+ g_user_enabled=0;assert(hf_get_bool(7,settings_mem)==0);g_user_enabled=1;
+ g_cfg.enabled=0;assert(hf_get_bool(7,settings_mem)==0);g_cfg.enabled=1;
+ g_cfg.pure=0;assert(hf_get_bool(7,settings_mem)==0);g_cfg.pure=1;
+ strcpy((char*)settings_mem+512,"HeldFlipTricksExtra");assert(hf_get_bool(7,settings_mem)==0);
+ strcpy((char*)settings_mem+512,"another_setting");assert(hf_get_bool(7,settings_mem)==0);
+ bool_result=1;g_cfg.manual_catch=0;
  for(int indirect=0;indirect<2;indirect++){
   setup_setting_hook(indirect);hf_try_hook(1000);assert(hf_hooked==1 && (UINT64)hf_previous==(UINT64)official_module+0x200);
   BYTE*entry=hook_code+0x804f60;assert(entry[6]==(indirect?0x90:0x90) && entry[7]==0x90);
  }
  setup_setting_hook(0);hook_race=1;hf_try_hook(1000);assert(hf_hooked==-1 && hook_code[0x804f60]==0xcc);
  setup_setting_hook(0);official_module[0x80]=0;hf_try_hook(1000);assert(!hf_hooked);
- puts("PASS: hold-fakie hook calls original once, preserves native error, overrides only two bool results, disabled pass-through, E9/FF25 official chaining and race/foreign rejection");
+ puts("PASS: settings hook calls original once and preserves native error; Hold Fakie overrides and Manual Catch HeldFlipTricks prerequisite are scoped correctly; disabled pass-through, E9/FF25 chaining and race/foreign rejection");
 }

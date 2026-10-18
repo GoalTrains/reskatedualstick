@@ -5,24 +5,28 @@
 Play Skate with two foot sticks using **Session-style**, **Skater XL-style**, or your own **Custom** settings.
 The mod translates Skate's controls across two sticks; it does not replace the game's skating physics.
 
-## Stable download v6.0
+## Early manual-catch attempt (v6.1)
 
-**v6 adds an optional Windows updater with patch notes and a choice before installing.** The two-foot grind setup, rail-pressure controls and XL corrections are all included.
+Custom > Manual catch (early attempt) tries to keep a flip or scoop input held after the physical stick is released. Tap L3, R3, or both while airborne to release it for a catch. This is an incomplete experiment: many tricks still do not hold reliably, and independent foot catches and dark catches are not implemented. It is OFF by default; enable it only if you want to try it.
+
+## Stable download v6.1
+
+**v6.1 is the first public update since v6.0.** It includes refined grind handling, XL stance/input-frame fixes, and an early manual-catch attempt. Manual catch is OFF by default and available under Custom. The optional updater can update the author's private test builds to this release.
 
 Fresh settings enable **FOOT SETUP**. With an existing INI, enable it under **Custom > Grind setup > FOOT SETUP** (`SplitGrindControls=1`). For dedicated two-foot setup, block single-stick flips. Each stick contributes to board position; deliberate front-foot input can lower the nose while keeping tail support.
 
 | Platform | Download |
 | --- | --- |
-| Windows | [Download Windows zip](https://github.com/GoalTrains/reskatedualstick/releases/download/6.0/Dual_Stick_Controls_v6.0.zip) |
-| Linux / Steam Deck (Proton) | [Download Linux / Steam Deck zip](https://github.com/GoalTrains/reskatedualstick/releases/download/6.0/Dual_Stick_Controls_v6.0_Linux.zip) |
+| Windows | [Download Windows zip](https://github.com/GoalTrains/reskatedualstick/releases/download/6.1/Dual_Stick_Controls_v6.1.zip) |
+| Linux / Steam Deck (Proton) | [Download Linux / Steam Deck zip](https://github.com/GoalTrains/reskatedualstick/releases/download/6.1/Dual_Stick_Controls_v6.1_Linux.zip) |
 
-[Release notes](docs/RELEASE_6.0.txt) · [Full changelog](CHANGELOG.md) · [Windows instructions](docs/INSTALL_WINDOWS.md) · [Linux instructions](docs/INSTALL_LINUX.md)
+[Release notes](docs/RELEASE_6.1.txt) · [Full changelog](CHANGELOG.md) · [Windows instructions](docs/INSTALL_WINDOWS.md) · [Linux instructions](docs/INSTALL_LINUX.md)
 
-Includes the XL 360/air continuity improvements and bounded input logging from v5.136. The two-foot grind changes are included. The separate ReSkate menu PR remains separate.
+Changes since v6.0: refined grind handling, XL stance/input-frame corrections, and an optional early manual-catch attempt with bounded, read-only diagnostics. See the release notes for known limitations.
 
 ## Automatic updates (Windows)
 
-[Optional auto-updater download](https://github.com/GoalTrains/reskatedualstick/releases/download/6.0/Dual_Stick_Auto_Updater_Windows.zip). Copy its contents beside `ReSkateLauncher.exe`, then open **DualStickLauncher.exe** (or a shortcut to it) to check stable releases before the official launcher opens. Read the patch notes, then choose **Update now**, **Skip this release**, or **Disable update checks**.
+[Optional auto-updater download](https://github.com/GoalTrains/reskatedualstick/releases/download/6.1/Dual_Stick_Auto_Updater_Windows.zip). Copy its contents beside `ReSkateLauncher.exe`, then open **DualStickLauncher.exe** (or a shortcut to it) to check stable releases before the official launcher opens. Read the patch notes, then choose **Update now**, **Skip this release**, or **Disable update checks**.
 
 It preserves your INI, verifies download hashes, keeps the previous DLL, skips running games/newer local builds, and opens ReSkate even if GitHub is unavailable. It leaves the official launcher and its update settings unchanged. Opening ReSkateLauncher.exe directly bypasses this optional updater. [Details and opt-out](updater/README.md).
 
@@ -87,6 +91,7 @@ The remaining home-page options are **Dual Stick controls**, **Stance**, **Stock
 | Stick layout | FRONT/BACK keeps left = front and right = back. LEFT/RIGHT FOOT follows physical feet with front-up/back-down setup. SKATER XL keeps each physical stick's setup direction when riding switch. |
 | Pop style | FLICK: hold the setup foot, then flick the other. RELEASE: hold a full setup, then release; opposite-foot flicks also work. |
 | Stick steering | OFF, FRONT FOOT, or LEFT STICK. Steering uses the chosen stick while the other is centred. Triggers still turn. Centre the steering stick before starting a foot trick. |
+| Stick steering angle | Steering starts within 5-60 degrees of straight sideways. Lower values leave more diagonal room for scoop setups; try 20 if goofy tre-flip setups steer by accident. Default 34 keeps the original zone. Centre to end steering. Saved in custom presets. |
 | Allow single-stick flips | BLOCKED requires two-foot inputs for flip tricks. One-stick shove-its, 360 shove-its and impossibles remain available. ALLOWED also permits single-stick flips. |
 | Switch flick / scoop directions | STANDARD or REVERSED for left/right foot gestures in switch. Does not swap foot ownership or reverse steering. |
 | Switch up / down directions | STANDARD or REVERSED for vertical foot gestures in switch. Does not swap which foot each stick controls. |

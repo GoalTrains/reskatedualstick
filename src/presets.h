@@ -80,6 +80,8 @@ static int ui_custom_save(void) {
        !ui_snapshot_int(L"ManualMaxPercent",(int)(g_cfg.manual_max*100+0.5f)) ||
        !ui_snapshot_int(L"SteerStrengthPercent",(int)(g_cfg.steer_scale*100+0.5f)) ||
        !ui_snapshot_int(L"SteerCurvePercent",(int)(g_cfg.steer_curve*100+0.5f)) ||
+       !ui_snapshot_int(L"StickSteeringAngleDegrees",sc_stick_steer_angle(&g_cfg)) ||
+       !ui_snapshot_int(L"ManualCatch",g_cfg.manual_catch) ||
        !ui_snapshot_int(L"GrindSensitivityPercent",(int)(g_cfg.grind_sensitivity*100+0.5f)) ||
        !ui_snapshot_int(L"WindUpDegrees",(int)g_cfg.windup_deg) ||
        !ui_snapshot_int(L"AirDelayMs",(int)g_air_ms) ||

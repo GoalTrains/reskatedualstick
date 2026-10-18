@@ -5,6 +5,14 @@
  * File writes run on a worker; poll never waits for the queue lock. */
 #define PD_CAP 16
 #define PD_LIMIT 6000
+#define PD_CATCH_LIMIT 256
+/* Catch investigation reuses the checked reader, with separate files and a
+ * much smaller limit. No native setters, property calls or input changes. */
+static int pd_catch_mode;
+/* Low bytes: wrapper phase, requested feet, candidate kind. Diagnostic only. */
+static DWORD pd_catch_meta;
+static UINT64 pd_catch_active_until;
+static WORD pd_catch_buttons[4];
 typedef struct {
     rd_record snapshot;
     DWORD events, user, enabled, switched;
@@ -41,12 +49,12 @@ static int pd_probes[4];
  * selected state/B edges because descriptors can bind keys lazily. */
 static void pd_catalogue(const pd_record* r) {
     static HANDLE f;static unsigned passes;static UINT64 last;
-    if(!(r->model_valid&7) || !r->model_address[1] || passes>=128)return;
+    if(!(r->model_valid&7) || !r->model_address[1] || passes>=(pd_catch_mode?8u:128u))return;
     if(passes && (!(r->events&7) || r->snapshot.time_us-last<100000))return;
     UINT64 graph=0;
     if(!rd_copy(r->model_address[0]+0x28,&graph,8) || (graph&~4ULL)!=r->model_address[1])return;
     if(!f) {
-        WCHAR path[560]={0};wcat(path,560,g_dir);wcat(path,560,L"\\session_controls_pose_properties.csv");
+        WCHAR path[560]={0};wcat(path,560,g_dir);wcat(path,560,pd_catch_mode?L"\\session_controls_catch_properties.csv":L"\\session_controls_pose_properties.csv");
         f=CreateFileW(path,0x40000000,1|2|4,0,2,0x80,0);
         if(f==INVALID_HANDLE_VALUE){f=0;return;}
         const char header[]="time_us,graph_kind,graph_offset,key,node,page,default_value,name,descriptor_hex\r\n";
@@ -99,12 +107,14 @@ static void pd_catalogue(const pd_record* r) {
 }
 static DWORD WINAPI pd_worker(void* unused) {
     (void)unused; WCHAR path[560]={0};
-    wcat(path,560,g_dir);wcat(path,560,L"\\session_controls_pose.bin");
+    wcat(path,560,g_dir);wcat(path,560,pd_catch_mode?L"\\session_controls_catch_backend.bin":L"\\session_controls_pose.bin");
     HANDLE f=CreateFileW(path,0x40000000,1|2|4,0,2,0x80,0);
     if(f==INVALID_HANDLE_VALUE){pd_failed=1;log_text("stance pose diagnostics: file open failed");return 0;}
     struct {char magic[8];DWORD size,version;} header={{'S','C','P','O','S','E','0','5'},sizeof(pd_record),5108};
+    if(pd_catch_mode)header.version=611;
     if(!pt_send(f,(const char*)&header,sizeof header))goto failed;
-    log_text("stance pose diagnostics: session_controls_pose.bin; checked candidate blocks, NOT identified animation fields; 6000-record limit; latest launch replaces file");
+    log_text(pd_catch_mode?"catch backend diagnostics: read-only; 256 snapshots maximum (11.4 MB), eight descriptor passes; session_controls_catch_backend.bin; universal catch is not enforced":
+             "stance pose diagnostics: session_controls_pose.bin; checked candidate blocks, NOT identified animation fields; 6000-record limit; latest launch replaces file");
     for(;;) {
         static pd_record record;int have=0;
         if(!__sync_lock_test_and_set(&pd_lock,1)) {
@@ -120,14 +130,23 @@ static void pd_capture(UINT64 now,UINT64 selector,DWORD state,DWORD user,
                        int enabled,int switched,const int probes[4],
                        const sc_pad* raw,const sc_pad* out) {
     if(pd_failed || !selector || user>=4)return;
-    if(pd_samples>=PD_LIMIT){if(!pd_limit_logged){pd_limit_logged=1;log_text("stance pose diagnostics: recording limit reached; normal input logging continues");}return;}
+    if(pd_samples>=(pd_catch_mode?PD_CATCH_LIMIT:PD_LIMIT)){if(!pd_limit_logged){pd_limit_logged=1;log_text("native snapshot diagnostics: recording limit reached; normal input logging continues");}return;}
     DWORD events=0;
     if(!pd_seen || selector!=pd_selector)events|=16;
     if(!pd_seen || state!=pd_state)events|=4;
     for(int i=0;i<4;i++)if(!pd_seen || probes[i]!=pd_probes[i])events|=8;
     if((raw->buttons&0x2000) && !(pd_buttons[user]&0x2000))events|=1;
     if(!(raw->buttons&0x2000) && (pd_buttons[user]&0x2000))events|=2;
-    if(pd_seen && now-pd_last<100 && (!events || now-pd_last<10))return;
+    if(pd_catch_mode) {
+        WORD buttons=raw->buttons&(0x40|0x80|0x100|0x200);
+        if(buttons!=pd_catch_buttons[user])events|=32;
+        pd_catch_buttons[user]=buttons;
+        if(state==103 || (state>=200 && state<400))pd_catch_active_until=now+500;
+        /* Do not spend the recording budget on idle skating. Capture a baseline,
+         * takeoff/rail activity, catch edges and the first 500 ms after landing. */
+        if(pd_seen && now>pd_catch_active_until && !(events&32))return;
+    }
+    if(pd_seen && now-pd_last<100 && !(pd_catch_mode && (events&32)) && (!events || now-pd_last<10))return;
     if(__sync_lock_test_and_set(&pd_lock,1))return;
     if(!pd_started){
         pd_started=1;DWORD id;HANDLE thread=CreateThread(0,0,pd_worker,0,0,&id);
@@ -137,9 +156,11 @@ static void pd_capture(UINT64 now,UINT64 selector,DWORD state,DWORD user,
     if(pd_write-pd_read>=PD_CAP){pd_dropped++;__sync_lock_release(&pd_lock);return;}
     pd_record* r=&pd_queue[pd_write%PD_CAP];memset(r,0,sizeof *r);
     r->events=events;r->user=user;r->enabled=enabled;r->switched=switched;
+    if(pd_catch_mode)r->reserved=pd_catch_meta;
     r->raw=*raw;r->out=*out;
     rd_record* s=&r->snapshot;
     s->time_us=rd_time();s->selector=selector;s->state=state;s->dropped=pd_dropped;
+    if(pd_catch_mode)s->label=1;
     UINT64 root=rd_pointer(selector),p=rd_pointer(selector+0x10);
     s->address[0]=selector;s->address[1]=root;
     s->address[2]=rd_pointer(root+0x60);s->address[3]=rd_pointer(root+0x78);
@@ -161,9 +182,10 @@ static void pd_capture(UINT64 now,UINT64 selector,DWORD state,DWORD user,
     r->model_address[1]=graph;r->model_address[2]=rd_pointer(core+0x610);
     for(int i=0;i<3;i++)if(rd_copy(r->model_address[i],r->model_blocks[i],2048))r->model_valid|=1u<<i;
     const unsigned node_offsets[4]={0x60,0x80,0x88,0x68};
+    const unsigned catch_offsets[4]={0x1e8,0x1f0,0x278,0x408};
     for(int i=0;i<4;i++) {
         UINT64 node=0;
-        if(rd_copy(graph+node_offsets[i],&node,8))node&=~4ULL;
+        if(rd_copy(graph+(pd_catch_mode?catch_offsets[i]:node_offsets[i]),&node,8))node&=~4ULL;
         r->model_address[i+3]=node;
         if(rd_copy(node,r->model_nodes[i],256))r->model_valid|=1u<<(i+3);
         /* Boolean getter RVA 11dd4c0 resolves the descriptor's key at +28
