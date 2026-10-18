@@ -1,3 +1,33 @@
+v6.0 - Stable release
+
+New optional Windows updater
+- Open DualStickLauncher.exe (or a shortcut named ReSkate + Dual Stick) to check stable GitHub releases before the official ReSkate launcher opens.
+- Shows your installed version, the available version, and scrollable patch notes before asking whether to update.
+- Update now installs the verified DLL and confirms completion. Skip this release keeps your current build until a newer release appears. Disable update checks stops checking; closing the prompt skips only this launch.
+- Preserves existing INI/custom presets and saves the previous DLL for rollback.
+- Checks zip and DLL hashes, skips running games and newer local builds, and keeps the installed mod if checking or downloading fails.
+- Does not replace ReSkate.dll or ReSkateLauncher.exe, and does not change ReSkate update settings. No upstream PR is needed.
+
+Existing controls included
+- Includes the two-foot grind setup, frontside/backside rail-entry work, nose/tail pressure handling and grind exits from v5.158.
+- Includes the XL no-comply/revert/remount input-frame corrections, switch-fakie mirror compensation, 360 continuity and bounded logging.
+
+Manual installation
+1. Close Skate and open the folder containing Skate.exe and ReSkateLauncher.exe.
+2. Back up version.dll and session_controls.ini.
+3. Copy version.dll from the Windows or Linux mod zip beside Skate.exe. Keep official ReSkate.dll.
+4. Keep your INI from v5.133 or newer. For older installs, back up the old INI before using fresh settings; this resets settings and saved presets.
+5. Fresh settings use Session-style and FOOT SETUP grinds. Press End to choose XL if wanted. With an existing INI, enable Custom > Grind setup > FOOT SETUP to use the two-foot grind work.
+Linux/Steam Deck: follow the Linux zip's Proton instructions. The optional updater is Windows-only.
+
+Optional updater installation (Windows, once)
+1. Download Dual_Stick_Auto_Updater_Windows.zip in addition to the mod zip.
+2. Copy DualStickLauncher.exe, dual_stick_updater.json and the updater folder beside ReSkateLauncher.exe. If already installed, retain your existing dual_stick_updater.json preferences.
+3. Open DualStickLauncher.exe; optionally create a shortcut named ReSkate + Dual Stick.
+4. Use this shortcut for future launches. Opening ReSkateLauncher.exe directly bypasses mod update checks.
+The updater itself is a separate optional download; future mod releases do not need it reinstalled unless the updater changes. Set enabled to true in dual_stick_updater.json to re-enable checks after disabling them.
+
+
 v5.158 - Stable release
 
 Includes the two-foot grind work omitted from v5.157, plus the XL fixes.

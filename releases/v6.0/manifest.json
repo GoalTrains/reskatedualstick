@@ -1,0 +1,19 @@
+{
+  "version": "6.0",
+  "prerelease": false,
+  "dll_sha256": "d75118f10c561a21cf04f71a9d559ebef7a5d7283f5ab37106544b296abb8e34",
+  "packages": {
+    "Dual_Stick_Controls_v6.0.zip": {
+      "sha256": "b64ba8644060224314eb560d7ca2e678b64e1d394b39085d4d8de6f0b61d23df",
+      "size": 168079
+    },
+    "Dual_Stick_Controls_v6.0_Linux.zip": {
+      "sha256": "b30260fae3cc8b01ef489aa356962aba29678545c43c9adbd2fc5d7135e50e5a",
+      "size": 167953
+    },
+    "Dual_Stick_Auto_Updater_Windows.zip": {
+      "sha256": "da064a35278ece718b274aae5f586395ee301c04d701342f7240da39143b10d2",
+      "size": 22880
+    }
+  }
+}
