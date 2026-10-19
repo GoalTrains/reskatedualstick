@@ -16,28 +16,32 @@ Open **End > Custom > D-pad camera sides** to change the camera mapping (`DpadCa
 
 Camera-side detection reads the active camera position and the local rider's longitudinal axis to estimate the current side, then sends a native L3 pulse only when the requested side differs. It does not directly assign the script's forced-side variable. Unknown, centred, steep/side-on or unsupported camera views skip the request. Regular/goofy, switch riding, rapid transitions and native camera settings still need visual gameplay verification. Physical L3 no longer reaches the native camera while this option and Dual Stick are enabled. The mod still receives L3 for its catch, body-flip, grind-exit and shortcut handling before filtering the native output. Native menus and disabling the option retain stock L3 behavior. Synthetic clicks bypass the mod's trick/catch/shortcut translation.
 
-## Early manual-catch attempt (v6.1)
+## Manual Catch and stick-speed rotation (v6.3)
 
-Custom > Manual catch (early attempt) tries to keep a flip or scoop input held after the physical stick is released. Tap L3, R3, or both while airborne to release it for a catch. This is an incomplete experiment: many tricks still do not hold reliably, and independent foot catches and dark catches are not implemented. It is OFF by default; enable it only if you want to try it.
+Manual Catch is in its best working state for now, within Skate's current trick behaviour. Enable **End > Custom > Manual catch**, then click **L3, R3 or both** in the air to catch. It remains OFF by default.
 
-## Stable download v6.2
+Not every trick keeps flipping or spinning while held; some settle into an angled pose. A clean result still depends on a well-timed catch. Missing or mistiming it can produce an awkward-looking automatic catch. Independent foot catches, dark catches and forced bails for missed catches are not implemented.
 
-**v6.2 adds D-pad camera side selection, enabled by default, and a reorganised Custom menu with a scrollbar.** Tap left/right for the camera; hold for 0.5 seconds for the original action. Manual catch remains an optional early attempt, OFF by default.
+**Stick-speed rotation** adjusts trick rotation from your physical flick or scoop speed: slower movements request slower rotation, faster movements request faster rotation. It works independently of Manual Catch, including normal gameplay. The response depends on the trick and Skate's animation timing and may be subtler on scoops. Enabled by default; set `GestureSpeed=0` under `[SessionControls]` in your INI and restart Skate to disable it.
+
+## Stable download v6.3
+
+**v6.3 improves Manual Catch timing and adds stick-speed rotation.** Your existing control preset and Manual Catch preference are preserved. Stick-speed rotation defaults to ON when its setting is absent.
 
 Fresh settings enable **FOOT SETUP**. With an existing INI, enable it under **Custom > Grind setup > FOOT SETUP** (`SplitGrindControls=1`). For dedicated two-foot setup, block single-stick flips. Each stick contributes to board position; deliberate front-foot input can lower the nose while keeping tail support.
 
 | Platform | Download |
 | --- | --- |
-| Windows | [Download Windows zip](https://github.com/GoalTrains/reskatedualstick/releases/download/6.2/Dual_Stick_Controls_v6.2.zip) |
-| Linux / Steam Deck (Proton) | [Download Linux / Steam Deck zip](https://github.com/GoalTrains/reskatedualstick/releases/download/6.2/Dual_Stick_Controls_v6.2_Linux.zip) |
+| Windows | [Download Windows zip](https://github.com/GoalTrains/reskatedualstick/releases/download/6.3/Dual_Stick_Controls_v6.3.zip) |
+| Linux / Steam Deck (Proton) | [Download Linux / Steam Deck zip](https://github.com/GoalTrains/reskatedualstick/releases/download/6.3/Dual_Stick_Controls_v6.3_Linux.zip) |
 
-[Release notes](docs/RELEASE_6.2.txt) · [Full changelog](CHANGELOG.md) · [Windows instructions](docs/INSTALL_WINDOWS.md) · [Linux instructions](docs/INSTALL_LINUX.md)
+[Release notes](docs/RELEASE_6.3.txt) · [Full changelog](CHANGELOG.md) · [Windows instructions](docs/INSTALL_WINDOWS.md) · [Linux instructions](docs/INSTALL_LINUX.md)
 
-Changes since v6.1: D-pad camera selection with automatic gameplay settings, L3 camera suppression, half-second holds, and a cleaner Custom menu. See the release notes for details.
+Changes since v6.2: improved Manual Catch handoff/timing and physical stick-speed rotation adjustment. See the release notes for behaviour and limitations.
 
 ## Automatic updates (Windows)
 
-[Optional auto-updater download](https://github.com/GoalTrains/reskatedualstick/releases/download/6.2/Dual_Stick_Auto_Updater_Windows.zip). Copy its contents beside `ReSkateLauncher.exe`, then open **DualStickLauncher.exe** (or a shortcut to it) to check stable releases before the official launcher opens. Read the patch notes, then choose **Update now**, **Skip this release**, or **Disable update checks**.
+[Optional auto-updater download](https://github.com/GoalTrains/reskatedualstick/releases/download/6.3/Dual_Stick_Auto_Updater_Windows.zip). Copy its contents beside `ReSkateLauncher.exe`, then open **DualStickLauncher.exe** (or a shortcut to it) to check stable releases before the official launcher opens. Read the patch notes, then choose **Update now**, **Skip this release**, or **Disable update checks**.
 
 It preserves your INI, verifies download hashes, keeps the previous DLL, skips running games/newer local builds, and opens ReSkate even if GitHub is unavailable. It leaves the official launcher and its update settings unchanged. Opening ReSkateLauncher.exe directly bypasses this optional updater. [Details and opt-out](updater/README.md).
 

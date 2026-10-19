@@ -1,3 +1,18 @@
+## v6.3 - Manual Catch improvements and stick-speed rotation
+
+Manual Catch
+- Refines catch timing and the handoff from your flick or scoop into the held input, reducing unintended automatic catches, including on frontside and backside shuvs.
+- Manual Catch is in its best working state for now, within Skate's current trick behaviour. Not every trick keeps flipping or spinning while held; some settle into an angled pose instead. A clean result still depends on catching at the right moment. A missed or mistimed catch can end in an awkward-looking automatic catch.
+- Click L3, R3 or both while airborne to catch. Manual Catch remains optional and OFF by default; enable it under End > Custom > Manual catch.
+- This uses Skate's shared catch behaviour. Independent front/back-foot catches, dark catches and forced bails for missed catches are not implemented.
+
+Stick-speed rotation
+- Adds rotation-speed adjustment based on how quickly you move the sticks: slower flicks and scoops request slower trick rotation, while faster movements request faster rotation.
+- Works during normal gameplay as well as with Manual Catch enabled. Speed is measured from your physical stick movement, independently of the held catch input.
+- Holding a completed flick or releasing the stick no longer drags its measured speed down.
+- The effect depends on the trick and Skate's animation timing; the response can be less noticeable on some tricks, including scoops.
+- Enabled by default. To disable it, set GestureSpeed=0 under [SessionControls] in session_controls.ini; GestureSpeed=1 enables it. Restart Skate after changing this setting.
+
 ## v6.2 - D-pad camera controls and Custom menu cleanup
 
 - Tap D-pad left or right to select that camera side. Repeating the same direction keeps it there.

@@ -97,6 +97,8 @@ typedef struct {
     int stick_steer;      /* v5.15: front-foot stick pushed sideways (other stick let go) turns, Skater XL style */
     int stick_steer_angle; /* degrees from horizontal that may START steering; zero = legacy 34-degree zone */
     int manual_catch;     /* experimental native held-flip release on a stick click */
+    int manual_catch_replay; /* opt-in experiment: repeat captured flick until catch */
+    int manual_catch_ranges; /* opt-in native angle-range experiment */
     int stock_grab_air;   /* optional: stock sticks/triggers after a steep grounded ramp approach */
     int stock_transition_ground; /* optional: switch during the qualifying climb */
     int body_flips;       /* v3.2: click the front-foot stick = front flip, back-foot stick = backflip */
@@ -206,6 +208,7 @@ typedef struct {
     double rail_scoop_last, rail_scoop_turn;
     int grind_fflick, grind_bflick; double grind_fpop_t, grind_bpop_t; /* separate rail adjustment from a fresh pop setup */
     int hold_foot; float hold_x, hold_y; /* v5.19: held trick: 1 front / 2 back foot still holding its flick, and the stick the game had */
+    int hold_scoop; /* 1 = proven one-foot scoop hold, 2 = easing to centre */
     float tk_fa, tk_ba;   /* v5.16: angle each held foot had at take-off */
     float lone_a0[2], lone_last[2], lone_sw[2], lone_out[2]; int lone_unl[2]; /* v5.28: impossible circles */
     int lone_seen[2], lone_from[2]; /* v5.31: side last seen, and the side a sweep came from through the own end */
@@ -1247,6 +1250,13 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
 
     /* take-off: whatever is still held is left over from the trick */
     if (airborne && !s->d_took_off) {
+        /* A measured sole-foot scoop is a trick too with single-stick flips
+         * blocked. Preserve its endpoint instead of making it a tail pivot. */
+        int session_scoop=c->front_back && !c->xl_layout && !c->pop_on_release && !c->one_foot_flips;
+        int fscoop=session_scoop && !s->grind && fm>=.8f && bm<off &&
+            s->d_front_on && !s->d_front_spent && sc_abs(s->lone_sw[0])>=35;
+        int bscoop=session_scoop && !s->grind && bm>=.8f && fm<off &&
+            s->d_back_on && !s->d_back_spent && sc_abs(s->lone_sw[1])>=35;
         s->d_took_off = 1;
         if (fm >= off) { s->d_front_on = 1; s->d_front_spent = 1; s->tk_fa = sc_angle(fx, fy); }
         if (bm >= off) { s->d_back_on = 1; s->d_back_spent = 1; s->tk_ba = sc_angle(bx, by); }
@@ -1254,23 +1264,24 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
         /* v5.19 HELD TRICKS: the game holds a flip (held kickflip etc.) while the flick stick stays out
          * where the flick ended (85 %+, each trick has its own window). The foot that flicked last and
          * is still pushed right out keeps the game's stick exactly where the flick left it. */
-        s->hold_foot = 0;
+        s->hold_foot = s->hold_scoop = 0;
         {
             /* A setup/wind-up stick is not a held flip. In the grind trace,
              * that false capture kept the back foot in Skate's flick frame
              * until rail contact, then reversed it into a tail pivot. */
-            int fh = fm >= 0.8f && (s->d_front_flick || (c->one_foot_flips && fy < -0.2f*fm));
-            int bh = bm >= 0.8f && (s->d_back_flick || (c->one_foot_flips && by > 0.2f*bm));
+            int fh = fm >= 0.8f && (fscoop || s->d_front_flick || (c->one_foot_flips && fy < -0.2f*fm));
+            int bh = bm >= 0.8f && (bscoop || s->d_back_flick || (c->one_foot_flips && by > 0.2f*bm));
             if (fh && (!bh || s->d_front_seq > s->d_back_seq)) s->hold_foot = 1;
             else if (bh) s->hold_foot = 2;
             float om = sc_sqrt(s->ox * s->ox + s->oy * s->oy);
             float ha = s->hold_foot == 1 ? sc_angle(fx, fy) : sc_angle(bx, by);
             /* only when that foot points where the game's stick is (the flick it made), not e.g. the
              * ollie crouch still held down while the stick shows the front foot's flick up */
-            if (s->hold_foot && om >= 0.8f && sc_abs(sc_wrap(ha - sc_angle(s->ox, s->oy))) < 45.0f) { s->hold_x = s->ox / om; s->hold_y = s->oy / om; }
+            int scoop=s->hold_foot==1?fscoop:s->hold_foot==2?bscoop:0;
+            if (s->hold_foot && om >= 0.8f && (scoop || sc_abs(sc_wrap(ha - sc_angle(s->ox, s->oy))) < 45.0f)) { s->hold_x = s->ox / om; s->hold_y = s->oy / om;s->hold_scoop=scoop; }
             else s->hold_foot = 0;
         }
-    } else if (!airborne) { s->d_took_off = 0; s->hold_foot = 0; }
+    } else if (!airborne) { s->d_took_off = 0; s->hold_foot = s->hold_scoop = 0; }
 
     float fa = sc_angle(fx, fy), ba = sc_angle(bx, by);       /* 0 = down, 180 = up */
     float f_off = sc_abs(sc_wrap(fa - 180.0f)), b_off = sc_abs(sc_wrap(ba));
@@ -1425,6 +1436,14 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
             if(c->split_grinds && c->air_controls && other_m>=.65f && sc_abs(other_x)>=.65f*other_m) {
                 pivot=1;s->grind_setup_override=1;
             }
+            /* Ease a held scoop to neutral without flipping its direction
+             * into board setup halfway home. The opposite foot can still
+             * deliberately take over for a grind or landing adjustment. */
+            if(!pivot && s->hold_scoop && (s->hold_scoop==2 || hm<.7f)){
+                s->hold_scoop=2;
+                if(hm<off)s->hold_foot=s->hold_scoop=0;
+                s->d_was_air=1;s->d_t=now;*out_x=*out_y=0;return;
+            }
             /* Ordinary controls retain their 20-degree held-flick window.
              * Foot Setup also accepts smaller deliberate 8-degree changes. */
             if (!pivot && hm >= 0.7f && sc_abs(sc_wrap(sc_angle(hx, hy) - ta)) < pivot_threshold) {
@@ -1432,7 +1451,7 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
                 return;
             }
             if(c->split_grinds && c->air_controls)s->grind_setup_override=1;
-            s->hold_foot = 0;
+            s->hold_foot = s->hold_scoop = 0;
         }
         /* in the air: only feet pressed AFTER take-off count */
         /* v5.16: ...or a foot held from take-off that you then swing round (40 degrees or more), e.g. the

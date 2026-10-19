@@ -83,6 +83,7 @@ static WCHAR g_dir[520], g_ini[560], g_log[560];
 static sc_config g_cfg;
 static sc_state g_state[4];
 #include "manual_catch.h"
+#include "gesture_speed.h"
 static sc_manual_catch g_manual_catch[4];
 static sc_controller_hold g_controller_hold[4];
 static sc_camera_dpad g_camera_dpad[4];
@@ -104,6 +105,7 @@ static int g_native_animation_reset;
 static int g_native_respawn;
 static int g_native_ground_respawn;
 static int g_motion_stance;
+static int g_gesture_speed_option;
 static volatile int g_ramp_diag_reset;
 static int g_board_detect;
 static int g_scoop_logged, g_mode_logged, g_stock_log = 1, g_ov_enabled = 1;
@@ -217,6 +219,9 @@ static void load_config(int keep_runtime) {
     g_cfg.stick_steer_angle=ini_int(L"StickSteeringAngleDegrees",34);
     g_cfg.stick_steer_angle=sc_stick_steer_angle(&g_cfg);
     g_cfg.manual_catch=ini_int(L"ManualCatch",0)!=0;
+    g_cfg.manual_catch_replay=ini_int(L"ManualCatchReplay",0)!=0;
+    g_cfg.manual_catch_ranges=ini_int(L"ManualCatchNativeRanges",0)!=0;
+    g_gesture_speed_option=ini_int(L"GestureSpeed",1)!=0;
     if(g_cfg.stick_steer<0 || g_cfg.stick_steer>2)g_cfg.stick_steer=0;   /* v5.15 */
     g_cfg.front_back = ini_int(L"FrontBackFoot", 1) != 0;     /* v5.26 */
     g_cfg.xl_layout = ini_int(L"XLFootDirections", 0) != 0;
@@ -1036,11 +1041,14 @@ static int read_switched(void) {
 #include "native_pose_poll.h"
 #include "native_property_poll.h"
 #include "catch_diag.h"
+#include "catch_hold_native.h"
+#include "gesture_speed_native.h"
 #include "native_animation_poll.h"
 #define SC_HOLD_FAKIE_COMPAT
 #define SC_STANCE_FLIGHT_RECORDER
 #include "native_respawn_poll.h"
 #include "native_grind_entry.h"
+#include "gesture_playback_native.h"
 static sc_menu_pose_recovery g_pose_recovery;
 static DWORD g_pose_recovery_user;
 #include "overlay_handoff.h"
@@ -1309,6 +1317,22 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
     if (!freq) QueryPerformanceFrequency(&freq);
     QueryPerformanceCounter(&ticks);
     double now_ms = freq ? (double)ticks * 1000.0 / (double)freq : (double)now;
+    int speed_state=g_local>=0?(int)g_slots[g_local].state:-1;
+    int speed_enabled=g_gesture_speed_option && g_cfg.enabled && g_user_enabled &&
+        !g_ui_open && !g_menu && !g_paused && !g_native_menu && !g_walking;
+    sc_gesture_speed* speed=&gs_input[user<4?user:0];
+    int speed_was_air=speed->air;
+    float speed_factor=sc_gs_step(speed,s->Gamepad,now_ms,speed_state,speed_enabled);
+    gsp_publish(now,speed_factor,speed_enabled);
+    if(speed_enabled && !speed_was_air && speed->air){
+        log_num("gesture speed: physical gesture multiplier percent ",(UINT64)(speed_factor*100.f));
+        log_num("gesture speed: native playback reads ",gsp_reads);
+        log_num("gesture speed: scoped local playback reads ",gsp_local_reads);
+        if(gsp_local_reads){
+            log_num("gesture speed: last native playback value milli ",(UINT64)(gsp_last_native*1000.f));
+            log_num("gesture speed: last overridden playback value milli ",(UINT64)(gsp_last_result*1000.f));
+        }
+    }
     unsigned before = st->fired;
     WORD raw_buttons = s->Gamepad.buttons;
     ring_push(now_ms, sc_axis(s->Gamepad.rx), sc_axis(s->Gamepad.ry));
@@ -1345,13 +1369,14 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
     if(timing)timing[2]=pt_time();
     ne_prepare(st);
     sc_manual_catch* mc=&g_manual_catch[user<4?user:0];
-    int catch_trick_id=(g_catch_sample.valid&512) && g_catch_sample_state==(g_local>=0?(int)g_slots[g_local].state:-1) &&
-        GetTickCount64()-g_catch_sample_time<=100 ? g_catch_sample.trick_id : -1;
-    int catch_before=mc->phase,catch_feet=mc->requested,hold_before=mc->hold_window_id;
-    s->Gamepad = sc_manual_catch_translate_ex(&g_cfg,st,mc,s->Gamepad,now_ms,g_local>=0?(int)g_slots[g_local].state:-1,catch_trick_id);
-    if(mc->hold_window_id && mc->hold_window_id!=hold_before)log_num("manual catch: using native hold-angle window for flip trick id ",mc->hold_window_id);
+    int catch_fresh=g_catch_sample_state==(g_local>=0?(int)g_slots[g_local].state:-1) &&
+        g_catch_sample_time && GetTickCount64()-g_catch_sample_time<=100;
+    int catch_trick_id=catch_fresh && (g_catch_sample.valid&512)?g_catch_sample.trick_id:-1;
+    int catch_doing=catch_fresh && (g_catch_sample.valid&2)?g_catch_sample.doing_trick:-1;
+    int catch_before=mc->phase,catch_feet=mc->requested;
+    s->Gamepad = sc_manual_catch_translate_observed(&g_cfg,st,mc,s->Gamepad,now_ms,g_local>=0?(int)g_slots[g_local].state:-1,catch_trick_id,catch_doing);
     if(mc->phase!=catch_before || mc->requested!=catch_feet) {
-        if(mc->phase==2)log_text(mc->candidate_kind==2?"manual catch: scoop endpoint held automatically; waiting for fresh L3/R3":"manual catch: native flip input held automatically; waiting for fresh L3/R3");
+        if(mc->phase==2)log_text(g_cfg.manual_catch_replay?"manual catch EXPERIMENT: repeating captured game-stick flick until fresh L3/R3":mc->candidate_kind==3?"manual catch: new airborne trick recognized; endpoint held; waiting for fresh L3/R3":mc->candidate_kind==2?"manual catch: scoop endpoint held automatically; waiting for fresh L3/R3":"manual catch: native flip input held automatically; waiting for fresh L3/R3");
         else if(mc->phase==3)log_text(mc->requested==3?"manual catch: BOTH feet requested; shared held-flip input released":
             mc->requested==1?"manual catch: FRONT foot requested; shared held-flip input released":
             "manual catch: BACK foot requested; shared held-flip input released");
@@ -1569,8 +1594,17 @@ static void process(DWORD user, XINPUT_STATE* s,int route) {
     if(tracing) { pt_start(); tracing=!pt_failed; start=pt_time(); }
     UINT64 timing[4]={0};
     process_inner(user,s,tracing?timing:0);
+    if(!g_gesture_speed_option || !g_cfg.enabled || !g_user_enabled || g_ui_open || g_native_menu!=0 || g_menu || g_paused || g_walking)
+        gsp_enabled=0;
+    gsp_sync(GetTickCount64(),g_gesture_speed_option && g_user_enabled);
+    if(gsp_local_reads && !gsp_reported){
+        gsp_reported=1;log_text("gesture speed: animation consumed the local TrickFlipSpeed override");
+    }
     if(!g_cfg.enabled || !g_user_enabled || g_ui_open || g_native_menu!=0 || g_menu || g_paused || g_walking)
         sc_mc_cancel(&g_manual_catch[user<4?user:0],raw.buttons);
+    /* g_cfg.enabled is temporarily false in menus/walking. The user's master
+     * switch scopes native ranges, ready before returning to board input. */
+    cha_sync(GetTickCount64(),g_user_enabled && g_cfg.pure && g_cfg.manual_catch && g_cfg.manual_catch_ranges && !g_cfg.manual_catch_replay);
     np_note_menu_request(g_now_ms,user,&raw);
     np_finish(g_now_ms,user,&raw,&s->Gamepad);
     npp_note_menu_request(g_now_ms,user,&raw);
@@ -1772,7 +1806,7 @@ static void setup(HMODULE self) {
     GetModuleFileNameW(0, exe, 519);
     if (!wieq(wbase(exe), "skate.exe")) return; /* only the game; stay a plain version.dll elsewhere */
 
-    log_text("---- Dual Stick Controls 6.2 DPAD CAMERA CONTROLS loaded (version.dll route)");
+    log_text("---- Dual Stick Controls 6.3 MANUAL CATCH AND STICK SPEED loaded (version.dll route)");
     log_wide("process: ", exe);
     load_config(0);
     if (GetFileAttributesW(g_ini) == 0xFFFFFFFFu) log_text("no session_controls.ini found; using defaults");

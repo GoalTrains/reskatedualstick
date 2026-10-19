@@ -1,4 +1,4 @@
-Dual Stick Controls v6.2 — installation
+Dual Stick Controls v6.3 — installation
 
 1. Close Skate completely.
 2. Open the game folder containing Skate.exe.
@@ -27,6 +27,8 @@ FOOT SETUP grind controls are enabled in fresh settings. If keeping your INI, en
 
 The optional pre-launch updater download is Windows-only. Linux/Steam Deck uses the manual mod zip.
 
-Manual catch is OFF by default. To test this early attempt, open End > Custom > Manual catch (early attempt). It is incomplete and many tricks may not hold reliably; turn it back OFF if it interferes with tricks.
+Manual Catch is OFF by default; enable it under End > Custom > Manual catch. Click L3, R3 or both in the air to catch. Some tricks settle at an angle rather than continuing to rotate; catch timing still matters for a clean result. Missed or mistimed catches can produce an awkward automatic catch. Independent foot catches, dark catches and forced missed-catch bails are not implemented.
+
+Stick-speed rotation is ON by default and works independently of Manual Catch. Slower flicks/scoops request slower rotation; faster movements request faster rotation. The effect varies with the trick and native animation timing. To disable it, set GestureSpeed=0 under [SessionControls] in session_controls.ini, then restart Skate. Missing GestureSpeed defaults to ON; keep your existing INI when updating.
 
 D-pad camera sides is ON by default: tap left/right to select a side, hold 0.5 seconds for the original action. The mod applies the required camera settings and keeps L3 available to its other controls. Turn it off under End > Custom if desired. An existing DpadCameraSide=0 is respected.

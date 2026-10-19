@@ -49,3 +49,8 @@ __pycache__/
 !/releases/v6.2/*.zip
 !/releases/v6.2/*.json
 !/releases/v6.2/*.txt
+
+!/releases/v6.3/
+!/releases/v6.3/*.zip
+!/releases/v6.3/*.json
+!/releases/v6.3/*.txt
