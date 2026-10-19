@@ -1,4 +1,4 @@
-Dual Stick Controls v6.1 — installation
+Dual Stick Controls v6.2 — installation
 
 1. Close Skate completely.
 2. Open the game folder containing Skate.exe.
@@ -27,3 +27,5 @@ FOOT SETUP grind controls are enabled in fresh settings. If keeping your INI, en
 
 Optional Windows updater (separate zip)
 Copy DualStickLauncher.exe, dual_stick_updater.json and the updater folder beside ReSkateLauncher.exe. Keep an existing updater JSON to retain your preferences. Open DualStickLauncher.exe (or create a ReSkate + Dual Stick shortcut) for future launches. It shows patch notes and asks before updating. Skip this release keeps your build until a newer release; Disable update checks stops checks; closing the window skips this launch. The official ReSkate files and updater settings are untouched.
+
+D-pad camera sides is ON by default: tap left/right to select a side, hold 0.5 seconds for the original action. The mod applies the required camera settings and keeps L3 available to its other controls. Turn it off under End > Custom if desired. An existing DpadCameraSide=0 is respected.

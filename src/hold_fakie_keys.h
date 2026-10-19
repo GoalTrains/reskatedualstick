@@ -3,11 +3,13 @@
 #define SC_HOLD_FAKIE_KEYS_H
 #include "native_pose_restore.h"
 static int hf_key_id(const char* key) {
- static const char stance[]="egf_holdfakiestance",push[]="egf_holdfakiepush",held[]="HeldFlipTricks";
- int a=1,b=1,c=1;for(unsigned i=0;i<32;i++){
-  char ch=key[i];if(a && (i>=sizeof stance || ch!=stance[i]))a=0;if(b && (i>=sizeof push || ch!=push[i]))b=0;
-  if(c && (i>=sizeof held || ch!=held[i]))c=0;
-  if(!ch)return a?1:b?2:c?3:0;if(!a && !b && !c)return 0;
+ static const char* const names[]={"egf_holdfakiestance","egf_holdfakiepush","HeldFlipTricks",
+     "egf_cameraenablemirrorinput","egf_cameraallowautomirror"};
+ for(unsigned candidate=0;candidate<5;candidate++) {
+  for(unsigned i=0;i<32;i++) {
+   if(key[i]!=names[candidate][i])break;
+   if(!key[i])return (int)candidate+1;
+  }
  }return 0;
 }
 static int hf_reference(np_address reference,np_read_fn read) {

@@ -1,0 +1,17 @@
+v6.2 - D-pad camera controls and a cleaner Custom menu
+
+- Tap D-pad left or right to select that camera side. Repeating the same direction keeps it there.
+- Hold left/right for 0.5 seconds to use the original D-pad action.
+- D-pad camera sides is ON by default. Change it under End > Custom; an explicitly saved OFF preference is respected.
+- The option automatically enables Switch side controls and disables Dynamic side switching while Dual Stick is on, preserving your saved game preferences.
+- Physical L3 no longer switches camera sides while this option is on. The mod still receives L3 for catch, body-flip, grind-exit and shortcut handling.
+- Reorders Custom, removes diagnostic recording from the menu, and keeps legacy/switch compatibility options near the bottom.
+- Anchors the explanation box at the bottom and displays up to 20 settings with a scrollbar and visible option range.
+- Native game menus retain normal controller navigation.
+
+Installation
+Close Skate, back up version.dll and session_controls.ini, then replace version.dll. Keep your existing INI and the official ReSkate.dll. Missing DpadCameraSide defaults to 1; explicit DpadCameraSide=0 stays off.
+Linux / Steam Deck: use the included Proton instructions. The package contains a Windows DLL for Proton, not a native Linux binary.
+
+Known limitations
+Camera-side detection skips ambiguous/centred or unsupported views. Manual catch remains the optional early attempt from v6.1, OFF by default; independent foot catches and dark catches are not implemented.

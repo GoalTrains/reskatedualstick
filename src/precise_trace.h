@@ -74,7 +74,7 @@ static DWORD WINAPI pt_worker(void* unused) {
     while(*tail)previous[i++]=*tail++;previous[i]=0;
     HANDLE f=CreateFileW(path,4,1,0,4,0x80,0);
     if(f==INVALID_HANDLE_VALUE) { pt_failed=1; log_text("precise input log: could not open session_controls_input.csv"); return 0; }
-    const char marker[]="# Dual Stick Controls 6.1 EARLY MANUAL-CATCH ATTEMPT; routes 1=XInput 2=XInputEx 3=PS fallback 4=native HID; new segment; axes are signed 16-bit; timestamps are absolute QPC microseconds\r\n";
+    const char marker[]="# Dual Stick Controls 6.2 DPAD CAMERA CONTROLS; routes 1=XInput 2=XInputEx 3=PS fallback 4=native HID; new segment; axes are signed 16-bit; timestamps are absolute QPC microseconds\r\n";
     INT64 length=0;
     if(!GetFileSizeEx(f,&length))goto failed;
     UINT64 bytes=(UINT64)length;

@@ -74,7 +74,7 @@ static HWND ui_foreground_game(void) {
 
 
 /* v5.12: PURE only. Trick input and Kick / heel sides rows removed; Menu size moved to the bottom. */
-enum { UI_PRESET_SESSION, UI_PRESET_XL, UI_SESSION, UI_STANCE, UI_LAYOUT, UI_SWITCH, UI_POPSTYLE, UI_ONEFOOT, UI_STEER, UI_REVERTS, UI_WINDUP, UI_FLIPS, UI_AIR, UI_SLIDES, UI_BUMP, UI_SIZE, UI_CLOSE, UI_ADVANCED, UI_BACK, UI_CUSTOM, UI_SLOT, UI_SAVE, UI_LOAD, UI_STARTUP, UI_HOTKEY, UI_STOCKAIR, UI_RAMPDIAG, UI_PRESET_FB_RELEASE, UI_PRESET_PHYS_FLICK, UI_TAPWINDOW, UI_WINDSTEER, UI_WINDTHRESH, UI_XLEXTRAS, UI_SAVED, UI_MENUSETTINGS, UI_INVERTX, UI_INVERTY, UI_HOLDFAKIE, UI_FINEGRIND, UI_STEERANGLE, UI_MANUALCATCH, UI_COUNT };
+enum { UI_PRESET_SESSION, UI_PRESET_XL, UI_SESSION, UI_STANCE, UI_LAYOUT, UI_SWITCH, UI_POPSTYLE, UI_ONEFOOT, UI_STEER, UI_REVERTS, UI_WINDUP, UI_FLIPS, UI_AIR, UI_SLIDES, UI_BUMP, UI_SIZE, UI_CLOSE, UI_ADVANCED, UI_BACK, UI_CUSTOM, UI_SLOT, UI_SAVE, UI_LOAD, UI_STARTUP, UI_HOTKEY, UI_STOCKAIR, UI_RAMPDIAG, UI_PRESET_FB_RELEASE, UI_PRESET_PHYS_FLICK, UI_TAPWINDOW, UI_WINDSTEER, UI_WINDTHRESH, UI_XLEXTRAS, UI_SAVED, UI_MENUSETTINGS, UI_INVERTX, UI_INVERTY, UI_HOLDFAKIE, UI_FINEGRIND, UI_STEERANGLE, UI_MANUALCATCH, UI_DPAD_CAMERA, UI_COUNT };
 /* v5.8: wider menu, an explanation box for the highlighted line, and a controls page */
 #define UI_SETTINGS_W 700
 #define UI_CONTROLS_W 700
@@ -88,21 +88,47 @@ enum { UI_PRESET_SESSION, UI_PRESET_XL, UI_SESSION, UI_STANCE, UI_LAYOUT, UI_SWI
 static volatile int g_ui_page;   /* 0 = presets/settings, 1 = controls, 2 = advanced, 3 = custom presets */
 static int ui_height(void) { return UI_HC; }
 static int ui_row_y(int row){return g_ui_page==0?48+(row<3?row*64:3*64+20+(row-3)*30):48+row*30;}
-static int ui_rows_end(int rows){return ui_row_y(rows);}
+static int ui_info_top(void){return ui_height()-34-UI_INFO;}
+static int ui_visible_rows(int rows){
+    int available=(ui_info_top()-10-48)/30;
+    if(available<1)available=1;
+    return rows<available?rows:available;
+}
 static volatile int g_ui_draw_scale=100;
 #include "menu_controls.h"
 #include "menu_scheme.h"
 static int g_ui_controls_page;   /* six large cards per page */
 
 static const int k_ui_main[] = {UI_PRESET_SESSION, UI_PRESET_XL, UI_CUSTOM, UI_SESSION, UI_STANCE, UI_STOCKAIR, UI_MENUSETTINGS, UI_CLOSE};
-static const int k_ui_basic[] = {UI_LAYOUT, UI_POPSTYLE, UI_STEER, UI_STEERANGLE, UI_ONEFOOT, UI_MANUALCATCH, UI_INVERTX, UI_INVERTY, UI_REVERTS, UI_TAPWINDOW, UI_WINDUP, UI_WINDSTEER, UI_WINDTHRESH, UI_FLIPS, UI_AIR, UI_SLIDES, UI_BUMP, UI_SWITCH, UI_RAMPDIAG, UI_SAVED, UI_HOLDFAKIE, UI_FINEGRIND, UI_BACK};
-static const int k_ui_advanced[] = {UI_SWITCH, UI_REVERTS, UI_TAPWINDOW, UI_WINDUP, UI_WINDSTEER, UI_WINDTHRESH, UI_FLIPS, UI_AIR, UI_SLIDES, UI_BUMP, UI_RAMPDIAG, UI_BACK};
+/* Everyday controls: tricks, steering/spins, air/grinds, camera and presets.
+ * Development capture stays INI-only; legacy options follow everyday controls. */
+static const int k_ui_basic[] = {
+    UI_LAYOUT, UI_POPSTYLE, UI_ONEFOOT, UI_MANUALCATCH,
+    UI_STEER, UI_STEERANGLE, UI_REVERTS, UI_TAPWINDOW,
+    UI_WINDUP, UI_WINDSTEER, UI_WINDTHRESH, UI_SLIDES, UI_FLIPS,
+    UI_AIR, UI_FINEGRIND, UI_BUMP, UI_DPAD_CAMERA,
+    UI_SWITCH, UI_INVERTX, UI_INVERTY, UI_HOLDFAKIE, UI_SAVED, UI_BACK
+};
+static int ui_basic_count(void){return (int)(sizeof k_ui_basic/sizeof *k_ui_basic)-(g_cfg.front_back?1:0);}
+static int ui_basic_item(int row){
+    for(unsigned i=0;i<sizeof k_ui_basic/sizeof *k_ui_basic;i++) {
+        if(g_cfg.front_back && k_ui_basic[i]==UI_SWITCH)continue;
+        if(row--==0)return k_ui_basic[i];
+    }
+    return k_ui_basic[0];
+}
+static const int k_ui_advanced[] = {UI_SWITCH, UI_INVERTX, UI_INVERTY, UI_HOLDFAKIE, UI_BACK};
 static const int k_ui_menu[] = {UI_STARTUP, UI_HOTKEY, UI_SIZE, UI_BACK};
 static int g_ui_slot = 1, g_ui_overwrite;
 static int g_ui_startup_input_sync;
 static const WCHAR* g_ui_preset_status = L"";
 static void ui_back(void) {
-    if(g_ui_page==3 || g_ui_page==4){g_ui_sel=19-(g_cfg.front_back?1:0);g_ui_page=2;}
+    if(g_ui_page==3 || g_ui_page==4){
+        int parent=g_ui_page==3?UI_SAVED:UI_ADVANCED;
+        g_ui_page=2;g_ui_sel=0;
+        for(int row=0;row<ui_basic_count();row++)
+            if(ui_basic_item(row)==parent){g_ui_sel=row;break;}
+    }
     else {g_ui_sel=g_ui_page==5?6:2;g_ui_page=0;}
     g_ui_preset_status=L"";g_ui_overwrite=0;g_ui_dirty=1;
 }
@@ -114,7 +140,7 @@ static const WCHAR* ui_slot_section(void) {
 static int ui_slot_filled(void) { return GetPrivateProfileIntW(ui_slot_section(),L"PresetSaved",0,g_ini)==1; }
 static const int k_ui_custom[] = {UI_SLOT, UI_SAVE, UI_LOAD, UI_BACK};
 static int ui_row_count(void) {
-    return g_ui_page==3?4:g_ui_page==5?4:g_ui_page==2?(int)(sizeof k_ui_basic/sizeof *k_ui_basic)-(g_cfg.front_back?1:0):
+    return g_ui_page==3?4:g_ui_page==5?4:g_ui_page==2?ui_basic_count():
         g_ui_page==4?(int)(sizeof k_ui_advanced/sizeof *k_ui_advanced)-(g_cfg.front_back?1:0):(int)(sizeof k_ui_main/sizeof *k_ui_main);
 }
 static const WCHAR* ui_reopen_text(int welcome) {
@@ -134,7 +160,7 @@ static void ui_startup_open(void) {
 }
 static int ui_item_for_row(int row) {
     if (row < 0 || row >= ui_row_count()) row = 0;
-    if(g_ui_page==2)return k_ui_basic[row+(g_cfg.front_back && row>=17?1:0)];
+    if(g_ui_page==2)return ui_basic_item(row);
     if(g_ui_page==4)return k_ui_advanced[row+(g_cfg.front_back?1:0)];
     if(g_ui_page==5)return k_ui_menu[row];
     return g_ui_page == 3 ? k_ui_custom[row] : k_ui_main[row];
@@ -177,6 +203,7 @@ static void ui_value(int item, WCHAR* out) {
     case UI_SWITCH: v = g_cfg.front_back && g_cfg.switch_flip == 3 ? "ON" : g_cfg.switch_flip == 1 ? "KEEP JOBS" : g_cfg.switch_flip == 2 ? "KEEP + MIRROR" : g_cfg.switch_flip == 3 ? "SWAP JOBS" : "OFF"; break;
     case UI_POPSTYLE: v = g_cfg.pop_on_release ? "RELEASE" : "FLICK"; break;
     case UI_ONEFOOT: v = g_cfg.one_foot_flips ? "ALLOWED" : "BLOCKED"; break;
+    case UI_DPAD_CAMERA: v=g_camera_dpad_enabled?"ON":"OFF";break;
     case UI_MANUALCATCH: v = g_cfg.manual_catch ? "ON (TEST)" : "OFF"; break;
     case UI_STEER: v = g_cfg.stick_steer==2 ? "LEFT STICK" : g_cfg.stick_steer ? "FRONT FOOT" : "OFF"; break;
     case UI_XLEXTRAS: v=g_cfg.stick_steer==2 && g_cfg.one_foot_flips ? "ON" : g_cfg.stick_steer || g_cfg.one_foot_flips ? "CUSTOM" : "OFF";break;
@@ -202,7 +229,7 @@ static void ui_value(int item, WCHAR* out) {
 }
 static const WCHAR* const k_ui_labels[UI_COUNT] = {
     L"Session-style", L"Skater XL-style", L"Dual Stick controls", L"Stance", L"Stick layout", L"Legacy switch mode", L"Pop style", L"Allow single-stick flips", L"Stick steering", L"Reverts", L"Spin wind-up",
-    L"Body flips", L"Air controls", L"Powerslides", L"Grind bump-out", L"Menu size", L"Close", L"Advanced settings", L"Back", L"Custom", L"Custom slot", L"Save current settings", L"Load saved settings", L"Show menu on startup", L"Menu hotkey", L"Stock ramp controls", L"Ramp diagnostic recording", L"Front/Back - Release", L"Left/Right Foot - Flick", L"Revert double-tap window", L"Crouched trigger handling", L"Wind-up trigger strength", L"Skater XL extras", L"Saved custom presets", L"Menu settings", L"Switch flick / scoop directions", L"Switch up / down directions", L"Disable hold-fakie", L"Grind setup", L"Stick steering angle", L"Manual catch (early attempt)"};
+    L"Body flips", L"Air controls", L"Powerslides", L"Grind bump-out", L"Menu size", L"Close", L"Compatibility", L"Back", L"Custom", L"Custom slot", L"Save current settings", L"Load saved settings", L"Show menu on startup", L"Menu hotkey", L"Stock ramp controls", L"Ramp diagnostic recording", L"Front/Back - Release", L"Left/Right Foot - Flick", L"Revert double-tap window", L"Crouched trigger handling", L"Wind-up trigger strength", L"Skater XL extras", L"Saved custom presets", L"Menu settings", L"Switch flick / scoop directions", L"Switch up / down directions", L"Disable hold-fakie", L"Grind setup", L"Stick steering angle", L"Manual catch (early attempt)", L"D-pad camera sides"};
 static const WCHAR* const k_ui_help[UI_COUNT] = {
     L"Applies FRONT/BACK FOOT, FLICK pop, steering OFF and one-stick flips BLOCKED. Left = front, right = back in every stance. These translate Skate controls across two sticks; inputs differ from Session.",
     L"Applies SKATER XL layout: fixed stick directions, RELEASE to pop; physical feet swap front/back jobs in switch. LEFT-STICK steering and one-stick flips ALLOWED. Opposite-foot flicks also work. Skate trick inputs still differ from XL.",
@@ -221,7 +248,7 @@ static const WCHAR* const k_ui_help[UI_COUNT] = {
     L"Rail / lip exit: tilt a stick DOWN or UP and click it. Centred L3 = left, R3 = right.",
     L"Preferred menu size (75-250 %). The two panels automatically shrink to fit the game window.",
     L"Close this menu (your menu hotkey or B also closes it).",
-    L"Extra tuning and legacy compatibility. Layout and switch direction choices are on the Custom page. These remain Skate controls across two sticks.",
+    L"Switch direction adjustments, legacy switch behavior and hold-fakie compatibility. Everyday skating controls are on the Custom page.",
     L"Return to the previous menu. Your current settings are kept.",
     L"Choose your foot layout, pop style and steering. Changing a core profile choice makes the active profile Custom. Save and load configurations under Saved custom presets.",
     L"Choose slot 1-5. Each slot stores your current settings, including custom options and stance selection.",
@@ -244,7 +271,8 @@ static const WCHAR* const k_ui_help[UI_COUNT] = {
     L"ON makes Skate read Hold Fakie Stance and Hold Fakie Push as OFF while Dual Stick is enabled. Prevents their native stance-hold behavior from fighting the foot controls. Saved game preferences are retained; OFF restores native behavior.",
     L"CURRENT keeps the existing mapping. FOOT SETUP is experimental: both feet position the board before rail contact. A sideways setup overrides a leftover held flick; small direction changes respond sooner. Either foot gets full pivot range. No automatic body lean is added on the rail. This translates Skate controls, not independent foot physics.",
     L"How close to straight sideways the stick must be to START steering (5-60 degrees; default 34). LOWER = a narrower steering zone, leaving more diagonal room for tre / 360-flip setups. Try 20. Centre the stick to end steering. No effect on triggers, air or rail controls.",
-    L"Early experimental attempt: the mod tries to hold a flip or scoop after stick release, then L3/R3/both releases it for a catch. It does not hold every trick reliably, and separate foot catches or dark catches are not implemented. Default OFF; enable only for testing."
+    L"Early experimental attempt: the mod tries to hold a flip or scoop after stick release, then L3/R3/both releases it for a catch. It does not hold every trick reliably, and separate foot catches or dark catches are not implemented. Default OFF; enable only for testing.",
+    L"Tap D-pad LEFT / RIGHT to select a camera side; hold for 0.5 seconds for the original action. Automatically enables Switch side controls and disables Dynamic side switching while this option and Dual Stick are ON. L3 no longer switches the camera; mod L3 tricks still work. Menus keep normal controls."
 };
 /* v5.9 controls page as Flick-it style pictures: each card shows the two sticks (L = front foot,
  * R = back foot, regular stance) with the moves drawn on them. kind 0 = line from (a,b) to (c,d),
@@ -442,7 +470,7 @@ static void ui_change(int item, int dir) {
     case UI_INVERTX: ui_set(L"SwitchInvertX",g_cfg.switch_invert_x?L"0":L"1");break;
     case UI_HOLDFAKIE: ui_set(L"DisableHoldFakie",g_cfg.disable_hold_fakie?L"0":L"1");break;
     case UI_INVERTY: ui_set(L"SwitchInvertY",g_cfg.switch_invert_y?L"0":L"1");break;
-    case UI_ADVANCED: g_ui_page = 2; g_ui_sel = 0; g_ui_dirty = 1; return;
+    case UI_ADVANCED: g_ui_page = 4; g_ui_sel = 0; g_ui_dirty = 1; return;
     case UI_BACK: ui_back();return;
     case UI_SIZE: {
         int sc = g_ui_scale + (dir < 0 ? -25 : 25);
@@ -471,6 +499,7 @@ static void ui_change(int item, int dir) {
         ui_set(L"XLFootDirections",L"0");ui_set(L"SwitchStance", v == 1 ? L"1" : v == 3 ? L"3" : L"0"); break; }
     case UI_POPSTYLE: ui_set(L"PopOnRelease", g_cfg.pop_on_release ? L"0" : L"1"); break;
     case UI_ONEFOOT: ui_set(L"OneFootFlips", g_cfg.one_foot_flips ? L"0" : L"1"); break;
+    case UI_DPAD_CAMERA: ui_set(L"DpadCameraSide",g_camera_dpad_enabled?L"0":L"1");break;
     case UI_MANUALCATCH: ui_set(L"ManualCatch", g_cfg.manual_catch ? L"0" : L"1"); break;
     case UI_XLEXTRAS:
         if(!ui_xl_extras_apply(!(g_cfg.stick_steer==2 && g_cfg.one_foot_flips))) {
@@ -561,10 +590,10 @@ static void ui_paint(HDC dc) {
         SetBkMode(dc, 1 /*TRANSPARENT*/);
         SelectObject(dc, bold); SetTextColor(dc, RGB3(242, 242, 240));
         SC_RECT t = {S(16), S(12), S(UI_SETTINGS_W - 16), S(40)};
-        DrawTextW(dc, g_ui_page == 3 ? L"DUAL STICK CONTROLS  -  CUSTOM PRESETS" : g_ui_page==5?L"DUAL STICK CONTROLS  -  MENU SETTINGS":g_ui_page==4?L"DUAL STICK CONTROLS  -  ADVANCED":g_ui_page == 2 ? L"DUAL STICK CONTROLS  -  CUSTOM" : g_ui_page == 1 ? (g_cfg.front_back ? L"DUAL STICK CONTROLS  -  CONTROLS (FRONT / BACK FOOT)" : g_cfg.goofy ? L"DUAL STICK CONTROLS  -  CONTROLS (GOOFY)" : L"DUAL STICK CONTROLS  -  CONTROLS (REGULAR)") : L"DUAL STICK CONTROLS", -1, &t, 0x20 /*SINGLELINE*/);
+        DrawTextW(dc, g_ui_page == 3 ? L"DUAL STICK CONTROLS  -  CUSTOM PRESETS" : g_ui_page==5?L"DUAL STICK CONTROLS  -  MENU SETTINGS":g_ui_page==4?L"DUAL STICK CONTROLS  -  COMPATIBILITY":g_ui_page == 2 ? L"DUAL STICK CONTROLS  -  CUSTOM" : g_ui_page == 1 ? (g_cfg.front_back ? L"DUAL STICK CONTROLS  -  CONTROLS (FRONT / BACK FOOT)" : g_cfg.goofy ? L"DUAL STICK CONTROLS  -  CONTROLS (GOOFY)" : L"DUAL STICK CONTROLS  -  CONTROLS (REGULAR)") : L"DUAL STICK CONTROLS", -1, &t, 0x20 /*SINGLELINE*/);
         SelectObject(dc, font);
         {
-            int rows=ui_row_count(),visible=rows>15?15:rows,first=g_ui_sel>=visible?g_ui_sel-visible+1:0;
+            int rows=ui_row_count(),visible=ui_visible_rows(rows),first=g_ui_sel>=visible?g_ui_sel-visible+1:0;
             if(rows>visible){
                 WCHAR range[]=L"OPTIONS 00-00 / 00";int start=first+1,end=first+visible;
                 range[8]=(WCHAR)('0'+start/10);range[9]=(WCHAR)('0'+start%10);
@@ -575,7 +604,7 @@ static void ui_paint(HDC dc) {
             }
             for (int i=first;i<first+visible;++i) {
                 int item = ui_item_for_row(i);
-                SC_RECT r = {S(8), S(ui_row_y(i-first)), S(UI_SETTINGS_W - 8), S(ui_row_y(i-first)+(g_ui_page==0 && i<3?60:28))};
+                SC_RECT r = {S(8), S(ui_row_y(i-first)), S(UI_SETTINGS_W - (rows>visible?22:8)), S(ui_row_y(i-first)+(g_ui_page==0 && i<3?60:28))};
                 if (i == g_ui_sel) FillRect(dc, &r, hi);
                 SetTextColor(dc, RGB3(242, 242, 240));
                 SC_RECT l = {S(18), r.top, S(UI_SETTINGS_W - 190), g_ui_page==0 && i<3?r.top+S(28):r.bottom}; DrawTextW(dc, k_ui_labels[item], -1, &l, 0x20 | 0x04 /*VCENTER*/);
@@ -586,11 +615,21 @@ static void ui_paint(HDC dc) {
                     SetTextColor(dc,RGB3(242,242,240));
                 }
                 WCHAR v[16]; ui_value(item, v);
-                SC_RECT vr = {S(UI_SETTINGS_W - 200), r.top, S(UI_SETTINGS_W - 18), g_ui_page==0 && i<3?r.top+S(28):r.bottom}; DrawTextW(dc, v, -1, &vr, 0x20 | 0x04 | 0x02 /*RIGHT*/);
+                SC_RECT vr = {S(UI_SETTINGS_W - 200), r.top, S(UI_SETTINGS_W - (rows>visible?30:18)), g_ui_page==0 && i<3?r.top+S(28):r.bottom}; DrawTextW(dc, v, -1, &vr, 0x20 | 0x04 | 0x02 /*RIGHT*/);
+            }
+            if(rows>visible) {
+                static HBRUSH scroll_track,scroll_thumb;
+                if(!scroll_track){scroll_track=CreateSolidBrush(RGB3(57,61,67));scroll_thumb=CreateSolidBrush(RGB3(165,184,207));}
+                int top=48,height=visible*30,thumb=height*visible/rows;
+                if(thumb<24)thumb=24;
+                int offset=(height-thumb)*first/(rows-visible);
+                SC_RECT track={S(UI_SETTINGS_W-14),S(top),S(UI_SETTINGS_W-8),S(top+height)};
+                SC_RECT handle={track.left,S(top+offset),track.right,S(top+offset+thumb)};
+                FillRect(dc,&track,scroll_track);FillRect(dc,&handle,scroll_thumb);
             }
             /* explanation of the highlighted line */
             static HBRUSH box; if (!box) box = CreateSolidBrush(RGB3(34, 36, 40));
-            SC_RECT b = {S(8), S(ui_rows_end(visible)+10), S(UI_SETTINGS_W - 8), S(ui_rows_end(visible)+10+UI_INFO)};
+            SC_RECT b = {S(8), S(ui_info_top()), S(UI_SETTINGS_W - 8), S(ui_info_top()+UI_INFO)};
             FillRect(dc, &b, box);
             SC_RECT bt = {b.left + S(12), b.top + S(8), b.right - S(12), b.bottom - S(6)};
             SetTextColor(dc, RGB3(215, 220, 228));

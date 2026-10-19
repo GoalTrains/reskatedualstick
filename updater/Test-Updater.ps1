@@ -53,9 +53,14 @@ Assert ((Get-DualStickInstalledVersion (Join-Path $newer 'version.dll')) -eq [ve
 $preview = New-Case 'internal-catch-preview'; $previewDll=Join-Path $preview 'version.dll'
 [IO.File]::WriteAllText($previewDll,'---- Dual Stick Controls 6.15 EARLY MANUAL-CATCH TEST')
 Assert ((Get-DualStickInstalledVersion $previewDll) -eq [version]'6.15') 'Internal preview version was hidden'
-$previewVersion=[version]'6.15'; $futureVersion=[version]'6.16'
+$previewVersion=[version]'6.15'; $futureVersion=[version]'6.22'
 Assert ((& $module { param($v) Get-DualStickComparisonVersion $v } $previewVersion) -eq [version]'6.0') 'Internal catch preview would block the v6.1 stable update'
-Assert ((& $module { param($v) Get-DualStickComparisonVersion $v } $futureVersion) -eq [version]'6.16') 'Future stable versions were incorrectly treated as previews'
+Assert ((& $module { param($v) Get-DualStickComparisonVersion $v } $futureVersion) -eq [version]'6.22') 'Future stable versions were incorrectly treated as previews'
+
+foreach ($cameraPreview in @('6.16','6.17','6.18','6.19','6.20','6.21')) {
+    Assert ((& $module { param($v) Get-DualStickComparisonVersion $v } ([version]$cameraPreview)) -eq [version]'6.0') 'Private camera/menu build blocks stable 6.2'
+}
+Assert ((& $module { Get-DualStickComparisonVersion ([version]'6.2') }) -eq [version]'6.2') 'Stable 6.2 treated as a preview'
 
 # Verify archive ambiguity, altered DLL and traversal names without extracting paths.
 foreach ($kind in @('duplicate','tampered','traversal')) {

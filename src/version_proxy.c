@@ -13,6 +13,7 @@
 #include "motion_stance.h"
 #include "controller_shortcuts.h"
 #include "pause_gate.h"
+#include "camera_dpad.h"
 
 typedef unsigned char BYTE;
 typedef unsigned short WORD;
@@ -84,6 +85,8 @@ static sc_state g_state[4];
 #include "manual_catch.h"
 static sc_manual_catch g_manual_catch[4];
 static sc_controller_hold g_controller_hold[4];
+static sc_camera_dpad g_camera_dpad[4];
+static int g_camera_dpad_enabled;
 static WORD g_board_button;
 static int g_debug;
 static int g_precise_log = 1;
@@ -310,6 +313,7 @@ static void load_config(int keep_runtime) {
     g_native_ground_respawn = ini_int(L"NativeGroundPoseRecovery",0)!=0;
     g_motion_stance = ini_int(L"RemountStanceMotion", 1) != 0;
     g_ramp_diag = ini_int(L"RampDiagnostics", 0); if(g_ramp_diag<0 || g_ramp_diag>2)g_ramp_diag=0;
+    g_camera_dpad_enabled = ini_int(L"DpadCameraSide", 1) != 0;
     g_cfg.air_controls = ini_int(L"AirControls", 1) != 0;
     g_cfg.fine_grinds = ini_int(L"FineGrindControls",0)!=0;
     g_cfg.split_grinds = ini_int(L"SplitGrindControls",0)!=0;
@@ -1040,6 +1044,7 @@ static int read_switched(void) {
 static sc_menu_pose_recovery g_pose_recovery;
 static DWORD g_pose_recovery_user;
 #include "overlay_handoff.h"
+#include "camera_side_read.h"
 
 static int reskate_owns_input(double now) {
     typedef DWORD (WINAPI* Ownership)(void);
@@ -1054,6 +1059,7 @@ static int reskate_owns_input(double now) {
 }
 static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
     ++g_input_generation;
+    sc_camera_dpad* camera_pad=&g_camera_dpad[user<4?user:0];
     UINT64 now = GetTickCount64();
     {
         static INT64 f0;
@@ -1080,6 +1086,7 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
                     g_menu_pose_recovery && g_user_enabled);
             }
             was_native=1;g_cfg.enabled=0;
+            sc_camera_dpad_suspend(camera_pad,s->Gamepad.buttons);
             sc_overlay_suspend(&g_state[user<4?user:0]);
             g_prev_buttons[user<4?user:0]=s->Gamepad.buttons;
             ui_start();
@@ -1139,6 +1146,7 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
             was_owned = owned;
         }
         if (owned) {
+            sc_camera_dpad_suspend(camera_pad,s->Gamepad.buttons);
             g_cfg.enabled = 0;
             sc_overlay_suspend(&g_state[user < 4 ? user : 0]);
             g_ui_open = g_ui_bind_mode = 0;
@@ -1152,7 +1160,7 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
     if(timing)timing[0]=pt_time();
     int menu_consumed=ui_poll(s);
     if(timing)timing[1]=pt_time();
-    if(menu_consumed)return;
+    if(menu_consumed){sc_camera_dpad_suspend(camera_pad,s->Gamepad.buttons);return;}
     handle_combos(user, s);
     sc_state* st = &g_state[user < 4 ? user : 0];
     /* v0.26c native menus: when the game pauses (pause menu, map, settings...) your skater's physics
@@ -1317,6 +1325,21 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
     }
     g_test_prev = raw_buttons;
     sc_pad raw_pad = s->Gamepad;
+    int camera_request=0;
+    UINT64 camera_owner=g_local>=0?g_slots[g_local].sel:0;
+    if(camera_pad->owner!=camera_owner){sc_camera_dpad_suspend(camera_pad,s->Gamepad.buttons);camera_pad->owner=camera_owner;}
+    int camera_active=g_camera_dpad_enabled && g_cfg.enabled && g_native_menu==0 && camera_owner && !g_test_on;
+    s->Gamepad.buttons=sc_camera_dpad_step(camera_pad,s->Gamepad.buttons,now_ms,camera_active,&camera_request);
+    camera_pad->owner=camera_owner;
+    if(camera_request)camera_pad->pending=camera_request;
+    if(camera_active && camera_pad->pending && now_ms>=camera_pad->next_toggle){
+        camera_request=camera_pad->pending;camera_pad->pending=0;
+        int observed=sc_camera_side_read(np_base(),camera_owner,rd_copy);
+        if(sc_camera_dpad_toggle(camera_pad,camera_request,observed,now_ms)) {
+            camera_pad->pulse_until=now_ms+80;camera_pad->next_toggle=now_ms+500;
+            log_text(camera_request<0?"D-pad camera: requested LEFT via native L3":"D-pad camera: requested RIGHT via native L3");
+        } else if(!observed)log_text("D-pad camera: side unavailable; request skipped");
+    }
     int pump_before = st->pump_r3;
     int rail_scoop_before = st->rail_scoop_exit;
     if(timing)timing[2]=pt_time();
@@ -1444,6 +1467,11 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
         g_cfg.enabled = 0;
         log_text("left stick held like walking: Dual Stick mode OFF (Y or L3+R3 to ride again)");
     }
+    /* Inject after foot translation/catch handling: camera clicks must not
+     * become body flips, catch requests, or controller shortcut presses. */
+    int camera_remapped=g_camera_dpad_enabled && g_user_enabled && g_native_menu==0 && !g_menu && !g_paused;
+    s->Gamepad.buttons=sc_camera_dpad_output_buttons(s->Gamepad.buttons,camera_remapped,
+        camera_active && now_ms<camera_pad->pulse_until);
     if (g_cfg.direct) st->event = 0; /* pop diagnostics belong to draw mode */
     if (g_debug && st->event) {
         char line[160]; unsigned n = 0;
@@ -1744,7 +1772,7 @@ static void setup(HMODULE self) {
     GetModuleFileNameW(0, exe, 519);
     if (!wieq(wbase(exe), "skate.exe")) return; /* only the game; stay a plain version.dll elsewhere */
 
-    log_text("---- Dual Stick Controls 6.1 EARLY MANUAL-CATCH ATTEMPT loaded (version.dll route)");
+    log_text("---- Dual Stick Controls 6.2 DPAD CAMERA CONTROLS loaded (version.dll route)");
     log_wide("process: ", exe);
     load_config(0);
     if (GetFileAttributesW(g_ini) == 0xFFFFFFFFu) log_text("no session_controls.ini found; using defaults");

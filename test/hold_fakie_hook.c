@@ -5,6 +5,7 @@ static int setting_read(UINT64 a,void*out,UINT64 n){if(a>=(UINT64)settings_mem &
 #define rd_copy setting_read
 #define np_base test_base
 #define GetModuleHandleW test_module
+static int g_camera_dpad_enabled;
 #include "../src/hold_fakie_hook.h"
 #undef rd_copy
 #undef np_base
@@ -35,6 +36,18 @@ int main(void){
  g_cfg.pure=0;assert(hf_get_bool(7,settings_mem)==0);g_cfg.pure=1;
  strcpy((char*)settings_mem+512,"HeldFlipTricksExtra");assert(hf_get_bool(7,settings_mem)==0);
  strcpy((char*)settings_mem+512,"another_setting");assert(hf_get_bool(7,settings_mem)==0);
+ /* Both camera prerequisites override conflicting saved values, including
+  * while a menu temporarily suspends foot translation. Off restores originals. */
+ g_cfg.manual_catch=0;g_cfg.disable_hold_fakie=0;
+ for(int original=0;original<2;original++)for(int enabled=0;enabled<2;enabled++)for(int option=0;option<2;option++) {
+  bool_result=original;g_user_enabled=enabled;g_camera_dpad_enabled=option;g_cfg.enabled=0;
+  strcpy((char*)settings_mem+512,"egf_cameraenablemirrorinput");
+  assert(hf_get_bool(7,settings_mem)==(enabled && option?1:original) && last_error==77);
+  strcpy((char*)settings_mem+512,"egf_cameraallowautomirror");
+  assert(hf_get_bool(7,settings_mem)==(enabled && option?0:original) && last_error==77);
+  strcpy((char*)settings_mem+512,"egf_cameraallowautomirror_extra");assert(hf_get_bool(7,settings_mem)==original);
+ }
+ g_camera_dpad_enabled=0;g_user_enabled=1;g_cfg.enabled=1;
  bool_result=1;g_cfg.manual_catch=0;
  for(int indirect=0;indirect<2;indirect++){
   setup_setting_hook(indirect);hf_try_hook(1000);assert(hf_hooked==1 && (UINT64)hf_previous==(UINT64)official_module+0x200);

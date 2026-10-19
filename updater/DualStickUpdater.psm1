@@ -17,9 +17,9 @@ function Get-DualStickInstalledVersion([string]$Path) {
 }
 
 function Get-DualStickComparisonVersion([version]$Version) {
-    # These were local manual-catch test builds, never stable releases. Allow
-    # the v6.1 stable release to replace them despite their internal build tags.
-    if ($Version -and $Version.Major -eq 6 -and $Version.Minor -ge 13 -and $Version.Minor -le 15) {
+    # These were local catch/camera/menu builds, never stable releases. Allow
+    # the stable release to replace them despite their internal build tags.
+    if ($Version -and $Version.Major -eq 6 -and $Version.Minor -ge 13 -and $Version.Minor -le 21) {
         return [version]'6.0'
     }
     return $Version

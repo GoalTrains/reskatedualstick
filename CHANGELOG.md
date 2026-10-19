@@ -1,3 +1,14 @@
+## v6.2 - D-pad camera controls and Custom menu cleanup
+
+- Tap D-pad left or right to select that camera side. Repeating the same direction keeps it there.
+- Hold left/right for 0.5 seconds to use the original D-pad action.
+- D-pad camera sides is ON by default. Change it under End > Custom; an explicitly saved OFF preference is respected.
+- The option automatically enables Switch side controls and disables Dynamic side switching while Dual Stick is on, preserving your saved game preferences.
+- Physical L3 no longer switches camera sides while this option is on. The mod still receives L3 for catch, body-flip, grind-exit and shortcut handling.
+- Reorders Custom, removes diagnostic recording from the menu, and keeps legacy/switch compatibility options near the bottom.
+- Anchors the explanation box at the bottom and displays up to 20 settings with a scrollbar and visible option range.
+- Native game menus retain normal controller navigation.
+
 ## v6.1 - Early manual-catch attempt (stable release)
 
 Changes since v6.0:

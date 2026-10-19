@@ -5,28 +5,39 @@
 Play Skate with two foot sticks using **Session-style**, **Skater XL-style**, or your own **Custom** settings.
 The mod translates Skate's controls across two sticks; it does not replace the game's skating physics.
 
+## D-pad camera controls (v6.2)
+
+Open **End > Custom > D-pad camera sides** to change the camera mapping (`DpadCameraSide=1` under `[SessionControls]`). Default is ON; an explicitly saved OFF setting is respected. While this option and Dual Stick are enabled, the mod makes Skate read **Switch side controls** as ON and **Dynamic side switching** as OFF. Saved gameplay preferences are retained and used again when the option or mod is disabled.
+
+- Release D-pad left/right before half a second to request that camera side.
+- Hold either direction for half a second to pass its original action to Skate. Release after using its radial menu as usual. The game's own radial-open delay can add to this threshold.
+- Repeating the selected direction should leave the camera there; opposing requests during a blend are queued with a short native-toggle gap.
+- Native menus and both mod menus retain ordinary D-pad navigation. Up/down remain unchanged.
+
+Camera-side detection reads the active camera position and the local rider's longitudinal axis to estimate the current side, then sends a native L3 pulse only when the requested side differs. It does not directly assign the script's forced-side variable. Unknown, centred, steep/side-on or unsupported camera views skip the request. Regular/goofy, switch riding, rapid transitions and native camera settings still need visual gameplay verification. Physical L3 no longer reaches the native camera while this option and Dual Stick are enabled. The mod still receives L3 for its catch, body-flip, grind-exit and shortcut handling before filtering the native output. Native menus and disabling the option retain stock L3 behavior. Synthetic clicks bypass the mod's trick/catch/shortcut translation.
+
 ## Early manual-catch attempt (v6.1)
 
 Custom > Manual catch (early attempt) tries to keep a flip or scoop input held after the physical stick is released. Tap L3, R3, or both while airborne to release it for a catch. This is an incomplete experiment: many tricks still do not hold reliably, and independent foot catches and dark catches are not implemented. It is OFF by default; enable it only if you want to try it.
 
-## Stable download v6.1
+## Stable download v6.2
 
-**v6.1 is the first public update since v6.0.** It includes refined grind handling, XL stance/input-frame fixes, and an early manual-catch attempt. Manual catch is OFF by default and available under Custom. The optional updater can update the author's private test builds to this release.
+**v6.2 adds D-pad camera side selection, enabled by default, and a reorganised Custom menu with a scrollbar.** Tap left/right for the camera; hold for 0.5 seconds for the original action. Manual catch remains an optional early attempt, OFF by default.
 
 Fresh settings enable **FOOT SETUP**. With an existing INI, enable it under **Custom > Grind setup > FOOT SETUP** (`SplitGrindControls=1`). For dedicated two-foot setup, block single-stick flips. Each stick contributes to board position; deliberate front-foot input can lower the nose while keeping tail support.
 
 | Platform | Download |
 | --- | --- |
-| Windows | [Download Windows zip](https://github.com/GoalTrains/reskatedualstick/releases/download/6.1/Dual_Stick_Controls_v6.1.zip) |
-| Linux / Steam Deck (Proton) | [Download Linux / Steam Deck zip](https://github.com/GoalTrains/reskatedualstick/releases/download/6.1/Dual_Stick_Controls_v6.1_Linux.zip) |
+| Windows | [Download Windows zip](https://github.com/GoalTrains/reskatedualstick/releases/download/6.2/Dual_Stick_Controls_v6.2.zip) |
+| Linux / Steam Deck (Proton) | [Download Linux / Steam Deck zip](https://github.com/GoalTrains/reskatedualstick/releases/download/6.2/Dual_Stick_Controls_v6.2_Linux.zip) |
 
-[Release notes](docs/RELEASE_6.1.txt) · [Full changelog](CHANGELOG.md) · [Windows instructions](docs/INSTALL_WINDOWS.md) · [Linux instructions](docs/INSTALL_LINUX.md)
+[Release notes](docs/RELEASE_6.2.txt) · [Full changelog](CHANGELOG.md) · [Windows instructions](docs/INSTALL_WINDOWS.md) · [Linux instructions](docs/INSTALL_LINUX.md)
 
-Changes since v6.0: refined grind handling, XL stance/input-frame corrections, and an optional early manual-catch attempt with bounded, read-only diagnostics. See the release notes for known limitations.
+Changes since v6.1: D-pad camera selection with automatic gameplay settings, L3 camera suppression, half-second holds, and a cleaner Custom menu. See the release notes for details.
 
 ## Automatic updates (Windows)
 
-[Optional auto-updater download](https://github.com/GoalTrains/reskatedualstick/releases/download/6.1/Dual_Stick_Auto_Updater_Windows.zip). Copy its contents beside `ReSkateLauncher.exe`, then open **DualStickLauncher.exe** (or a shortcut to it) to check stable releases before the official launcher opens. Read the patch notes, then choose **Update now**, **Skip this release**, or **Disable update checks**.
+[Optional auto-updater download](https://github.com/GoalTrains/reskatedualstick/releases/download/6.2/Dual_Stick_Auto_Updater_Windows.zip). Copy its contents beside `ReSkateLauncher.exe`, then open **DualStickLauncher.exe** (or a shortcut to it) to check stable releases before the official launcher opens. Read the patch notes, then choose **Update now**, **Skip this release**, or **Disable update checks**.
 
 It preserves your INI, verifies download hashes, keeps the previous DLL, skips running games/newer local builds, and opens ReSkate even if GitHub is unavailable. It leaves the official launcher and its update settings unchanged. Opening ReSkateLauncher.exe directly bypasses this optional updater. [Details and opt-out](updater/README.md).
 
@@ -96,6 +107,8 @@ The remaining home-page options are **Dual Stick controls**, **Stance**, **Stock
 | Switch flick / scoop directions | STANDARD or REVERSED for left/right foot gestures in switch. Does not swap foot ownership or reverse steering. |
 | Switch up / down directions | STANDARD or REVERSED for vertical foot gestures in switch. Does not swap which foot each stick controls. |
 **True Foot is the old name for physical-foot job swapping.** Choose **Left/Right Foot** or **Skater XL** for that behavior. The distinction is their setup directions, as explained above. Front/Back already keeps its jobs consistent through a 180.
+Custom lists everyday controls in order: tricks, steering/reverts/spins, air/grinds, camera, then legacy/switch compatibility options and Saved custom presets. The same Custom page contains switch direction adjustments, legacy switch mode (physical layouts only), and Disable hold-fakie near the bottom. A scrollbar and visible option range indicate the remaining settings. Diagnostic capture is available through INI settings only.
+
 ### Custom: skating options
 | Option | What it changes |
 | --- | --- |
@@ -110,7 +123,6 @@ The remaining home-page options are **Dual Stick controls**, **Stance**, **Stock
 | Rail shove-outs | Quickly scoop from a foot's pop direction to use the same trick-input direction as on flat ground. Held sideways positions and gradual circles remain rail adjustments. |
 | Grind bump-out | Tilt a stick up/down and click it to exit a rail or lip. With centred sticks, L3 exits left and R3 exits right. |
 | Legacy switch mode | Compatibility option shown for physical layouts. SWAP JOBS is the physical-foot behavior. KEEP JOBS or OFF changes the layout to LEGACY L/R; start with a named layout instead. |
-| Ramp diagnostic recording | OFF, RAMP or FLAT. These labels describe the attempts you record; they do not select a control layout. Leave OFF for normal play. |
 | Disable hold-fakie | Temporarily disables Skate's hold-fakie stance and push reads while Dual Stick is enabled; saved Skate preferences are preserved. |
 | Saved custom presets | Opens five slots for saving and loading your settings. |
 ### Save your own preset

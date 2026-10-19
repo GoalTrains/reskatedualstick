@@ -3,13 +3,20 @@
 #include "hold_fakie_keys.h"
 typedef BYTE (*hf_bool_fn)(UINT64,const void*);
 static hf_bool_fn hf_previous;
-static int hf_hooked;static UINT64 hf_next;static volatile int hf_noted[3];
+static int hf_hooked;static UINT64 hf_next;static volatile int hf_noted[5];
 static BYTE hf_get_bool(UINT64 cache,const void* reference){
  BYTE original=hf_previous(cache,reference);DWORD error=GetLastError();BYTE result=original;
  int catch_active=g_user_enabled && g_cfg.enabled && g_cfg.pure && g_cfg.manual_catch;
- if((g_user_enabled && g_cfg.disable_hold_fakie) || catch_active){
+ int camera_active=g_user_enabled && g_camera_dpad_enabled;
+ if((g_user_enabled && g_cfg.disable_hold_fakie) || catch_active || camera_active){
   int key=hf_reference((UINT64)reference,rd_copy);
   result=hf_bool_value(key,g_user_enabled,g_cfg.disable_hold_fakie,original);
+  if(camera_active && (key==4 || key==5)) {
+   result=key==4?1:0;
+   if(__sync_bool_compare_and_swap(&hf_noted[key-1],0,1))
+    log_text(key==4?"D-pad camera: Switch side controls effective ON; saved preference retained":
+                      "D-pad camera: Dynamic side switching effective OFF; saved preference retained");
+  }
   /* The held-trick condition explicitly reads EnableHeldFlipTricks. Sending
    * a held endpoint cannot work if this native prerequisite is switched off.
    * Enable its effective result only for manual catch, retaining saved settings. */
@@ -55,5 +62,5 @@ static void hf_try_hook(UINT64 now){
   DWORD unused;VirtualProtect(entry,8,old,&unused);FlushInstructionCache(GetCurrentProcess(),entry,8);
   if(changed!=original){hf_hooked=-1;log_text("hold-fakie compatibility: settings hook changed; override skipped");return;}
  }
- hf_hooked=1;log_text("hold-fakie compatibility: chained official gameplay bool getter; saved settings retained; defaults OFF only while Dual Stick is enabled");
+ hf_hooked=1;log_text("hold-fakie compatibility: chained official gameplay bool getter; hold-fakie, catch and D-pad camera overrides retain saved preferences");
 }

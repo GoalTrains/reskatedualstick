@@ -1,4 +1,4 @@
-Dual Stick Controls v6.1 — installation
+Dual Stick Controls v6.2 — installation
 
 1. Close Skate completely.
 2. Open the game folder containing Skate.exe.
@@ -28,3 +28,5 @@ FOOT SETUP grind controls are enabled in fresh settings. If keeping your INI, en
 The optional pre-launch updater download is Windows-only. Linux/Steam Deck uses the manual mod zip.
 
 Manual catch is OFF by default. To test this early attempt, open End > Custom > Manual catch (early attempt). It is incomplete and many tricks may not hold reliably; turn it back OFF if it interferes with tricks.
+
+D-pad camera sides is ON by default: tap left/right to select a side, hold 0.5 seconds for the original action. The mod applies the required camera settings and keeps L3 available to its other controls. Turn it off under End > Custom if desired. An existing DpadCameraSide=0 is respected.
