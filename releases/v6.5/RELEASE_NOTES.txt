@@ -1,0 +1,22 @@
+v6.5 - Grind exits and held stance input
+Changes since v6.4
+
+- Corrects the early wind-up direction for detected quick rear-foot scoop exits across regular/goofy and Session/XL/custom layouts. This targets hardflips and varials being swapped out of grinds. Nollie exit routing and slow/held grind positioning keep their existing handling.
+- Keeps a held ground input in the same frame until the translated stick reaches neutral. Small manual-pressure changes around 30% no longer apply a pending stance reversal.
+- Preserves a sole held manual's foot roles on the first grounded poll when a 180 stance update arrives at touchdown, before the normal landing-manual latch is established. Full setups and two-foot gestures retain their normal mapping.
+- Defers accelerated fakie return while a full vertical fakie/nollie setup is held, including After landing mode. Manual and handplant protection remains.
+- Lets the game's native Hold Fakie Stance stay enabled for fresh held manual/setup input, rather than forcing it off while only deferring our return timer. Releasing input restores the normal compatibility override. Saved game preferences are preserved.
+
+Manual behaviour and limitations
+The reproduced ground-input reversals and grind wind-up direction changes pass automated regressions. Chained 180-to-manual behaviour, including last-second board-end swaps, is still under gameplay validation; this release does not claim that every manual problem is solved. Existing native airborne frame compensation is retained.
+
+Manual Catch remains in its best working state for now, within Skate's current trick behaviour. Some tricks settle into an angled pose rather than continuing to flip or spin. A clean result still needs a well-timed catch; missing or mistiming it can produce an awkward automatic catch. Click L3, R3 or both in the air. It is optional and OFF by default; existing preferences are preserved.
+
+Reverts are unchanged. The v6.3 stick-speed override remains removed; Skate handles rotation speed.
+
+Installation
+Close Skate, back up version.dll and session_controls.ini, and replace version.dll beside Skate.exe. Keep your existing INI and official ReSkate.dll.
+Linux / Steam Deck: use the included Proton instructions and version=n,b Wine DLL override. The Linux package contains the Windows DLL for Proton, not a native Linux binary. macOS compatibility is not verified.
+
+Validation
+All 108 automated test programs pass for the implementation. The release build updates the startup/input-recording version markers to 6.5. Latest native held-fakie behaviour and grind/manual fixes still need wider gameplay confirmation.

@@ -9,8 +9,16 @@ int main(void){
   raw=(sc_pad){0};if(foot)raw.ry=sc_short(sign*.56f);else raw.ly=sc_short(sign*.56f);
   assert(sc_fakie_protect_input(&c,&s,&raw,&out));
   if(foot)raw.ry=sc_short(sign);else raw.ly=sc_short(sign);
-  assert(!sc_fakie_protect_input(&c,&s,&raw,&out)); /* Full setup still eligible for optional auto return. */
+  assert(sc_fakie_protect_input(&c,&s,&raw,&out)); /* Full held setup must defer return too. */
  }
+ /* A firm diagonal setup still owns its held stance on either physical
+  * foot and in either vertical direction. Physical intent is independent
+  * of regular/goofy and selected foot layout. */
+ for(int foot=0;foot<2;foot++)for(int sign=-1;sign<=1;sign+=2){
+  raw=(sc_pad){0};if(foot){raw.rx=9000;raw.ry=sc_short(sign*.95f);}else{raw.lx=9000;raw.ly=sc_short(sign*.95f);}
+  assert(sc_fakie_protect_input(&c,&s,&raw,&out));
+ }
+ raw=(sc_pad){0};out.ry=-32768;assert(sc_fakie_protect_input(&c,&s,&raw,&out));out=(sc_pad){0};
  raw=(sc_pad){0};raw.lx=24000;assert(!sc_fakie_protect_input(&c,&s,&raw,&out));raw=(sc_pad){0};raw.ly=1000;assert(!sc_fakie_protect_input(&c,&s,&raw,&out));
  out.ry=sc_short(-.72f);assert(sc_fakie_protect_input(&c,&s,&raw,&out));out=(sc_pad){0};
  for(int hand=0;hand<2;hand++){raw.buttons=hand?SC_RSHOULDER:SC_LSHOULDER;assert(sc_fakie_protect_input(&c,&s,&raw,&out));}
@@ -23,5 +31,5 @@ int main(void){
  assert(s.d_land_hold&&lean>10000&&sc_fakie_protect_input(&c,&s,&raw,&out));
  s.switched=0;out=sc_translate(&c,&s,raw,1240);assert(out.ry==lean&&sc_fakie_protect_input(&c,&s,&raw,&out));
  raw=(sc_pad){0};out=sc_translate(&c,&s,raw,1300);assert(!sc_fakie_protect_input(&c,&s,&raw,&out));
- puts("PASS: manual leans and handplant holds block fakie normalization; neutral/steering/full setup stay available; recorded 180 manual retained until release");return 0;
+ puts("PASS: manual leans and handplant holds block fakie normalization; neutral/steering stay available; full held setups defer return; recorded 180 manual retained until release");return 0;
 }

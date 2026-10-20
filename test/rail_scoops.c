@@ -21,6 +21,9 @@ int main(void) {
   sc_pad zero={0};sc_translate(&c,&rail,zero,1000);sc_translate(&c,&ground,zero,1000);
   for(int i=0;i<6;i++) {
    sc_pad in=foot(&c,sw,back,(float)(i*15*side),1),r=sc_translate(&c,&rail,in,1100+i*20),f=sc_translate(&c,&ground,in,1100+i*20);
+   if(i>=1 && rail.rail_scoop_candidate==2 && !rail.grind_pop) {
+    assert((long)r.rx*f.rx>0);
+   }
    if(i>=3){assert(rail.grind_pop);assert(rail.rail_scoop_exit==(back?2:1));assert(r.rx==f.rx && r.ry==f.ry);}
   }
   assert(!rail.rp_t);sc_translate(&c,&rail,zero,1300);assert(!rail.grind_pop && !rail.rail_scoop_exit);cases++;

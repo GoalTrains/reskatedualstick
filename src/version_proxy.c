@@ -1782,7 +1782,7 @@ static void setup(HMODULE self) {
     GetModuleFileNameW(0, exe, 519);
     if (!wieq(wbase(exe), "skate.exe")) return; /* only the game; stay a plain version.dll elsewhere */
 
-    log_text("---- Dual Stick Controls 6.4 XL FAKIE AIR FIX loaded (version.dll route)");
+    log_text("---- Dual Stick Controls 6.5 GRIND EXITS AND HELD STANCE loaded (version.dll route)");
     log_wide("process: ", exe);
     load_config(0);
     if (GetFileAttributesW(g_ini) == 0xFFFFFFFFu) log_text("no session_controls.ini found; using defaults");

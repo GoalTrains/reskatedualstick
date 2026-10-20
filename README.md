@@ -24,24 +24,24 @@ Not every trick keeps flipping or spinning while held; some settle into an angle
 
 v6.4 removes the v6.3 stick-speed override and corrects XL fakie airborne leg/board adjustment direction. Skate handles flip speed again; old `GestureSpeed` keys are ignored. Reverts are unchanged.
 
-## Stable download v6.4
+## Stable download v6.5
 
-**v6.4 improves fakie controls, reverses D-pad camera taps and restores ground-hold handplants.** It removes the v6.3 stick-speed override. Your existing control preset and Manual Catch preference are preserved. Intermittent manuals failing or dropping after 180s remain under investigation.
+**v6.5 targets reversed grind-exit wind-ups and held manual/stance handoffs.** Your existing control preset and Manual Catch preference are preserved. Chained 180-to-manual behaviour remains under gameplay validation; this release does not claim that every manual issue is resolved.
 
 Fresh settings enable **FOOT SETUP**. With an existing INI, enable it under **Custom > Grind setup > FOOT SETUP** (`SplitGrindControls=1`). For dedicated two-foot setup, block single-stick flips. Each stick contributes to board position; deliberate front-foot input can lower the nose while keeping tail support.
 
 | Platform | Download |
 | --- | --- |
-| Windows | [Download Windows zip](https://github.com/GoalTrains/reskatedualstick/releases/download/6.4/Dual_Stick_Controls_v6.4.zip) |
-| Linux / Steam Deck (Proton) | [Download Linux / Steam Deck zip](https://github.com/GoalTrains/reskatedualstick/releases/download/6.4/Dual_Stick_Controls_v6.4_Linux.zip) |
+| Windows | [Download Windows zip](https://github.com/GoalTrains/reskatedualstick/releases/download/6.5/Dual_Stick_Controls_v6.5.zip) |
+| Linux / Steam Deck (Proton) | [Download Linux / Steam Deck zip](https://github.com/GoalTrains/reskatedualstick/releases/download/6.5/Dual_Stick_Controls_v6.5_Linux.zip) |
 
-[Release notes](docs/RELEASE_6.4.txt) · [Full changelog](CHANGELOG.md) · [Windows instructions](docs/INSTALL_WINDOWS.md) · [Linux instructions](docs/INSTALL_LINUX.md)
+[Release notes](docs/RELEASE_6.5.txt) · [Full changelog](CHANGELOG.md) · [Windows instructions](docs/INSTALL_WINDOWS.md) · [Linux instructions](docs/INSTALL_LINUX.md)
 
-Changes since v6.3: XL fakie direction fixes, faster neutral stance handoff, optional return after landing, reversed camera taps, restored handplants, and removal of the stick-speed override. See the release notes for behaviour and remaining manual limitations.
+Changes since v6.4: earlier rear-foot scoop routing on grind exits, manual frame retention until neutral, first-touchdown foot-role protection, and native fakie hold while deliberate manual/setup input is held. See the release notes for validation and remaining manual limitations.
 
 ## Automatic updates (Windows)
 
-[Optional auto-updater download](https://github.com/GoalTrains/reskatedualstick/releases/download/6.4/Dual_Stick_Auto_Updater_Windows.zip). Copy its contents beside `ReSkateLauncher.exe`, then open **DualStickLauncher.exe** (or a shortcut to it) to check stable releases before the official launcher opens. Read the patch notes, then choose **Update now**, **Skip this release**, or **Disable update checks**.
+[Optional auto-updater download](https://github.com/GoalTrains/reskatedualstick/releases/download/6.5/Dual_Stick_Auto_Updater_Windows.zip). Copy its contents beside `ReSkateLauncher.exe`, then open **DualStickLauncher.exe** (or a shortcut to it) to check stable releases before the official launcher opens. Read the patch notes, then choose **Update now**, **Skip this release**, or **Disable update checks**.
 
 It preserves your INI, verifies download hashes, keeps the previous DLL, skips running games/newer local builds, and opens ReSkate even if GitHub is unavailable. It leaves the official launcher and its update settings unchanged. Opening ReSkateLauncher.exe directly bypasses this optional updater. [Details and opt-out](updater/README.md).
 
@@ -127,7 +127,7 @@ Custom lists everyday controls in order: tricks, steering/reverts/spins, air/gri
 | Rail shove-outs | Quickly scoop from a foot's pop direction to use the same trick-input direction as on flat ground. Held sideways positions and gradual circles remain rail adjustments. |
 | Grind bump-out | Tilt a stick up/down and click it to exit a rail or lip. With centred sticks, L3 exits left and R3 exits right. |
 | Legacy switch mode | Compatibility option shown for physical layouts. SWAP JOBS is the physical-foot behavior. KEEP JOBS or OFF changes the layout to LEGACY L/R; start with a named layout instead. |
-| Disable hold-fakie | Temporarily disables Skate's hold-fakie stance and push reads while Dual Stick is enabled; saved Skate preferences are preserved. |
+| Disable hold-fakie | Normally disables native hold-fakie stance/push reads; fresh held manual/setup input retains native stance hold. Saved preferences are preserved. |
 | Saved custom presets | Opens five slots for saving and loading your settings. |
 ### Save your own preset
 1. Apply the closest style, then adjust options in **Custom**.
@@ -149,7 +149,7 @@ During stock ramp handling, triggers grab and the sticks use Skate's handling. R
 Use D-pad/arrow keys to move, A/Enter to select, and left/right to change values. B returns from a subpage; on the home page it closes the menu. End controls this standalone menu; Insert remains the official ReSkate menu.
 
 ## Stance compatibility
-**Custom â†’ Disable hold-fakie** is ON by default. While Dual Stick is enabled, this makes Skate read **Hold Fakie Stance** and **Hold Fakie Push** as off. Your saved Skate preferences are preserved; turning the option or Dual Stick off restores the normal reads. This applies to regular and goofy.
+**Custom â†’ Disable hold-fakie** is ON by default. While Dual Stick is enabled, this normally makes Skate read **Hold Fakie Stance** and **Hold Fakie Push** as off. Fresh owned manual/setup input temporarily enables effective **Hold Fakie Stance**; releasing input restores the compatibility override. Your saved Skate preferences are preserved; turning the option or Dual Stick off restores the normal reads. This applies to regular and goofy.
 The foot-job correction distinguishes riding direction from Skate's input frame and animation mirror. It preserves the physical-foot reference through menus and remounts.
 Automatic pose resets are **OFF** by default so they do not interrupt skating or stop your speed. If keeping an older INI, set these under `[SessionControls]`:
 ```ini

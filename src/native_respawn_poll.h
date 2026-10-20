@@ -268,6 +268,16 @@ static void nr_note_menu(double now,DWORD user,const sc_pad* raw,const sc_pad* o
     g_xl_input_user=user;
     if(__sync_lock_test_and_set(&g_nr_lock,1))return;
     g_nr_idle=nr_neutral(raw) && nr_neutral(out);
+#ifdef SC_HOLD_FAKIE_COMPAT
+    int hold_state=g_local>=0?(int)g_slots[g_local].state:0;
+    int hold_eligible=g_user_enabled&&g_cfg.enabled&&g_cfg.pure&&!g_paused&&!g_menu&&!g_ui_open&&g_native_menu==0&&
+        g_local>=0&&g_slots[g_local].sel==g_native_owned_selector&&hold_state>=100&&hold_state<300;
+    const sc_state* held_state=&g_state[user<4?user:0];
+    int hold_input=held_state->d_land_hold || sc_fakie_vertical_hold(&g_cfg,raw->lx,raw->ly) ||
+        sc_fakie_vertical_hold(&g_cfg,raw->rx,raw->ry) || sc_fakie_vertical_hold(&g_cfg,out->rx,out->ry);
+    hf_note_hold(&hf_held_stance,g_native_owned_selector,GetTickCount64(),hold_eligible,hold_input);
+#endif
+
 #ifdef SC_FAST_FAKIE_EXIT
     g_fke_protected=sc_fakie_protect_input(&g_cfg,&g_state[user<4?user:0],raw,out);
     g_fke_input_seen=GetTickCount64();

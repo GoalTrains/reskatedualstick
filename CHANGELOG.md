@@ -1,3 +1,11 @@
+## v6.5 - Grind exits and held stance input
+
+- Makes held-input fakie protection consistent with the native settings hook: fresh owned manual/setup input temporarily enables effective Hold Fakie Stance, while release restores the normal compatibility override. Saved preferences, Hold Fakie Push, airborne coordinate compensation and reverts are unchanged. Gameplay validation pending.
+- Keeps pure-control held output in its latched ground frame until translated neutral, rather than treating a dip below 30% as release. Reproduces and prevents the logged manual-direction reversals from a 256-unit physical stick change; airborne frame handling remains unchanged.
+- Defers the accelerated fakie return while a full vertical fakie/nollie setup is held, including After landing mode. Partial manual and handplant protection remains; releasing the setup allows the pending return request to proceed.
+- Preserves sole held manual foot roles on the first grounded poll when a 180 stance update arrives at touchdown, before the existing landing-manual latch is established. Full setups and two-foot gestures keep their normal mapping. Regression reproduces the output reversal with the reported stick shapes; gameplay confirmation pending.
+- Routes a detected quick rear-foot scoop into the trick input frame before the grind exit is confirmed, across regular/goofy and Session/XL/custom layouts. Previously only goofy XL received this early routing, so other layouts could send a reversed wind-up into hardflips/varials. Nollie exit routing and slow/held grind positioning are unchanged. Reproduced with the supplied v6.3 recording; gameplay confirmation pending.
+
 ## v6.4 - Fakie controls, camera direction and handplants
 
 - Preserves a held manual's output direction when native stance flags arrive after a 180 landing. Removes the late stick reversal that triggered unwanted ollies/nollies. The original intermittent manual-start/drop issue remains under investigation.

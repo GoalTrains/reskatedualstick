@@ -1,4 +1,4 @@
-Dual Stick Controls v6.4 — installation
+Dual Stick Controls v6.5 — installation
 
 1. Close Skate completely.
 2. Open the game folder containing Skate.exe.
@@ -14,7 +14,7 @@ Skate handles trick rotation speed; the v6.3 stick-speed override has been remov
 Keep the official ReSkate.dll. Do not replace it with a PR/test runtime.
 End opens Dual Stick. Insert opens official ReSkate. D-pad/arrows navigate, A/Enter selects, B goes back, and LB/RB browses diagrams. Hold LB + RB + L3 + R3 for three seconds to toggle Dual Stick. Pumping stays on R3.
 
-Disable hold-fakie is ON by default under Custom. It temporarily makes Skate's Hold Fakie Stance and Hold Fakie Push read as off while Dual Stick is active, without changing saved Skate preferences. Automatic pose resets and heavy diagnostics are OFF.
+Disable hold-fakie is ON by default under Custom. It normally makes Skate's Hold Fakie Stance and Hold Fakie Push read as off without changing saved preferences. Fresh held manual/setup input temporarily enables effective Hold Fakie Stance to defer normalization; release restores the compatibility override. Automatic pose resets and heavy diagnostics are OFF.
 
 If keeping an old INI, reapply your preferred preset and set these under [SessionControls]:
 DisableHoldFakie=1

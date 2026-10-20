@@ -6,7 +6,9 @@ static int setting_read(UINT64 a,void*out,UINT64 n){if(a>=(UINT64)settings_mem &
 #define np_base test_base
 #define GetModuleHandleW test_module
 static int g_camera_dpad_enabled;
+#define GetTickCount64 mock_tick_time
 #include "../src/hold_fakie_hook.h"
+#undef GetTickCount64
 #undef rd_copy
 #undef np_base
 #undef GetModuleHandleW
@@ -25,6 +27,23 @@ int main(void){
  strcpy((char*)settings_mem+512,"egf_holdfakiepush");assert(hf_get_bool(7,settings_mem)==0 && bool_calls==2 && last_error==77);
  strcpy((char*)settings_mem+512,"another_setting");assert(hf_get_bool(7,settings_mem)==1 && bool_calls==3 && last_error==77);
  strcpy((char*)settings_mem+512,"egf_holdfakiepush");g_user_enabled=0;assert(hf_get_bool(7,settings_mem)==1);g_user_enabled=1;g_cfg.disable_hold_fakie=0;assert(hf_get_bool(7,settings_mem)==1);g_cfg.disable_hold_fakie=1;
+ /* Held manual/setup input must outrank the compatibility OFF override.
+  * The input has to be fresh, eligible and owned by the current skater. */
+ g_cfg.enabled=g_cfg.pure=1;g_native_owned_selector=0x20000;native_clock=1000;
+ strcpy((char*)settings_mem+512,"egf_holdfakiestance");bool_result=0;
+ hf_note_hold(&hf_held_stance,0x20000,1000,1,1);assert(hf_get_bool(7,settings_mem)==1&&last_error==77);
+ strcpy((char*)settings_mem+512,"egf_holdfakiepush");assert(hf_get_bool(7,settings_mem)==0);
+ strcpy((char*)settings_mem+512,"egf_holdfakiestance");native_clock=1101;assert(hf_get_bool(7,settings_mem)==0);
+ native_clock=1000;g_native_owned_selector=0x30000;assert(hf_get_bool(7,settings_mem)==0);g_native_owned_selector=0x20000;
+ hf_note_hold(&hf_held_stance,0x20000,1000,0,1);assert(hf_get_bool(7,settings_mem)==0);
+ hf_note_hold(&hf_held_stance,0x20000,1000,1,0);assert(hf_get_bool(7,settings_mem)==0);
+ hf_note_hold(&hf_held_stance,0x20000,1000,1,1);g_cfg.enabled=0;assert(hf_get_bool(7,settings_mem)==0);g_cfg.enabled=1;
+ g_cfg.pure=0;assert(hf_get_bool(7,settings_mem)==0);g_cfg.pure=1;
+ g_paused=1;assert(hf_get_bool(7,settings_mem)==0);g_paused=0;
+ g_menu=1;assert(hf_get_bool(7,settings_mem)==0);g_menu=0;
+ g_ui_open=1;assert(hf_get_bool(7,settings_mem)==0);g_ui_open=0;
+ g_native_menu=1;assert(hf_get_bool(7,settings_mem)==0);g_native_menu=0;
+ hf_note_hold(&hf_held_stance,0,1000,0,0);g_native_owned_selector=0;
  /* Manual catch supplies the native held-trick prerequisite independently of
   * hold-fakie compatibility. Its saved value and unrelated keys are untouched. */
  strcpy((char*)settings_mem+512,"HeldFlipTricks");assert(hf_reference((UINT64)settings_mem,setting_read)==3);

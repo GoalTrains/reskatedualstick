@@ -1,8 +1,11 @@
 /* Chain the official settings hook, just as the client-tick hook is chained.
  * Override named return values only. No profile/database writes or native setters. */
 #include "hold_fakie_keys.h"
+#include "fakie_input_guard.h"
 typedef BYTE (*hf_bool_fn)(UINT64,const void*);
 static hf_bool_fn hf_previous;
+static hf_hold_state hf_held_stance;
+static volatile int hf_held_noted;
 static int hf_hooked;static UINT64 hf_next;static volatile int hf_noted[5];
 static BYTE hf_get_bool(UINT64 cache,const void* reference){
  BYTE original=hf_previous(cache,reference);DWORD error=GetLastError();BYTE result=original;
@@ -11,6 +14,17 @@ static BYTE hf_get_bool(UINT64 cache,const void* reference){
  if((g_user_enabled && g_cfg.disable_hold_fakie) || catch_active || camera_active){
   int key=hf_reference((UINT64)reference,rd_copy);
   result=hf_bool_value(key,g_user_enabled,g_cfg.disable_hold_fakie,original);
+  /* Deferring only our timer is insufficient while this same hook forces
+   * native Hold Fakie Stance OFF. Let the game retain its own stance for
+   * fresh deliberate manual/setup input; release restores compatibility. */
+  if(key==1 && g_user_enabled && g_cfg.enabled && g_cfg.pure && g_cfg.disable_hold_fakie &&
+     !g_paused&&!g_menu&&!g_ui_open&&g_native_menu==0&&
+     hf_hold_fresh(&hf_held_stance,g_native_owned_selector,GetTickCount64())) {
+   result=1;
+   if(__sync_bool_compare_and_swap(&hf_held_noted,0,1))
+    log_text("fakie hold: native Hold Fakie Stance effective ON for fresh held manual/setup; release restores normal compatibility");
+  }
+
   if(camera_active && (key==4 || key==5)) {
    result=key==4?1:0;
    if(__sync_bool_compare_and_swap(&hf_noted[key-1],0,1))
@@ -27,7 +41,7 @@ static BYTE hf_get_bool(UINT64 cache,const void* reference){
                       "manual catch: native HeldFlipTricks was OFF; effective ON while manual catch is enabled; saved preference retained");
   }
   if(key>=1 && key<=2 && g_user_enabled && g_cfg.disable_hold_fakie && __sync_bool_compare_and_swap(&hf_noted[key-1],0,1))
-   log_text(key==1?"hold-fakie compatibility: Hold Fakie Stance overridden OFF while Dual Stick is enabled":"hold-fakie compatibility: Hold Fakie Push overridden OFF while Dual Stick is enabled");
+   log_text(key==1?"hold-fakie compatibility: Hold Fakie Stance OFF when released; fresh held manual/setup retains native stance":"hold-fakie compatibility: Hold Fakie Push overridden OFF while Dual Stick is enabled");
  }
  SetLastError(error);return result;
 }

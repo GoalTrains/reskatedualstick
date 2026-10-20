@@ -38,6 +38,10 @@ int main(void){
  assert(!fke_step(&protected,1,2,100,0,1,2390,(np_address)selector,base,read_all,timer_write));
  assert(!fke_step(&protected,1,2,100,0,1,2430,(np_address)selector,base,read_all,timer_write));
  assert(timer_writes==4);
+ /* Releasing protected setup lets the pending landing request proceed. */
+ fke_state release_setup=protected;
+ assert(fke_step(&release_setup,1,2,100,1,0,2470,(np_address)selector,base,read_all,timer_write)==1);
+ assert(timer_writes==5);timer_writes=4;timer(.2f);
  fke_state ordinary={0};timer(.2f);assert(step(&ordinary,2,100,0,2400)==0);assert(step(&ordinary,2,100,0,2500)==0);
  fke_state expired={0};assert(step(&expired,2,201,0,2600)==0);assert(step(&expired,2,101,0,2700)==0);assert(step(&expired,2,100,0,4000)==0);
  /* Disabled, wrong owner, conflicting exports, unbound fields, wrong types,

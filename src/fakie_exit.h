@@ -35,7 +35,7 @@ static int fke_step(fke_state* s,int enabled,int mode,int state,int idle,int pro
  if(s->owner!=selector){fke_state empty={0};*s=empty;s->owner=selector;}
  int previous=s->previous;s->previous=state;
  if(((previous>=200&&previous<300)||(previous>=400&&previous<500))&&state>=100&&state<200)s->landing_until=now+1200;
- /* A requested manual or handplant outranks optional stance normalization. */
+ /* A requested manual, held trick setup or handplant outranks optional stance normalization. */
  if(protect){s->neutral=0;s->boost_until=0;return 0;}
  int automatic=mode==2&&s->landing_until>now;
  if(state!=100&&!(automatic&&state==103)){s->neutral=0;s->boost_until=0;return 0;}

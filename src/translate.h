@@ -1395,11 +1395,12 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
             float x = fx - bx, y = sc_abs(fy) - sc_abs(by);
             float gain = c->grind_sensitivity > 0 ? c->grind_sensitivity : 1.0f;
             x *= gain; y *= gain;
-            if(c->xl_layout && c->goofy && s->rail_scoop_candidate==2){
+            if(s->rail_scoop_candidate==2){
                 /* Quick scoop intent uses the ground trick frame immediately,
                  * rather than first drawing a mirrored tail pivot up to 35 deg.
                  * Slow/held positioning keeps the existing rail mapping. */
-                x=c->one_foot_flips?rail_bx:bx;y=c->one_foot_flips?rail_by:by;
+                int native_rear=c->xl_layout && c->goofy && c->one_foot_flips;
+                x=native_rear?rail_bx:bx;y=native_rear?rail_by:by;
             }else if(c->split_grinds){
                 sc_split_rail_position(c,s,fx,fy,bx,by,gain,&x,&y);
                 s->split_grind_active=1;
@@ -1861,9 +1862,20 @@ static sc_pad sc_translate(const sc_config* c, sc_state* s, sc_pad in, double no
         }
         left_is_front=s->board_frame_left;
     }else s->board_frame_valid=0;
-    /* A late ground correction must not flip a held manual into a fresh pop.
-     * Keep that manual's roles until it ends; fresh input then uses the stance. */
-    if (s->feet_map_ok && s->d_land_hold && !s->air && s->takeoff <= 0)
+    /* The first ground poll runs before sc_pure establishes d_land_hold.
+     * Preserve a sole partial vertical lean there too: remapping its foot
+     * first can reverse the game stick and create a fresh native pop. */
+    int landing_lean=0;
+    if(c->pure && c->air_controls && s->d_was_air && !s->air && s->takeoff<=0 && !s->grind){
+        float lx=sc_axis(in.lx),ly=sc_axis(in.ly),rx=sc_axis(in.rx),ry=sc_axis(in.ry);
+        sc_deadzone(&lx,&ly,c->deadzone);sc_deadzone(&rx,&ry,c->deadzone);
+        float lm=lx*lx+ly*ly,rm=rx*rx+ry*ry,limit=SC_MMAX(c)*SC_MMAX(c);
+        landing_lean=(lm>=.3f*.3f && lm<limit && rm<.1f*.1f && sc_abs(lx)<=sc_abs(ly)*.6f) ||
+                     (rm>=.3f*.3f && rm<limit && lm<.1f*.1f && sc_abs(rx)<=sc_abs(ry)*.6f);
+    }
+    /* Keep the landing manual's roles until it ends. Full pop setups and
+     * two-foot gestures retain the normal stance mapping. */
+    if (s->feet_map_ok && (s->d_land_hold || landing_lean) && !s->air && s->takeoff <= 0)
         left_is_front = s->feet_map_left;
     if (s->feet_map_ok && left_is_front != s->feet_map_left) sc_remap_foot_history(s);
     s->feet_map_ok = 1; s->feet_map_left = left_is_front;
@@ -2104,7 +2116,12 @@ static sc_pad sc_translate(const sc_config* c, sc_state* s, sc_pad in, double no
          * native stance change is not a new physical gesture: reversing this
          * output crosses the flick detector and causes an unwanted pop. */
         int want = SC_SWFLIP(c, s) ? 1 : 0;
-        int held = vx * vx + vy * vy >= 0.3f * 0.3f;
+        /* Pure inputs have already passed the radial deadzone. A weaker
+         * manual remains held: the old 30% threshold reversed live output
+         * when pressure merely dipped from 30.1% to 29.2%. Apply the pending
+         * ground frame only at actual translated neutral. Legacy smoothed
+         * translators retain their existing release threshold. */
+        int held = c->pure ? (vx != 0 || vy != 0) : vx * vx + vy * vy >= 0.3f * 0.3f;
         if (!s->sw_lat_ok || !held) { s->sw_lat = want; s->sw_lat_ok = 1; }
         else if (want != s->sw_lat && (s->air || s->takeoff == 1)) {
             /* v5.44: in the air (spinning round) a held stick moves straight over to the new end.
