@@ -164,6 +164,7 @@ typedef struct {
     int game_mirror_known, game_mirror; /* owned rider animation frame relative to normal baseline */
     int fine_exit_stage; double fine_front_started,fine_back_started;
     int board_frame_valid, board_frame_left; /* continuous XL air/rail adjustment frame */
+    int board_frame_mirror; /* takeoff animation mirror for airborne board adjustments */
     int game_switch_known, game_switch; /* native input frame can reset separately on remount */
     int feet_map_ok, feet_map_left; /* v5.45: which physical stick owns each foot history */
     int sw_lat, sw_lat_ok; /* v5.42: the switch turn-round in use on the game stick (kept while it is held) */
@@ -1521,6 +1522,11 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
                 y*=1-turn;s->entry_rotation_active=1;
             }
         }
+        /* Fakie can keep the same anatomical feet as regular while Skate's
+         * animation input frame is mirrored. Compensate fresh air positioning,
+         * using the takeoff frame so a body turn cannot reverse held intent.
+         * Held trick endpoints returned above are already in game coordinates. */
+        if(c->xl_layout && !s->grind && s->board_frame_mirror)x=-x;
         s->d_was_air = 1; s->d_t = now; *out_x = x; *out_y = y;
         return;
     }
@@ -1848,6 +1854,7 @@ static sc_pad sc_translate(const sc_config* c, sc_state* s, sc_pad in, double no
         if(!s->board_frame_valid){
             s->board_frame_valid=1;
             s->board_frame_left=s->feet_map_ok?s->feet_map_left:left_is_front;
+            s->board_frame_mirror=s->game_mirror_known && s->game_mirror;
         }
         left_is_front=s->board_frame_left;
     }else s->board_frame_valid=0;

@@ -16,13 +16,13 @@ Open **End > Custom > D-pad camera sides** to change the camera mapping (`DpadCa
 
 Camera-side detection reads the active camera position and the local rider's longitudinal axis to estimate the current side, then sends a native L3 pulse only when the requested side differs. It does not directly assign the script's forced-side variable. Unknown, centred, steep/side-on or unsupported camera views skip the request. Regular/goofy, switch riding, rapid transitions and native camera settings still need visual gameplay verification. Physical L3 no longer reaches the native camera while this option and Dual Stick are enabled. The mod still receives L3 for its catch, body-flip, grind-exit and shortcut handling before filtering the native output. Native menus and disabling the option retain stock L3 behavior. Synthetic clicks bypass the mod's trick/catch/shortcut translation.
 
-## Manual Catch and stick-speed rotation (v6.3)
+## Manual Catch
 
 Manual Catch is in its best working state for now, within Skate's current trick behaviour. Enable **End > Custom > Manual catch**, then click **L3, R3 or both** in the air to catch. It remains OFF by default.
 
 Not every trick keeps flipping or spinning while held; some settle into an angled pose. A clean result still depends on a well-timed catch. Missing or mistiming it can produce an awkward-looking automatic catch. Independent foot catches, dark catches and forced bails for missed catches are not implemented.
 
-**Stick-speed rotation** adjusts trick rotation from your physical flick or scoop speed: slower movements request slower rotation, faster movements request faster rotation. It works independently of Manual Catch, including normal gameplay. The response depends on the trick and Skate's animation timing and may be subtler on scoops. Enabled by default; set `GestureSpeed=0` under `[SessionControls]` in your INI and restart Skate to disable it.
+Current source (unreleased v6.4) removes the v6.3 stick-speed override and corrects XL fakie airborne leg/board adjustment direction. Skate handles flip speed again; old `GestureSpeed` keys are ignored. Reverts are unchanged.
 
 ## Stable download v6.3
 

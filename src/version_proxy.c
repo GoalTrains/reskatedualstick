@@ -83,7 +83,6 @@ static WCHAR g_dir[520], g_ini[560], g_log[560];
 static sc_config g_cfg;
 static sc_state g_state[4];
 #include "manual_catch.h"
-#include "gesture_speed.h"
 static sc_manual_catch g_manual_catch[4];
 static sc_controller_hold g_controller_hold[4];
 static sc_camera_dpad g_camera_dpad[4];
@@ -105,7 +104,6 @@ static int g_native_animation_reset;
 static int g_native_respawn;
 static int g_native_ground_respawn;
 static int g_motion_stance;
-static int g_gesture_speed_option;
 static volatile int g_ramp_diag_reset;
 static int g_board_detect;
 static int g_scoop_logged, g_mode_logged, g_stock_log = 1, g_ov_enabled = 1;
@@ -221,7 +219,6 @@ static void load_config(int keep_runtime) {
     g_cfg.manual_catch=ini_int(L"ManualCatch",0)!=0;
     g_cfg.manual_catch_replay=ini_int(L"ManualCatchReplay",0)!=0;
     g_cfg.manual_catch_ranges=ini_int(L"ManualCatchNativeRanges",0)!=0;
-    g_gesture_speed_option=ini_int(L"GestureSpeed",1)!=0;
     if(g_cfg.stick_steer<0 || g_cfg.stick_steer>2)g_cfg.stick_steer=0;   /* v5.15 */
     g_cfg.front_back = ini_int(L"FrontBackFoot", 1) != 0;     /* v5.26 */
     g_cfg.xl_layout = ini_int(L"XLFootDirections", 0) != 0;
@@ -1042,13 +1039,11 @@ static int read_switched(void) {
 #include "native_property_poll.h"
 #include "catch_diag.h"
 #include "catch_hold_native.h"
-#include "gesture_speed_native.h"
 #include "native_animation_poll.h"
 #define SC_HOLD_FAKIE_COMPAT
 #define SC_STANCE_FLIGHT_RECORDER
 #include "native_respawn_poll.h"
 #include "native_grind_entry.h"
-#include "gesture_playback_native.h"
 static sc_menu_pose_recovery g_pose_recovery;
 static DWORD g_pose_recovery_user;
 #include "overlay_handoff.h"
@@ -1317,22 +1312,6 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
     if (!freq) QueryPerformanceFrequency(&freq);
     QueryPerformanceCounter(&ticks);
     double now_ms = freq ? (double)ticks * 1000.0 / (double)freq : (double)now;
-    int speed_state=g_local>=0?(int)g_slots[g_local].state:-1;
-    int speed_enabled=g_gesture_speed_option && g_cfg.enabled && g_user_enabled &&
-        !g_ui_open && !g_menu && !g_paused && !g_native_menu && !g_walking;
-    sc_gesture_speed* speed=&gs_input[user<4?user:0];
-    int speed_was_air=speed->air;
-    float speed_factor=sc_gs_step(speed,s->Gamepad,now_ms,speed_state,speed_enabled);
-    gsp_publish(now,speed_factor,speed_enabled);
-    if(speed_enabled && !speed_was_air && speed->air){
-        log_num("gesture speed: physical gesture multiplier percent ",(UINT64)(speed_factor*100.f));
-        log_num("gesture speed: native playback reads ",gsp_reads);
-        log_num("gesture speed: scoped local playback reads ",gsp_local_reads);
-        if(gsp_local_reads){
-            log_num("gesture speed: last native playback value milli ",(UINT64)(gsp_last_native*1000.f));
-            log_num("gesture speed: last overridden playback value milli ",(UINT64)(gsp_last_result*1000.f));
-        }
-    }
     unsigned before = st->fired;
     WORD raw_buttons = s->Gamepad.buttons;
     ring_push(now_ms, sc_axis(s->Gamepad.rx), sc_axis(s->Gamepad.ry));
@@ -1594,12 +1573,6 @@ static void process(DWORD user, XINPUT_STATE* s,int route) {
     if(tracing) { pt_start(); tracing=!pt_failed; start=pt_time(); }
     UINT64 timing[4]={0};
     process_inner(user,s,tracing?timing:0);
-    if(!g_gesture_speed_option || !g_cfg.enabled || !g_user_enabled || g_ui_open || g_native_menu!=0 || g_menu || g_paused || g_walking)
-        gsp_enabled=0;
-    gsp_sync(GetTickCount64(),g_gesture_speed_option && g_user_enabled);
-    if(gsp_local_reads && !gsp_reported){
-        gsp_reported=1;log_text("gesture speed: animation consumed the local TrickFlipSpeed override");
-    }
     if(!g_cfg.enabled || !g_user_enabled || g_ui_open || g_native_menu!=0 || g_menu || g_paused || g_walking)
         sc_mc_cancel(&g_manual_catch[user<4?user:0],raw.buttons);
     /* g_cfg.enabled is temporarily false in menus/walking. The user's master
@@ -1806,7 +1779,7 @@ static void setup(HMODULE self) {
     GetModuleFileNameW(0, exe, 519);
     if (!wieq(wbase(exe), "skate.exe")) return; /* only the game; stay a plain version.dll elsewhere */
 
-    log_text("---- Dual Stick Controls 6.3 MANUAL CATCH AND STICK SPEED loaded (version.dll route)");
+    log_text("---- Dual Stick Controls 6.4 XL FAKIE AIR FIX loaded (version.dll route)");
     log_wide("process: ", exe);
     load_config(0);
     if (GetFileAttributesW(g_ini) == 0xFFFFFFFFu) log_text("no session_controls.ini found; using defaults");

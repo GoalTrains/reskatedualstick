@@ -1,3 +1,9 @@
+## Unreleased v6.4 - XL fakie air controls and native flip speed
+
+- Corrects XL airborne board/leg adjustment direction in mirrored fakie animation frames. Retains the takeoff frame through a jump; ground tricks, rail controls and reverts keep their existing handling.
+- Removes the v6.3 physical stick-speed override entirely. Skate controls trick rotation speed again; old GestureSpeed keys are ignored.
+- Manual Catch now displays ON/OFF, without the TEST tag. Its existing behaviour and limitations remain unchanged.
+
 ## v6.3 - Manual Catch improvements and stick-speed rotation
 
 Manual Catch

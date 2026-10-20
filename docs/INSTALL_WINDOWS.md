@@ -1,4 +1,4 @@
-Dual Stick Controls v6.3 — installation
+Dual Stick Controls v6.4 — installation
 
 1. Close Skate completely.
 2. Open the game folder containing Skate.exe.
@@ -9,7 +9,7 @@ Dual Stick Controls v6.3 — installation
 
 Manual Catch is OFF by default; enable it under End > Custom > Manual catch. Click L3, R3 or both in the air to catch. Some tricks settle at an angle rather than continuing to rotate; catch timing still matters for a clean result. Missed or mistimed catches can produce an awkward automatic catch. Independent foot catches, dark catches and forced missed-catch bails are not implemented.
 
-Stick-speed rotation is ON by default and works independently of Manual Catch. Slower flicks/scoops request slower rotation; faster movements request faster rotation. The effect varies with the trick and native animation timing. To disable it, set GestureSpeed=0 under [SessionControls] in session_controls.ini, then restart Skate. Missing GestureSpeed defaults to ON; keep your existing INI when updating.
+Skate handles trick rotation speed; the v6.3 stick-speed override has been removed. Any old GestureSpeed INI key is ignored.
 
 Keep the official ReSkate.dll. Do not replace it with a PR/test runtime.
 End opens Dual Stick. Insert opens official ReSkate. D-pad/arrows navigate, A/Enter selects, B goes back, and LB/RB browses diagrams. Hold LB + RB + L3 + R3 for three seconds to toggle Dual Stick. Pumping stays on R3.

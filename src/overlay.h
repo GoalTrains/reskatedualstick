@@ -204,7 +204,7 @@ static void ui_value(int item, WCHAR* out) {
     case UI_POPSTYLE: v = g_cfg.pop_on_release ? "RELEASE" : "FLICK"; break;
     case UI_ONEFOOT: v = g_cfg.one_foot_flips ? "ALLOWED" : "BLOCKED"; break;
     case UI_DPAD_CAMERA: v=g_camera_dpad_enabled?"ON":"OFF";break;
-    case UI_MANUALCATCH: v = g_cfg.manual_catch ? "ON (TEST)" : "OFF"; break;
+    case UI_MANUALCATCH: v = g_cfg.manual_catch ? "ON" : "OFF"; break;
     case UI_STEER: v = g_cfg.stick_steer==2 ? "LEFT STICK" : g_cfg.stick_steer ? "FRONT FOOT" : "OFF"; break;
     case UI_XLEXTRAS: v=g_cfg.stick_steer==2 && g_cfg.one_foot_flips ? "ON" : g_cfg.stick_steer || g_cfg.one_foot_flips ? "CUSTOM" : "OFF";break;
     case UI_REVERTS: v = g_cfg.revert_input == 2 ? "BOTH TRIGGERS" : g_cfg.revert_input == 1 ? "DOUBLE TAP" : "OFF"; break;
