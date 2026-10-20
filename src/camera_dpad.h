@@ -1,5 +1,5 @@
 /* Horizontal D-pad tap/hold arbitration. Times are monotonic milliseconds.
- * Camera requests are absolute: -1 left, +1 right, 0 no request. */
+ * Camera requests use geometric side signs, reversed from physical D-pad sides. */
 #ifndef SC_CAMERA_DPAD_H
 #define SC_CAMERA_DPAD_H
 #define SC_CAMERA_DPAD_HOLD_MS 500.0
@@ -31,7 +31,7 @@ static unsigned short sc_camera_dpad_step(sc_camera_dpad* s,unsigned short butto
             if(s->held&mask)out|=bit;
         } else if(s->previous&bit) {
             if((s->active&mask) && !(s->held&mask) && !(s->cancelled&mask) && !(buttons&~bit) && now-s->started[i]<SC_CAMERA_DPAD_HOLD_MS)
-                *request=i?1:-1;
+                *request=i?-1:1;
             s->active&=~mask;s->held&=~mask;s->cancelled&=~mask;
         }
     }

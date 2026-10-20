@@ -227,6 +227,7 @@ static void load_config(int keep_runtime) {
      * so switching back to left/right restores that layout's switch choice. */
     if (g_cfg.front_back) g_cfg.switch_flip = 1;
     g_cfg.disable_hold_fakie = ini_int(L"DisableHoldFakie", 1) != 0;
+    g_cfg.fakie_return = ini_int(L"FakieReturn", 1)==2?2:1;
     g_cfg.one_foot_flips = ini_int(L"OneFootFlips", 0) != 0;  /* v5.27 */
     g_toggle_ms = ini_int(L"ToggleHoldMs", 3000); if (g_toggle_ms < 400) g_toggle_ms = 400;
     g_cfg.switch_goofy_flip = ini_int(L"SwitchFlipGoofy", 0) != 0;
@@ -1040,6 +1041,7 @@ static int read_switched(void) {
 #include "catch_diag.h"
 #include "catch_hold_native.h"
 #include "native_animation_poll.h"
+#define SC_FAST_FAKIE_EXIT
 #define SC_HOLD_FAKIE_COMPAT
 #define SC_STANCE_FLIGHT_RECORDER
 #include "native_respawn_poll.h"
@@ -1268,6 +1270,7 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
             st->xl_absolute_raw=physical_raw;
             if(physical_raw>=0){st->game_mirror_known=1;st->game_mirror=mirror_delta;}
         }
+        tracking.direct_neutral=g_cfg.enabled && nr_neutral(&s->Gamepad);
         sw = sc_resolve_stance(&tracking,g_switch_src,g_cfg.goofy,g_cfg.switch_flip,
                                g_cfg.front_back,state,stance_raw,spawned,g_switched,g_now_ms);
         if(state==300 || state==700){sc_xl_absolute zero={0};xl_absolute=zero;}

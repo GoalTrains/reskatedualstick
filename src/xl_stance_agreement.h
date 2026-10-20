@@ -25,7 +25,6 @@ static int sc_xl_agreement_step(sc_xl_agreement* g,const nr_frame* f,int state,i
     }
     g->previous=*f;g->time=now;g->sampled=1;
     /* Gather evidence during skating; only application requires neutral feet. */
-    (void)idle;
     /* The native frame is relative to the board basis, not the physical feet.
      * v5.129 has sustained forward runs with basis/frame=1/1 and backward
      * runs with 1/0. Normalize that frame before comparing with movement.
@@ -47,7 +46,9 @@ static int sc_xl_agreement_step(sc_xl_agreement* g,const nr_frame* f,int state,i
      * turn. Never use mirror as an exclusion gate or relearn it after tricks. */
     int physical=desired ^ f->basis ^ f->mirrored ^ g->mirror;
     if(g->candidate!=physical){g->candidate=physical;g->candidate_since=now;return -1;}
-    return now-g->candidate_since>=300?physical:-1;
+    /* Neutral feet permit a shorter confirmation once the owned native frame
+     * and measured travel agree. Keep the longer guard while input is active. */
+    return now-g->candidate_since>=(idle?80:300)?physical:-1;
 }
 static int sc_xl_agreement_can_apply(int hint,int retained,int state,int feet_neutral){return hint>=0 && hint<=1 && hint!=retained && state==100 && feet_neutral;}
 static int sc_xl_agreement_cached(unsigned long long now,unsigned long long seen,unsigned long long owner,unsigned long long current,int profile,int current_profile,int hint,int expected_native,int native){

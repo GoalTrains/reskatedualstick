@@ -1,0 +1,22 @@
+v6.4 - Fakie controls, camera direction and handplants
+Changes since v6.3
+
+- Removes the stick-speed rotation override introduced in v6.3. Skate handles flip and scoop rotation speed again; old GestureSpeed settings are ignored.
+- Corrects XL airborne leg/board adjustment directions in fakie while preserving the takeoff frame through a jump.
+- Reverses D-pad camera tap directions. Held D-pad actions are unchanged.
+- Speeds up confirmed neutral stance-control handoff and requests the native fakie return sooner.
+- Adds Fakie return: When neutral (default), or After landing. Held manual leans and handplant buttons defer the automatic return. Native foot-turn animation timing can still vary.
+- Restores single ground LB/RB holds for handplants. Fresh airborne holds remain grabs.
+- Preserves held manual output through late stance changes after a 180, removing the stick reversal that caused unwanted ollies/nollies. Intermittent manuals failing to start or dropping after 180s are still under investigation; this release does not claim to resolve them fully.
+- Removes the TEST label from Manual Catch. Reverts are unchanged.
+
+Manual Catch
+Manual Catch is in its best working state for now, within Skate's current trick behaviour. Not every trick keeps flipping or spinning while held; some settle into an angled pose. Clean results still depend on a well-timed catch. A missed or mistimed catch can produce an awkward-looking automatic catch.
+Click L3, R3 or both while airborne to catch. Manual Catch is optional and OFF by default. Existing preferences are preserved. Independent foot catches, dark catches and forced bails for missed catches are not implemented.
+
+Installation
+Close Skate, back up version.dll and session_controls.ini, then replace version.dll beside Skate.exe. Keep your existing INI and the official ReSkate.dll. The standalone End menu includes the new Fakie return option.
+Linux / Steam Deck: follow the included Proton instructions. The Linux package contains the Windows DLL for Proton, not a native Linux binary.
+
+Validation
+All 104 automated test programs pass, including 360 held-manual stance/timing cases. Windows DLL built and installed locally; the latest manual regression correction still needs gameplay confirmation. Linux / Steam Deck has not been tested for this release.

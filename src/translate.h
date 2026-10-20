@@ -83,6 +83,7 @@ typedef struct {
     float grab_hold_ms;   /* in the air, a bumper held this long is a grab (shorter = dark catch tap) */
     int switch_flip;      /* 1 = riding switch turns the flick stick round (y), 2 = y and x, 3 = true foot */
     int switch_invert_x, switch_invert_y; /* optional custom foot-input directions; default unchanged */
+    int fakie_return;       /* 1 neutral return, 2 automatic after landing */
     int disable_hold_fakie; /* native hold-fakie compatibility; saved preferences untouched */
     int xl_layout;        /* physical feet; keep each physical stick setup direction in switch */
     int pop_on_release;   /* v1.1: letting go of a full crouch pops (Skater XL style) */
@@ -274,7 +275,9 @@ static float sc_abs(float v) { return v < 0 ? -v : v; }
  * test had ollie / nollie the wrong way round with it (the game already handles it for goofy). */
 /* XL uses the live native frame for either stance. Keep the historical goofy
  * exception confined to the older layouts that were tested with it. */
-#define SC_SWFLIP(c, s) (((s)->game_switch_known ? (s)->game_switch : (s)->switched) && (c)->switch_flip && ((c)->switch_flip != 3 || (c)->front_back || (c)->xl_layout) && (!(c)->goofy || (c)->switch_goofy_flip || (c)->xl_layout))
+#define SC_INPUT_FRAME_FLIP(c, frame) ((frame) && (c)->switch_flip && ((c)->switch_flip != 3 || (c)->front_back || (c)->xl_layout) && (!(c)->goofy || (c)->switch_goofy_flip || (c)->xl_layout))
+#define SC_SWFLIP(c, s) SC_INPUT_FRAME_FLIP(c, ((s)->game_switch_known ? (s)->game_switch : (s)->switched))
+/* Reject the short b/d disagreement around native frame publication. */
 #define SC_MMAX(c) ((c)->manual_max > 0.2f && (c)->manual_max < 0.95f ? (c)->manual_max : 0.85f)
 static float sc_sqrt(float v) { return v <= 0 ? 0 : __builtin_sqrtf(v); }
 static float sc_sin_deg(float d) { /* small, freestanding */
@@ -2097,6 +2100,9 @@ static sc_pad sc_translate(const sc_config* c, sc_state* s, sc_pad in, double no
      * stick held through a 180 (nose manual set up in the air) keeps meaning the same end until you
      * let it go - turning it round under the held stick read as a fresh push = an ollie. */
     {
+        /* A held ground lean must keep its existing output direction. A late
+         * native stance change is not a new physical gesture: reversing this
+         * output crosses the flick detector and causes an unwanted pop. */
         int want = SC_SWFLIP(c, s) ? 1 : 0;
         int held = vx * vx + vy * vy >= 0.3f * 0.3f;
         if (!s->sw_lat_ok || !held) { s->sw_lat = want; s->sw_lat_ok = 1; }
@@ -2301,11 +2307,9 @@ static sc_pad sc_translate(const sc_config* c, sc_state* s, sc_pad in, double no
 
     unsigned char glt = 0, grt = 0;
     if (c->grab_mode >= 1 && c->grab_double_ms > 0) {
-        /* v0.20c bumpers:
-         *   press and hold (ground or air)  = grab with that hand (after GrabHoldMs)
-         *   quick tap in the air            = dark catch / flip: a short bumper press
-         *   double-tap and hold on the ground = handplant (riding up to a lip): bumper held
-         *   (in the air every tap is a dark catch, double taps included) */
+        /* Ground press-and-hold is the native handplant/darkslide bumper;
+         * retain it through the lip. A fresh airborne hold grabs after
+         * GrabHoldMs, while a quick airborne tap remains a dark catch. */
         static const unsigned short bit[2] = {SC_LSHOULDER, SC_RSHOULDER};
         double hold = c->grab_hold_ms > 0 ? c->grab_hold_ms : 100.0;
         for (int i = 0; i < 2; ++i) {
@@ -2313,31 +2317,16 @@ static sc_pad sc_translate(const sc_config* c, sc_state* s, sc_pad in, double no
             out.buttons &= (unsigned short)~bit[i];
             if (down && !s->g_down[i]) {
                 int dbl = s->g_rel[i] > 0 && now - s->g_rel[i] <= c->grab_double_ms && s->g_rel[i] - s->g_press[i] <= c->grab_double_ms;
-                /* v3.7 (your stock controls): darkslides / dark catches = hold LB / RB as you FLICK the trick.
-                 * So a bumper pressed on the ground is the real bumper, held for as long as you hold it
-                 * (dark catch / darkslide, and handplants at a lip). Pressed in the air: held = grab,
-                 * tap = dark catch. Double-tap and hold in the air also stays the real bumper. */
                 int ground = !s->air && s->takeoff != 1;
-                /* v5.24 ROLLING GRAB: pressed while just rolling (no foot crouched / flicking) it is the
-                 * grab (state 4, follows below); pressed with a foot down it is the real bumper (dark
-                 * catch / darkslide), and a double tap is still the real bumper (handplants) */
-                int footy = s->d_front_on || s->d_back_on || s->game_crouch == 1 || s->phase != SC_IDLE;
-                s->g_grab[i] = dbl ? 1 : ground ? (footy || s->grind ? 1 : 4) : 3;
+                s->g_grab[i] = ground || dbl ? 1 : 3;
                 s->g_press[i] = now;
             } else if (!down && s->g_down[i]) {
                 if (s->g_grab[i] == 3 && s->air) s->g_pulse[i] = now + 80.0;  /* air tap: dark catch */
-                s->g_rel[i] = (s->g_grab[i] == 1 || s->g_grab[i] == 2 || s->g_grab[i] == 4) ? 0 : now;
+                s->g_rel[i] = (s->g_grab[i] == 1 || s->g_grab[i] == 2) ? 0 : now;
                 s->g_grab[i] = 0;
             }
             s->g_down[i] = down;
             if (down && s->g_grab[i] == 3 && now - s->g_press[i] >= hold) s->g_grab[i] = 2;
-            if (down && s->g_grab[i] == 4) {   /* rolling grab: until a foot goes down or you take off */
-                int ground = !s->air && s->takeoff != 1;
-                int footy = s->d_front_on || s->d_back_on || s->game_crouch == 1 || s->phase != SC_IDLE;
-                if (!ground) s->g_grab[i] = 2;            /* carried into the air: an air grab */
-                else if (footy) s->g_grab[i] = 1;          /* crouching to flick: the real bumper (dark catch) */
-                else { if (i == 0) glt = 255; else grt = 255; }
-            }
             if (down && s->g_grab[i] == 1) out.buttons |= bit[i];
             if (down && s->g_grab[i] == 2) { if (i == 0) glt = 255; else grt = 255; }
             if (now < s->g_pulse[i]) out.buttons |= bit[i];

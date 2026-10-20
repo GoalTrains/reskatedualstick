@@ -105,6 +105,7 @@ static int ui_custom_save(void) {
        !ui_snapshot_int(L"SwitchSource",g_switch_src) ||
        !ui_snapshot_int(L"OneFootFlips",g_cfg.one_foot_flips) ||
        !ui_snapshot_int(L"DisableHoldFakie",g_cfg.disable_hold_fakie) ||
+       !ui_snapshot_int(L"FakieReturn",g_cfg.fakie_return) ||
        !ui_snapshot_int(L"RevertInput",g_cfg.revert_input) ||
        !ui_snapshot_int(L"SpinWindUp",g_cfg.prewind) ||
        !ui_snapshot_int(L"BodyFlips",g_cfg.body_flips) ||

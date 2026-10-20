@@ -1,5 +1,13 @@
-## Unreleased v6.4 - XL fakie air controls and native flip speed
+## v6.4 - Fakie controls, camera direction and handplants
 
+- Preserves a held manual's output direction when native stance flags arrive after a 180 landing. Removes the late stick reversal that triggered unwanted ollies/nollies. The original intermittent manual-start/drop issue remains under investigation.
+
+- Restores single ground LB/RB holds for handplants; fresh airborne holds remain grabs. Held manual leans and handplant buttons defer automatic fakie return, including After landing mode.
+
+- Requests the native fakie exit sooner after neutral controls. Adds Fakie return: When neutral (default), or After landing to also request the exit with held input after an air/rail landing. Uses the named per-skater timer; does not force pose or airborne rotation. In-game validation pending.
+- Reverses D-pad camera tap directions; held D-pad actions keep their normal mapping.
+- Reduces the direct native stance confirmation from 75 ms to 20 ms with all controls released. The game's own fakie animation delay remains unchanged.
+- Reduces confirmed XL neutral-stance resynchronization from 300 ms to 80 ms; active inputs retain the longer confirmation.
 - Corrects XL airborne board/leg adjustment direction in mirrored fakie animation frames. Retains the takeoff frame through a jump; ground tricks, rail controls and reverts keep their existing handling.
 - Removes the v6.3 physical stick-speed override entirely. Skate controls trick rotation speed again; old GestureSpeed keys are ignored.
 - Manual Catch now displays ON/OFF, without the TEST tag. Its existing behaviour and limitations remain unchanged.

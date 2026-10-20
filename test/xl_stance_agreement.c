@@ -37,5 +37,18 @@ int main(int argc,char** argv){
  assert(sc_xl_agreement_cached(1100,1000,7,8,0,0,0,0,0)==-1);
  assert(sc_xl_agreement_cached(1100,1000,7,7,1,0,0,0,0)==-1);
  assert(sc_xl_agreement_cached(1100,1000,7,7,0,0,0,0,1)==-1);
+ /* Returning to regular with neutral feet confirms in 80 ms; a single
+  * 40-ms blip is rejected. Active controls keep the 300-ms confirmation. */
+ for(int idle=0;idle<2;idle++){
+  sc_xl_agreement g={0};f.basis=f.native_frame=f.mirrored=0;f.forward[2]=1;
+  for(int i=0;i<30;i++)step(&g,100,1,0);
+  f.native_frame=1;f.forward[2]=-1;
+  assert(step(&g,100,idle,0)==-1);
+  assert(step(&g,100,idle,0)==-1);
+  assert(step(&g,100,idle,0)==(idle?1:-1));
+  if(!idle){for(int i=0;i<5;i++)assert(step(&g,100,0,0)==-1);assert(step(&g,100,0,0)==1);}
+  f.native_frame=0;f.forward[2]=1;
+  assert(step(&g,100,1,0)==-1);assert(step(&g,100,1,0)==-1);assert(step(&g,100,1,0)==0);
+ }
  puts("PASS: settled native/facing agreement restores XL normal/switch reference for regular/goofy without pose writes; native reset while actual switch, contradictory normalized frame, active controls, air/grind/UI, teleport, stale/foreign cache excluded");
 }

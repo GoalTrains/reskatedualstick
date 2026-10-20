@@ -13,6 +13,7 @@ typedef struct {
     int air_zero_pending; double air_zero_since;
     int direct_initialized, direct_stance, direct_candidate;
     double direct_since;
+    int direct_neutral; /* Raw feet, triggers and buttons all released. */
 } sc_stance_track;
 
 static int sc_track_stance(sc_stance_track* t, int state, int raw,
@@ -98,7 +99,7 @@ static int sc_resolve_stance(sc_stance_track* t, int source, int goofy,
         } else if(valid && raw!=t->direct_stance) {
             if(state!=100) {t->direct_stance=raw;t->direct_candidate=-1;}
             else if(t->direct_candidate!=raw) {t->direct_candidate=raw;t->direct_since=now;}
-            else if(now-t->direct_since>=75) {t->direct_stance=raw;t->direct_candidate=-1;}
+            else if(now-t->direct_since>=(t->direct_neutral?20:75)) {t->direct_stance=raw;t->direct_candidate=-1;}
         } else t->direct_candidate=-1;
         return t->direct_stance;
     }

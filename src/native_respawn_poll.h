@@ -114,6 +114,9 @@ static void nr_service(UINT64 client) {
     log_text("experimental menu pose recovery: native in-place teleport/reset requested with on-board choice; speed resets; game chooses configured stance");
     log_num("  native recovery request id ",request);
 }
+#ifdef SC_FAST_FAKIE_EXIT
+#include "fakie_exit_native.h"
+#endif
 static void nr_client_tick(UINT64 client,UINT64 update) {
     g_nr_tick_prev(client,update);
     DWORD error=GetLastError();UINT64 now=GetTickCount64();
@@ -122,6 +125,9 @@ static void nr_client_tick(UINT64 client,UINT64 update) {
         UINT64 base=nr_base();nr_local_owner owner;
         UINT64 selector=base && nr_client_ready(base,client) && nr_local_owner_read(base,client,rd_copy,&owner)?owner.selector:0;
         g_native_owned_selector=selector;g_native_owner_seen=now;
+#ifdef SC_FAST_FAKIE_EXIT
+        fke_tick(base,selector,now);
+#endif
         nr_frame frame;
         int track=g_native_respawn && g_native_ground_respawn && g_game_goofy>=0 && g_game_goofy<=1 &&
             g_cfg.goofy==g_game_goofy && g_user_enabled && g_cfg.enabled && !g_paused &&
@@ -262,6 +268,10 @@ static void nr_note_menu(double now,DWORD user,const sc_pad* raw,const sc_pad* o
     g_xl_input_user=user;
     if(__sync_lock_test_and_set(&g_nr_lock,1))return;
     g_nr_idle=nr_neutral(raw) && nr_neutral(out);
+#ifdef SC_FAST_FAKIE_EXIT
+    g_fke_protected=sc_fakie_protect_input(&g_cfg,&g_state[user<4?user:0],raw,out);
+    g_fke_input_seen=GetTickCount64();
+#endif
     if(g_native_respawn && !g_nr_armed && !g_nr_pending && g_native_menu==0 &&
        g_nr_valid && !g_ui_open && now-g_nr_last<=200 && ((raw->buttons&0x30) || g_menu)) {
         g_nr_armed=1;g_nr_arm=now;g_nr_user=user;

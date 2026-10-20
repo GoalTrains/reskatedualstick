@@ -74,7 +74,7 @@ static HWND ui_foreground_game(void) {
 
 
 /* v5.12: PURE only. Trick input and Kick / heel sides rows removed; Menu size moved to the bottom. */
-enum { UI_PRESET_SESSION, UI_PRESET_XL, UI_SESSION, UI_STANCE, UI_LAYOUT, UI_SWITCH, UI_POPSTYLE, UI_ONEFOOT, UI_STEER, UI_REVERTS, UI_WINDUP, UI_FLIPS, UI_AIR, UI_SLIDES, UI_BUMP, UI_SIZE, UI_CLOSE, UI_ADVANCED, UI_BACK, UI_CUSTOM, UI_SLOT, UI_SAVE, UI_LOAD, UI_STARTUP, UI_HOTKEY, UI_STOCKAIR, UI_RAMPDIAG, UI_PRESET_FB_RELEASE, UI_PRESET_PHYS_FLICK, UI_TAPWINDOW, UI_WINDSTEER, UI_WINDTHRESH, UI_XLEXTRAS, UI_SAVED, UI_MENUSETTINGS, UI_INVERTX, UI_INVERTY, UI_HOLDFAKIE, UI_FINEGRIND, UI_STEERANGLE, UI_MANUALCATCH, UI_DPAD_CAMERA, UI_COUNT };
+enum { UI_PRESET_SESSION, UI_PRESET_XL, UI_SESSION, UI_STANCE, UI_LAYOUT, UI_SWITCH, UI_POPSTYLE, UI_ONEFOOT, UI_STEER, UI_REVERTS, UI_WINDUP, UI_FLIPS, UI_AIR, UI_SLIDES, UI_BUMP, UI_SIZE, UI_CLOSE, UI_ADVANCED, UI_BACK, UI_CUSTOM, UI_SLOT, UI_SAVE, UI_LOAD, UI_STARTUP, UI_HOTKEY, UI_STOCKAIR, UI_RAMPDIAG, UI_PRESET_FB_RELEASE, UI_PRESET_PHYS_FLICK, UI_TAPWINDOW, UI_WINDSTEER, UI_WINDTHRESH, UI_XLEXTRAS, UI_SAVED, UI_MENUSETTINGS, UI_INVERTX, UI_INVERTY, UI_HOLDFAKIE, UI_FINEGRIND, UI_STEERANGLE, UI_MANUALCATCH, UI_DPAD_CAMERA, UI_FAKIERETURN, UI_COUNT };
 /* v5.8: wider menu, an explanation box for the highlighted line, and a controls page */
 #define UI_SETTINGS_W 700
 #define UI_CONTROLS_W 700
@@ -107,7 +107,7 @@ static const int k_ui_basic[] = {
     UI_STEER, UI_STEERANGLE, UI_REVERTS, UI_TAPWINDOW,
     UI_WINDUP, UI_WINDSTEER, UI_WINDTHRESH, UI_SLIDES, UI_FLIPS,
     UI_AIR, UI_FINEGRIND, UI_BUMP, UI_DPAD_CAMERA,
-    UI_SWITCH, UI_INVERTX, UI_INVERTY, UI_HOLDFAKIE, UI_SAVED, UI_BACK
+    UI_SWITCH, UI_INVERTX, UI_INVERTY, UI_HOLDFAKIE, UI_FAKIERETURN, UI_SAVED, UI_BACK
 };
 static int ui_basic_count(void){return (int)(sizeof k_ui_basic/sizeof *k_ui_basic)-(g_cfg.front_back?1:0);}
 static int ui_basic_item(int row){
@@ -117,7 +117,7 @@ static int ui_basic_item(int row){
     }
     return k_ui_basic[0];
 }
-static const int k_ui_advanced[] = {UI_SWITCH, UI_INVERTX, UI_INVERTY, UI_HOLDFAKIE, UI_BACK};
+static const int k_ui_advanced[] = {UI_SWITCH, UI_INVERTX, UI_INVERTY, UI_HOLDFAKIE, UI_FAKIERETURN, UI_BACK};
 static const int k_ui_menu[] = {UI_STARTUP, UI_HOTKEY, UI_SIZE, UI_BACK};
 static int g_ui_slot = 1, g_ui_overwrite;
 static int g_ui_startup_input_sync;
@@ -192,6 +192,7 @@ static void ui_value(int item, WCHAR* out) {
     case UI_SAVE: v = g_ui_overwrite==g_ui_slot ? "CONFIRM SAVE" : ui_slot_filled() ? "OVERWRITE" : "SAVE"; break;
     case UI_LOAD: v = ui_slot_filled() ? "LOAD" : "EMPTY"; break;
     case UI_INVERTX: v=g_cfg.switch_invert_x?"REVERSED":"STANDARD";break;
+    case UI_FAKIERETURN: v=g_cfg.fakie_return==2?"AFTER LANDING":"WHEN NEUTRAL";break;
     case UI_HOLDFAKIE: v=g_cfg.disable_hold_fakie?"ON":"OFF";break;
     case UI_INVERTY: v=g_cfg.switch_invert_y?"REVERSED":"STANDARD";break;
     case UI_SAVED: case UI_MENUSETTINGS:
@@ -229,7 +230,7 @@ static void ui_value(int item, WCHAR* out) {
 }
 static const WCHAR* const k_ui_labels[UI_COUNT] = {
     L"Session-style", L"Skater XL-style", L"Dual Stick controls", L"Stance", L"Stick layout", L"Legacy switch mode", L"Pop style", L"Allow single-stick flips", L"Stick steering", L"Reverts", L"Spin wind-up",
-    L"Body flips", L"Air controls", L"Powerslides", L"Grind bump-out", L"Menu size", L"Close", L"Compatibility", L"Back", L"Custom", L"Custom slot", L"Save current settings", L"Load saved settings", L"Show menu on startup", L"Menu hotkey", L"Stock ramp controls", L"Ramp diagnostic recording", L"Front/Back - Release", L"Left/Right Foot - Flick", L"Revert double-tap window", L"Crouched trigger handling", L"Wind-up trigger strength", L"Skater XL extras", L"Saved custom presets", L"Menu settings", L"Switch flick / scoop directions", L"Switch up / down directions", L"Disable hold-fakie", L"Grind setup", L"Stick steering angle", L"Manual catch", L"D-pad camera sides"};
+    L"Body flips", L"Air controls", L"Powerslides", L"Grind bump-out", L"Menu size", L"Close", L"Compatibility", L"Back", L"Custom", L"Custom slot", L"Save current settings", L"Load saved settings", L"Show menu on startup", L"Menu hotkey", L"Stock ramp controls", L"Ramp diagnostic recording", L"Front/Back - Release", L"Left/Right Foot - Flick", L"Revert double-tap window", L"Crouched trigger handling", L"Wind-up trigger strength", L"Skater XL extras", L"Saved custom presets", L"Menu settings", L"Switch flick / scoop directions", L"Switch up / down directions", L"Disable hold-fakie", L"Grind setup", L"Stick steering angle", L"Manual catch", L"D-pad camera sides", L"Fakie return"};
 static const WCHAR* const k_ui_help[UI_COUNT] = {
     L"Applies FRONT/BACK FOOT, FLICK pop, steering OFF and one-stick flips BLOCKED. Left = front, right = back in every stance. These translate Skate controls across two sticks; inputs differ from Session.",
     L"Applies SKATER XL layout: fixed stick directions, RELEASE to pop; physical feet swap front/back jobs in switch. LEFT-STICK steering and one-stick flips ALLOWED. Opposite-foot flicks also work. Skate trick inputs still differ from XL.",
@@ -272,7 +273,8 @@ static const WCHAR* const k_ui_help[UI_COUNT] = {
     L"CURRENT keeps the existing mapping. FOOT SETUP is experimental: both feet position the board before rail contact. A sideways setup overrides a leftover held flick; small direction changes respond sooner. Either foot gets full pivot range. No automatic body lean is added on the rail. This translates Skate controls, not independent foot physics.",
     L"How close to straight sideways the stick must be to START steering (5-60 degrees; default 34). LOWER = a narrower steering zone, leaving more diagonal room for tre / 360-flip setups. Try 20. Centre the stick to end steering. No effect on triggers, air or rail controls.",
     L"Retains the flick or scoop after stick release; click L3/R3/both to catch. Some tricks settle at an angle instead of continuing to rotate. Time the catch for a clean result; missed or mistimed catches can auto-catch awkwardly. Shared catch; no independent feet or dark catches. Default OFF.",
-    L"Tap D-pad LEFT / RIGHT to select a camera side; hold for 0.5 seconds for the original action. Automatically enables Switch side controls and disables Dynamic side switching while this option and Dual Stick are ON. L3 no longer switches the camera; mod L3 tricks still work. Menus keep normal controls."
+    L"Tap D-pad LEFT / RIGHT to select a camera side; hold for 0.5 seconds for the original action. Automatically enables Switch side controls and disables Dynamic side switching while this option and Dual Stick are ON. L3 no longer switches the camera; mod L3 tricks still work. Menus keep normal controls.",
+    L"WHEN NEUTRAL (default): return from fakie as soon as the sticks and triggers are released. AFTER LANDING: also request the return after an air or rail landing with input held. Manual leans and handplants take priority. Uses Skate's native foot transition; does not change airborne rotations. Disable hold-fakie must be ON."
 };
 /* v5.9 controls page as Flick-it style pictures: each card shows the two sticks (L = front foot,
  * R = back foot, regular stance) with the moves drawn on them. kind 0 = line from (a,b) to (c,d),
@@ -298,7 +300,7 @@ static const UI_CARD k_cards[] = {
     {L"REVERT", L"squeeze LT + RT", 0, {{0}}},
     {L"POWERSLIDE", L"in = toe; out = heel\nTilt both to adjust angle", 2, {{0,0, 0,0,85,0, 0,1}, {1,0, 0,0,-85,0, 0,1}}},
     {L"FRONT / BACKFLIP", L"click front / back foot", 2, {{0,2, 0,0,0,0, 0,0}, {1,2, 0,0,0,0, 0,0}}},
-    {L"GRAB / DARKSLIDE", L"hold LB / RB: rolling or in air = grab, while flicking = darkslide", 0, {{0}}},
+    {L"GRAB / DARKSLIDE", L"hold LB / RB: ground = handplant / darkslide; air = grab", 0, {{0}}},
     {L"GRIND / LIP EXIT", L"L3 / R3; lip: DOWN + click", 2, {{0,2, 0,0,0,0, 0,0}, {1,2, 0,0,0,0, 0,0}}},
     {L"DUAL STICK ON / OFF", L"hold LB + RB + L3 + R3 3 s", 2, {{0,2, 0,0,0,0, 0,0}, {1,2, 0,0,0,0, 0,0}}}};
 #define UI_NCARDS ((int)(sizeof k_cards / sizeof k_cards[0]))
@@ -468,6 +470,7 @@ static void ui_change(int item, int dir) {
     case UI_SAVED: g_ui_page=3;g_ui_sel=0;g_ui_dirty=1;return;
     case UI_MENUSETTINGS: g_ui_page=5;g_ui_sel=0;g_ui_dirty=1;return;
     case UI_INVERTX: ui_set(L"SwitchInvertX",g_cfg.switch_invert_x?L"0":L"1");break;
+    case UI_FAKIERETURN: ui_set(L"FakieReturn",g_cfg.fakie_return==2?L"1":L"2");break;
     case UI_HOLDFAKIE: ui_set(L"DisableHoldFakie",g_cfg.disable_hold_fakie?L"0":L"1");break;
     case UI_INVERTY: ui_set(L"SwitchInvertY",g_cfg.switch_invert_y?L"0":L"1");break;
     case UI_ADVANCED: g_ui_page = 4; g_ui_sel = 0; g_ui_dirty = 1; return;

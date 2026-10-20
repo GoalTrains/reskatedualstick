@@ -6,7 +6,8 @@
 static unsigned short step(sc_camera_dpad* s,unsigned short b,double t,int* r){return sc_camera_dpad_step(s,b,t,1,r);}
 int main(void){
  sc_camera_dpad s={0};int r;
- step(&s,0,1,&r);assert(step(&s,4,10,&r)==0 && !r);assert(step(&s,0,90,&r)==0 && r==-1);
+ step(&s,0,1,&r);assert(step(&s,4,10,&r)==0 && !r);assert(step(&s,0,90,&r)==0 && r==1);
+ assert(step(&s,8,92,&r)==0 && !r);assert(step(&s,0,98,&r)==0 && r==-1);
  step(&s,8,100,&r);for(int t=200;t<600;t+=100)assert(step(&s,8,t,&r)==0 && !r);
  assert(step(&s,8,599,&r)==0 && !r);assert(step(&s,8,600,&r)==8 && !r);
  assert(step(&s,8,650,&r)==8 && !r);step(&s,0,700,&r);assert(!r);
