@@ -1,3 +1,7 @@
+[Generic ReSkate API PR #373](https://github.com/Dingo-Shenanigans/ReSkate/pull/373)
+
+Consumer: [Dual Stick 6.6 Lua PR #7](https://github.com/GoalTrains/reskatedualstick/pull/7).
+
 Luau plugins can read controllers but cannot publish translated controls to the game, so input mods still need a separate native companion. This adds general controller layers and local rider requests; control schemes, gesture recognition, foot roles and timing stay in the plugin.
 
 - Separate `input.write` permission for complete, normalized controller replacements, physical per-controller reads, ownership/expiry, stop cleanup and native menu/focus invalidation. XInput and native PlayStation paths retain existing input-hiding filters; HID writes preserve unrelated report data and Bluetooth CRCs.

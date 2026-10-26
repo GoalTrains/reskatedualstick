@@ -47,3 +47,5 @@ GoalTrains — original Dual Stick Controls. zee_x64 — ReSkate Lua settings po
 ## Changes since 6.5
 
 The Lua port includes the control fixes in the [6.6 release](https://github.com/GoalTrains/reskatedualstick/releases/tag/6.6). Pop handoff and rear-foot circle fixes apply with FOOT SETUP, air controls and BLOCKED single-stick flips. ALLOWED single-stick flips retain their existing paths. The SDK provides only generic input/rider operations; all foot/grind behavior is implemented by this plugin.
+
+Linked reviews: [Lua mod PR #7](https://github.com/GoalTrains/reskatedualstick/pull/7) and [generic ReSkate API PR #373](https://github.com/Dingo-Shenanigans/ReSkate/pull/373). The SDK PR must be available in a ReSkate test build before this plugin can replace the DLL.
