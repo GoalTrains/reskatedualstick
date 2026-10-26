@@ -8,7 +8,7 @@ static SIZE_T query_fixture(const void*p,SC_MBI*out,SIZE_T n){
  (void)n;MEMORY_BASIC_INFORMATION m;SIZE_T r=VirtualQuery(p,&m,sizeof m);if(!r)return 0;
  memset(out,0,sizeof *out);out->base=m.BaseAddress;out->size=m.RegionSize;out->state=m.State;out->prot=m.Protect;return sizeof *out;
 }
-static sc_config g_cfg;static int g_user_enabled=1,g_ui_open,g_native_menu,g_paused,g_menu,g_walking,g_local;
+static sc_config g_cfg;static int g_grind_diag=1;static int g_user_enabled=1,g_ui_open,g_native_menu,g_paused,g_menu,g_walking,g_local;
 static struct {UINT64 sel;DWORD state;} g_slots[1];
 static BYTE context[0x1920],core[0x450],root[0x70],types[0xd0],target[0x200],object[0xb20],foreign[0xb20];
 static int owner_ok=1,original_calls,frame_calculations,observed_type,available=1;static float observed_yaw,observed_pitch;
@@ -68,8 +68,16 @@ int main(void){
  *(DWORD*)(context+0x13dc)=0x20|0x20000;
  *(float*)(context+0x190c)=.2f;*(float*)(context+0x1910)=.1f;target[0x1fb]=1;
  *(float*)(object+0xb10)=30;object[0xb14]=1;
- g_cfg.enabled=g_cfg.pure=g_cfg.split_grinds=g_cfg.air_controls=1;g_cfg.grind_sensitivity=1.2f;
+ g_cfg.enabled=g_cfg.pure=g_cfg.split_grinds=g_cfg.native_grind_entry=g_cfg.air_controls=1;g_cfg.grind_sensitivity=1.2f;
  g_ne_hooked=1;g_ne_previous=original_fixture;
+ /* Diagnostics observe owned native selection even without an active mod plan.
+  * The native original still runs; no request/cache is supplied by the mod. */
+ g_cfg.native_grind_entry=0;ne_target((UINT64)object,123);
+ assert(original_calls==1 && g_ne_calls==1 && !g_ne_applied && !g_ne_consumed);
+ assert(g_ne_observation.requested==6 && g_ne_observation.selected_type==6 && g_ne_observation.qpc_us);
+ original_inputs();assert(GetLastError()==987);
+ original_calls=frame_calculations=0;g_ne_calls=0;g_cfg.native_grind_entry=1;
+
  sc_state s={0};s.air=1;s.entry_back_active=1;s.entry_back_x=1;s.entry_back_y=-.3f;
  g_slots[0].state=201;ne_prepare(&s);assert(s.entry_rail_target);
  target[0x1fb]=0;ne_prepare(&s);assert(!s.entry_rail_target);target[0x1fb]=1;

@@ -1,3 +1,4 @@
+#include "physics_states.h"
 /* Session-style dual-stick controls for skate. (reSkate) - v0.4 trick engine.
  * Pure C, no Windows dependencies, so every trick can be unit tested.
  *
@@ -102,6 +103,7 @@ typedef struct {
     int manual_catch_ranges; /* opt-in native angle-range experiment */
     int stock_grab_air;   /* optional: stock sticks/triggers after a steep grounded ramp approach */
     int stock_transition_ground; /* optional: switch during the qualifying climb */
+    int native_grind_entry; /* opt-in experiment; never implied by foot-position controls */
     int body_flips;       /* v3.2: click the front-foot stick = front flip, back-foot stick = backflip */
 } sc_config;
 
@@ -201,9 +203,11 @@ typedef struct {
     int grind;            /* set by the caller: the game says the skater is grinding */
     int grind_prev, grind_pop, grind_fpop, grind_bpop;
     int split_grind_active; float split_grind_lean; int grind_setup_override;
-    int entry_back_active;float entry_back_x,entry_back_y;
+    int entry_back_active,entry_side_back;float entry_back_x,entry_back_y;
     int entry_rail_target,entry_rotation_active;
     float split_rail_front_load,split_rail_back_load;
+    int split_rear_turn,split_rear_adjusted; float split_rear_angle,split_rear_target;
+    int split_air_setup,split_landing_setup; /* held lateral setup across first ground contact */
     int rail_scoop_track, rail_scoop_exit; /* 1 front / 2 back: explicit quick scoop versus rail pivot */
     int rail_scoop_candidate; /* quick motion already identified, before full exit threshold */
     float rail_scoop_angle, rail_scoop_sweep, rail_scoop_x, rail_scoop_y;
@@ -215,6 +219,7 @@ typedef struct {
     float lone_a0[2], lone_last[2], lone_sw[2], lone_out[2]; int lone_unl[2]; /* v5.28: impossible circles */
     int lone_seen[2], lone_from[2]; /* v5.31: side last seen, and the side a sweep came from through the own end */
     int lone_side[2];     /* v5.27: a lone foot that started out at the side: which side (+1 right / -1 left) */
+    double split_pop_t; /* emitted pop awaiting native takeoff */
     double dp_t;          /* v5.25: last time a D-pad button was held (radial menus) */
     int radial_passthrough; /* trace: physical stick packet belongs to a radial selection */
     int st_latch;         /* v5.15: the front-foot stick is steering until it comes back to the middle */
@@ -226,6 +231,8 @@ typedef struct {
  * Without this, an already-held stick inherited the other foot's spent/ignored
  * state and could disappear or become a fresh flick during a 180. */
 static void sc_remap_foot_history(sc_state* s) {
+    s->split_pop_t=0;
+    s->split_rear_turn=0;
     s->rail_scoop_track=s->rail_scoop_exit=s->rail_scoop_candidate=0; s->rail_scoop_last=s->rail_scoop_turn=0;
 #define SC_SWAP_FIELD(type, a, b) do { type v = s->a; s->a = s->b; s->b = v; } while (0)
     SC_SWAP_FIELD(int, d_front_on, d_back_on);
@@ -1172,8 +1179,10 @@ static void sc_split_position(const sc_config*c,float fx,float fy,float bx,float
  * Flick-It hemisphere. Native air and deliberate trick exits stay separate. */
 static void sc_split_rail_position(const sc_config*c,sc_state*s,float fx,float fy,float bx,float by,
                                    float gain,float*x,float*y){
+ float raw_back_angle=sc_angle(bx,by);
+ float off=c->active*.6f,off2=off*off;
+ int solo_back=fx*fx+fy*fy<off2 && bx*bx+by*by>=off2;
  if(!c->one_foot_flips){
-  float off=c->active*.6f,off2=off*off;
   float fm=fx*fx+fy*fy,bm=bx*bx+by*by;
   if(fm<off2 && bm>=off2){
    s->split_rail_front_load=0;
@@ -1194,6 +1203,33 @@ static void sc_split_rail_position(const sc_config*c,sc_state*s,float fx,float f
   }else s->split_rail_front_load=s->split_rail_back_load=0;
  }
  sc_split_position(c,fx,fy,bx,by,gain,x,y);
+ /* A held entry remains in its established frame. After contact, rear
+  * stick sweeps must advance in the same angular direction as front-foot
+  * sweeps rather than inherit the airborne tail reflection. Accumulate
+  * angular movement, not absolute X, so contact cannot reverse a held pose.
+  * BLOCKED keeps the result in the tail hemisphere. Two-foot positioning
+  * and explicit trick exits use their existing geometry. */
+ if(!c->one_foot_flips && solo_back){
+  if(!s->split_rear_turn){
+   if((*x)*(*x)+(*y)*(*y)>.0001f){
+    s->split_rear_turn=1;s->split_rear_adjusted=0;s->split_rear_angle=raw_back_angle;
+    s->split_rear_target=sc_wrap(sc_angle(*x,*y));
+   }
+  }else{
+   float delta=sc_wrap(raw_back_angle-s->split_rear_angle);
+   s->split_rear_angle=raw_back_angle;
+   if(sc_abs(delta)>.001f){
+    s->split_rear_adjusted=1;s->split_rear_target+=delta;
+    s->split_rear_target=sc_wrap(s->split_rear_target);
+   }
+   if(s->split_rear_adjusted){
+    /* Preserve the adjusted angle while held; changing radius remains analog. */
+    float m=sc_sqrt((*x)*(*x)+(*y)*(*y));
+    sc_vec_at(1,s->split_rear_target,m,x,y);
+    *y=-sc_abs(*y); /* Own-end boundary without an accumulating angular stop. */
+   }
+  }
+ }else s->split_rear_turn=0;
 }
 static void sc_fine_board(float fx,float fy,float bx,float by,float gain,float* x,float* y){
     *x=(fx-bx)/(1.0f+sc_abs(fy)+sc_abs(by))*gain;
@@ -1207,13 +1243,16 @@ static void sc_fine_board(float fx,float fy,float bx,float by,float gain,float* 
 static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float fy, float bx, float by,
                     float* out_x, float* out_y) {
     int airborne = s->air || s->takeoff > 0;
+    if(airborne || s->grind || !c->split_grinds || !c->air_controls || c->one_foot_flips ||
+       now<s->split_pop_t || now-s->split_pop_t>350.0)s->split_pop_t=0;
+    int previous_split_setup=s->split_air_setup;s->split_air_setup=0;
     /* Stock rail recordings retain the pad's square-axis travel and release.
      * Keep that source before position deadzones/full-strength normalization. */
     float rail_bx=c->flip_x?-bx:bx,rail_by=by;
     /* Preserve the pad's lateral travel before radial normalization, which
      * otherwise makes a fully sideways diagonal appear only partly held. */
     float entry_lateral=sc_abs(bx);
-    float position_deadzone=(c->fine_grinds || c->split_grinds) && c->air_controls && (airborne || s->grind) && c->deadzone>.10f?.10f:c->deadzone;
+    float position_deadzone=(c->fine_grinds || c->split_grinds) && c->air_controls && (airborne || s->grind || s->split_landing_setup || previous_split_setup) && c->deadzone>.10f?.10f:c->deadzone;
     sc_deadzone(&fx, &fy, position_deadzone);
     sc_deadzone(&bx, &by, position_deadzone);
     int mirror = c->flip_x;
@@ -1513,14 +1552,14 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
         int cooperative_front=fx*bx<0 && sc_abs(fx)>=sc_abs(fy) && front_load<=rear_load;
         if(c->split_grinds && !c->one_foot_flips && c->air_controls &&
            (fm<off || cooperative_front) && bm>=on && sc_abs(bx)>=.5f && sc_abs(bx)>=sc_abs(by)) {
-            s->entry_back_active=1;s->entry_back_x=bx;s->entry_back_y=by<0?by:0;
+            s->entry_back_active=1;s->entry_side_back=fm<off && sc_abs(by)<=.35f*sc_abs(bx);s->entry_back_x=bx;s->entry_back_y=by<0?by:0;
             /* Native tipslide selection needs an already rotated candidate.
              * Near a validated rail only, strong lateral tail intent should
              * reach the flat 90-degree board-adjust angle despite tail pressure.
              * Fade the polar Y contribution from half to full lateral input;
              * native entry still selects/validates the tail, and on-rail load
              * is maintained separately. Never reverse X or force geometry. */
-            if(s->entry_rail_target && entry_lateral>.5f){
+            if(c->native_grind_entry && s->entry_rail_target && entry_lateral>.5f){
                 float lateral=entry_lateral/.95f;if(lateral>1)lateral=1;
                 float turn=(lateral-.5f)*2;if(turn>1)turn=1;
                 y*=1-turn;s->entry_rotation_active=1;
@@ -1531,6 +1570,10 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
          * using the takeoff frame so a body turn cannot reverse held intent.
          * Held trick endpoints returned above are already in game coordinates. */
         if(c->xl_layout && !s->grind && s->board_frame_mirror)x=-x;
+        if(c->split_grinds && !c->one_foot_flips){
+            if(fm>=SC_MMAX(c) && sc_abs(fx)>=.25f*fm && bm<off)s->split_air_setup=1;
+            else if(bm>=SC_MMAX(c) && sc_abs(bx)>=.25f*bm && fm<off)s->split_air_setup=2;
+        }
         s->d_was_air = 1; s->d_t = now; *out_x = x; *out_y = y;
         return;
     }
@@ -1538,22 +1581,37 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
      * Reinterpreting a held up-stick as a newly started back-foot gesture on
      * touchdown can produce a scoop/pop instead of the intended manual. */
     if (s->d_was_air && c->air_controls) {
-        s->d_front_carry = fm >= off && fm < SC_MMAX(c);
-        s->d_back_carry = bm >= off && bm < SC_MMAX(c);
+        /* A brief ground contact is not a new flick. Strong lateral board
+         * setup was excluded by the manual limit and reversed its X here.
+         * Carry only an existing single-foot setup; neutral, a fresh second
+         * foot or a deliberate full vertical pop ends it as usual. */
+        int front_setup=previous_split_setup==1 && c->split_grinds && !c->one_foot_flips &&
+            fm>=SC_MMAX(c) && sc_abs(fx)>=.25f*fm && bm<off;
+        int back_setup=previous_split_setup==2 && c->split_grinds && !c->one_foot_flips &&
+            bm>=SC_MMAX(c) && sc_abs(bx)>=.25f*bm && fm<off;
+        s->split_landing_setup=front_setup||back_setup;
+        s->d_front_carry = fm >= off && (fm < SC_MMAX(c) || front_setup);
+        s->d_back_carry = bm >= off && (bm < SC_MMAX(c) || back_setup);
         s->d_land_hold = s->d_front_carry || s->d_back_carry;
     }
     s->d_was_air = 0;
     if (s->d_land_hold) {
-        if (fm < off || (front_pop_dir && fm >= SC_MMAX(c))) s->d_front_carry = 0;
-        if (bm < off || (back_pop_dir && bm >= SC_MMAX(c))) s->d_back_carry = 0;
+        if (fm < off || (front_pop_dir && fm >= SC_MMAX(c) && !(s->split_landing_setup && sc_abs(fx)>=.25f*fm))) s->d_front_carry = 0;
+        if (bm < off || (back_pop_dir && bm >= SC_MMAX(c) && !(s->split_landing_setup && sc_abs(bx)>=.25f*bm))) s->d_back_carry = 0;
         int new_foot = (!s->d_front_carry && fm >= on) || (!s->d_back_carry && bm >= on);
         if (!new_foot && (s->d_front_carry || s->d_back_carry)) {
             float x = (s->d_front_carry ? fx : 0) - (s->d_back_carry ? bx : 0);
             float y = (s->d_front_carry ? sc_abs(fy) : 0) - (s->d_back_carry ? sc_abs(by) : 0);
             float m = sc_sqrt(x * x + y * y); if (m > 1) { x /= m; y /= m; }
+            if(s->split_landing_setup){
+                float gain=c->grind_sensitivity>0?c->grind_sensitivity:1.0f;
+                sc_split_position(c,fx,fy,bx,by,gain,&x,&y);
+                if(c->xl_layout && s->board_frame_mirror)x=-x;
+                s->split_grind_active=1;
+            }
             s->d_t = now; *out_x = x; *out_y = y; return;
         }
-        s->d_land_hold = 0;
+        s->d_land_hold = 0;s->split_landing_setup=0;
     }
 
     /* v5.21 GRIND ADJUST: on a rail, light or sideways pushes of either foot move the board like the
@@ -1572,6 +1630,21 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
             s->d_t = now; *out_x = x; *out_y = y;
             return;
         }
+    }
+
+    /* A flick or release pop has already been emitted, but native state 103 can
+     * persist for ~200 ms before takeoff. A new sole sideways setup in this
+     * gap must not start a ground wind-up and inject its clamped opposite-X
+     * endpoint before air control. Wait neutral for the owned native crouch
+     * to finish. Ordinary crouches, scoops and opposite-foot flicks remain
+     * ground gestures; this window requires our preceding emitted pop. */
+    if(s->split_pop_t>0 && s->game_known && s->game_crouch==1 &&
+       ((fm<off && bm>=off && sc_abs(by)<=.35f*sc_abs(bx)) ||
+        (bm<off && fm>=off && sc_abs(fy)<=.35f*sc_abs(fx)))) {
+        s->d_windup=0;s->d_t=now;*out_x=0;
+        /* Finish the already emitted release pulse before waiting neutral. */
+        *out_y=c->pop_on_release && s->rp_t>0 && now-s->rp_t<70 ? s->rp_y : 0;
+        return;
     }
 
     /* starting a foot */
@@ -1602,6 +1675,7 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
         if (!s->d_windup && t0 > 0 && now - t0 < 70.0) s->pf_hold = front_first ? 1 : -1;
     }
     if (fl && bl && !s->pf_hold) {
+        if(c->split_grinds && c->air_controls && !c->one_foot_flips)s->split_pop_t=now;
         if (s->d_front_seq > s->d_back_seq) { s->d_back_spent = 1; s->d_front_flick=1; bl = 0; }
         else { s->d_front_spent = 1; s->d_back_flick=1; fl = 0; }
         s->d_log = 2; s->d_log_a = fl ? fa : ba; s->d_log_b = 0;
@@ -1621,6 +1695,7 @@ static void sc_pure(const sc_config* c, sc_state* s, double now, float fx, float
             if (rel == 1) { if (s->d_back_on) s->d_back_spent = 1; s->d_back_full = 0; s->d_back_peak = 0; }
             else { if (s->d_front_on) s->d_front_spent = 1; s->d_front_full = 0; s->d_front_peak = 0; }
             s->rp_t = now; s->rp_y = rel == 1 ? 1.0f : -1.0f;
+            if(c->split_grinds && c->air_controls && !c->one_foot_flips)s->split_pop_t=now;
             s->last_name = rel == 1 ? "ollie (let go)" : "nollie (let go)"; s->fired++;
         }
         if (s->rp_t > 0 && now - s->rp_t < 70.0) { s->d_t = now; *out_x = 0; *out_y = s->rp_y; return; }
@@ -1700,19 +1775,25 @@ static sc_pad sc_pump_output(sc_state* s,sc_pad out,double now) {
 
 /* Translate one physical pad state into the state the game should see. */
 static sc_pad sc_translate(const sc_config* c, sc_state* s, sc_pad in, double now) {
-    if(!s->grind || s->grind_pop || !c->enabled || !c->pure || !c->air_controls || !c->split_grinds || c->one_foot_flips)
-        s->split_rail_front_load=s->split_rail_back_load=0;
-    s->entry_back_active=0;
+    if(!s->grind || s->grind_pop || !c->enabled || !c->pure || !c->air_controls || !c->split_grinds || c->one_foot_flips){
+        s->split_rail_front_load=s->split_rail_back_load=0;s->split_rear_turn=0;
+    }
+    if(!c->enabled || !c->pure || !c->air_controls || !c->split_grinds || c->one_foot_flips)
+        s->split_air_setup=s->split_landing_setup=0;
+    if(!s->d_was_air)s->split_air_setup=0;
+    if(!s->d_land_hold || s->air || s->takeoff>0 || s->grind)s->split_landing_setup=0;
+    s->entry_back_active=s->entry_side_back=0;
     s->entry_rotation_active=0;
     s->split_grind_active=0;s->split_grind_lean=0;s->grind_setup_override=0;s->radial_passthrough=0;
-    if (!c->enabled) {s->board_frame_valid=0;s->fine_exit_stage=0;s->fine_front_started=s->fine_back_started=0;return in;}
+    if (!c->enabled) {s->split_pop_t=0;s->board_frame_valid=0;s->fine_exit_stage=0;s->fine_front_started=s->fine_back_started=0;return in;}
     /* v5.25 RADIAL MENUS: holding the D-pad opens the game's radial menus, where you pick with the
      * sticks. While a D-pad button is held (and 0.25 s after, while you let go on your pick) the pad
      * goes to the game untouched - the sticks were being turned into foot moves / steering. */
     if (in.buttons & 0x000F) s->dp_t = now + 1;
     if (s->dp_t > 0 && now + 1 - s->dp_t < 250.0) {
-        s->split_rail_front_load=s->split_rail_back_load=0;
-        s->radial_passthrough=1;
+        s->split_rail_front_load=s->split_rail_back_load=0;s->split_rear_turn=0;
+        s->split_air_setup=s->split_landing_setup=0;
+        s->radial_passthrough=1;s->split_pop_t=0;
         s->pump_r3 = 0;
         s->pump_release_t = 0; s->pump_level = 0;
         s->d_front_on = s->d_back_on = 0; s->d_front_spent = s->d_back_spent = 0; s->phase = SC_IDLE;
@@ -1872,6 +1953,12 @@ static sc_pad sc_translate(const sc_config* c, sc_state* s, sc_pad in, double no
         float lm=lx*lx+ly*ly,rm=rx*rx+ry*ry,limit=SC_MMAX(c)*SC_MMAX(c);
         landing_lean=(lm>=.3f*.3f && lm<limit && rm<.1f*.1f && sc_abs(lx)<=sc_abs(ly)*.6f) ||
                      (rm>=.3f*.3f && rm<limit && lm<.1f*.1f && sc_abs(rx)<=sc_abs(ry)*.6f);
+        if(c->split_grinds && !c->one_foot_flips && s->split_air_setup){
+            float off=c->active*.6f;off*=off;
+            int held_left=s->split_air_setup==(s->feet_map_left?1:2);
+            if((held_left && lm>=limit && lx*lx>=.0625f*lm && rm<off) ||
+               (!held_left && rm>=limit && rx*rx>=.0625f*rm && lm<off))landing_lean=1;
+        }
     }
     /* Keep the landing manual's roles until it ends. Full pop setups and
      * two-foot gestures retain the normal stance mapping. */
@@ -1894,7 +1981,13 @@ static sc_pad sc_translate(const sc_config* c, sc_state* s, sc_pad in, double no
         float sx=steering_left?lx:rx,sy=steering_left?ly:ry;
         float ox=steering_left?rx:lx,oy=steering_left?ry:ly;
         float fax=sc_abs(sx),fmag=sc_sqrt(sx*sx+sy*sy),bmag=sc_sqrt(ox*ox+oy*oy);
-        int foot_busy=s->d_front_on || s->d_back_on || s->d_front_full || s->d_back_full ||
+        /* A just-emitted pop still owns this native crouch. Do not let
+         * front-stick steering consume its sideways setup before the
+         * post-pop handoff can reserve it for air positioning. */
+        int pop_pending=s->split_pop_t>0 && now>=s->split_pop_t && now-s->split_pop_t<=350 &&
+                        c->split_grinds && c->air_controls && !c->one_foot_flips &&
+                        s->game_known && s->game_crouch==1;
+        int foot_busy=pop_pending || s->d_front_on || s->d_back_on || s->d_front_full || s->d_back_full ||
                       (s->rp_t>0 && now-s->rp_t<70);
         if (!s->st_latch) {
             int angle=sc_stick_steer_angle(c);
@@ -2102,7 +2195,7 @@ static sc_pad sc_translate(const sc_config* c, sc_state* s, sc_pad in, double no
      * XL preserves physical flick/scoop directions across that change.
      * Air and rail pivots have their own continuous frame above. */
     if(c->pure && c->xl_layout && s->game_mirror_known && s->game_mirror &&
-       (!board_position || (s->grind && c->goofy &&
+       ((!board_position && !s->split_landing_setup) || (s->grind && c->goofy &&
         (s->rail_scoop_candidate==2 || s->rail_scoop_exit==2))))vx=-vx;
     s->ox = vx; s->oy = vy;
     /* v0.19k switch: the game says you are riding the other way round from your spawn, so the

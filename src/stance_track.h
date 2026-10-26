@@ -2,6 +2,7 @@
  * overwrite a completed turn or swap the feet again under a held manual. */
 #ifndef SC_STANCE_TRACK_H
 #define SC_STANCE_TRACK_H
+#include "physics_states.h"
 typedef struct {
     int rode_before_walk;
     int initialized, prev_state, prev_raw, reference, takeoff_stance, stance;
@@ -29,9 +30,9 @@ static int sc_track_stance(sc_stance_track* t, int state, int raw,
         t->turn_time = 0;
     } else {
         int prev = t->prev_state;
-        int takeoff = prev >= 100 && prev < 200 && prev != 101 && state >= 200 && state < 500;
+        int takeoff = prev >= 100 && prev < 200 && prev != 101 && ((state >= 200 && state < 500) || sc_is_grind_state(state));
         int revert = prev >= 100 && prev < 200 && prev != 101 && state == 101;
-        int landed = prev >= 200 && prev < 500 && state >= 100 && state < 200;
+        int landed = ((prev >= 200 && prev < 500) || sc_is_grind_state(prev)) && state >= 100 && state < 200;
         int end_slide = prev == 101 && state != 101;
         /* A landing into state 101 is still a landing: commit the turn once,
          * rather than waiting for the slide to end and reconsidering the feet. */
@@ -56,7 +57,7 @@ static int sc_track_stance(sc_stance_track* t, int state, int raw,
             t->landing_turn_ms = now - t->turn_time;
             t->turn_time = 0;
         }
-        if (takeoff || revert || (end_slide && state >= 200 && state < 500)) {
+        if (takeoff || revert || (end_slide && ((state >= 200 && state < 500) || sc_is_grind_state(state)))) {
             t->reference = t->prev_raw >= 0 ? t->prev_raw : (valid ? raw : -1);
             t->saw_air_edge = 0; t->pending_reference = -1;
             t->takeoff_stance = t->stance;
@@ -116,7 +117,7 @@ static int sc_resolve_stance(sc_stance_track* t, int source, int goofy,
             t->landing_turn_ms=t->late_turn_ms=t->late_slide_ms=-1;
             return t->stance;
         }
-        if(state>=100 && state<500 && state!=300)t->rode_before_walk=1;
+        if(((state>=100 && state<500 && state!=300) || sc_is_grind_state(state)))t->rode_before_walk=1;
     }
     /* A spawn grace period can include the first trick. Only reset the
      * goofy tracker on actual off-board/spawn states, not on every poll

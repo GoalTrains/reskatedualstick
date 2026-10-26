@@ -13,13 +13,14 @@ int main(void){int cases=0;
   sc_state s={0};s.grind=1;s.switched=sw;s.game_crouch=-1;
   sc_pad p=feet(&c,sw,foot?0:side*.95f,foot?0:.55f,foot?side*.95f:0,foot?-.55f:0);
   sc_pad loaded=sc_translate(&c,&s,p,1000);assert(loaded.ry&&!s.grind_pop);
-  /* Moving the same foot to sideways or past it cannot flatten its end. */
+  /* Moving the same foot sideways retains support. Rear angular control
+   * may increase tail load as it rotates; front support stays byte-stable. */
   p=feet(&c,sw,foot?0:side*.95f,0,foot?side*.95f:0,0);
   sc_pad flat=sc_translate(&c,&s,p,1020);
-  assert(loaded.ry*(double)flat.ry>0 && sc_abs((float)flat.ry-loaded.ry)<4 && !s.grind_pop);
+  assert(loaded.ry*(double)flat.ry>0 && (foot?sc_abs(flat.ry)>=sc_abs(loaded.ry):sc_abs((float)flat.ry-loaded.ry)<4) && !s.grind_pop);
   p=feet(&c,sw,foot?0:side*.95f,foot?0:-.55f,foot?side*.95f:0,foot?.55f:0);
   sc_pad opposite=sc_translate(&c,&s,p,1040);
-  assert(loaded.ry*(double)opposite.ry>0 && sc_abs((float)opposite.ry-loaded.ry)<4 && !s.grind_pop && !s.rail_scoop_exit);
+  assert(loaded.ry*(double)opposite.ry>0 && (foot?sc_abs(opposite.ry)>=sc_abs(loaded.ry):sc_abs((float)opposite.ry-loaded.ry)<4) && !s.grind_pop && !s.rail_scoop_exit);
   /* Small deliberate opposite-foot pressure can progressively flatten it. */
   p=feet(&c,sw,foot?0:side*.95f,foot?.30f:0,foot?side*.95f:0,foot?0:-.30f);
   sc_pad other=sc_translate(&c,&s,p,1100);

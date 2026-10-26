@@ -33,6 +33,7 @@ int main(void){
   * neutral following an actual air/rail-to-ground edge, never in air/slide. */
  fke_state held={0};assert(step(&held,1,201,0,2100)==0);assert(step(&held,1,101,0,2200)==0);assert(step(&held,1,100,0,2300)==0);
  assert(step(&held,2,103,0,2340)==1);assert(timer_writes==4);
+ fke_state rail701={0};assert(step(&rail701,1,701,0,2350)==0);assert(step(&rail701,1,100,0,2390)==0);assert(rail701.landing_until==3590 && timer_writes==4);
  fke_state protected={0};timer(.2f);
  assert(!fke_step(&protected,1,2,201,0,1,2350,(np_address)selector,base,read_all,timer_write));
  assert(!fke_step(&protected,1,2,100,0,1,2390,(np_address)selector,base,read_all,timer_write));

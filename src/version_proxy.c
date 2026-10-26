@@ -320,6 +320,8 @@ static void load_config(int keep_runtime) {
     g_cfg.air_controls = ini_int(L"AirControls", 1) != 0;
     g_cfg.fine_grinds = ini_int(L"FineGrindControls",0)!=0;
     g_cfg.split_grinds = ini_int(L"SplitGrindControls",0)!=0;
+    /* Foot positioning must not silently request a target class or an air alignment. */
+    g_cfg.native_grind_entry = ini_int(L"NativeGrindEntry",0)!=0;
     g_grind_diag = ini_int(L"NativeGrindDiagnostics",0)!=0;
     g_cfg.grind_sensitivity = ini_percent(L"GrindSensitivityPercent", 120);
     if (g_cfg.grind_sensitivity < 0.5f) g_cfg.grind_sensitivity = 0.5f;
@@ -379,8 +381,11 @@ static double react_now(const sel_slot* sl) { /* reaction score, halving every 2
     while (dt > 20000.0 && v > 0.01) { v *= 0.5; dt -= 20000.0; }
     return v * (1.0 - dt / 40000.0);
 }
+static void (*g_grind_step_capture)(UINT64,DWORD,DWORD);
 static DWORD sel_hook(UINT64 selector, DWORD current) {
     DWORD r = g_sel_prev(selector, current);
+    void (*capture)(UINT64,DWORD,DWORD)=__atomic_load_n(&g_grind_step_capture,__ATOMIC_ACQUIRE);
+    if(capture)capture(selector,current,r);
     int free_slot = -1;
     for (int i = 0; i < 16; ++i) {
         if (g_slots[i].sel == selector) {
@@ -887,7 +892,7 @@ static void drain_state_events(void) {
                 g_menu = 0; g_menu_depth = 0; log_text("menu closed (your skater moved): Dual Stick controls back");
             }
             /* v0.30: crouching, popping, grinding or sliding can only happen with the menus shut */
-            else if (g_menu && e.slot == g_local && e.from != 0xFFFFFFFFu && (e.to == 101 || e.to == 103 || e.to == 200 || e.to == 201 || (e.to >= 400 && e.to < 500))) {
+            else if (g_menu && e.slot == g_local && e.from != 0xFFFFFFFFu && (e.to == 101 || e.to == 103 || e.to == 200 || e.to == 201 || sc_is_grind_state((int)e.to))) {
                 g_menu = 0; g_menu_depth = 0; log_text("menu closed (you are skating): Dual Stick controls back");
             }
             if (!g_state_log) continue;
@@ -1046,6 +1051,7 @@ static int read_switched(void) {
 #define SC_STANCE_FLIGHT_RECORDER
 #include "native_respawn_poll.h"
 #include "native_grind_entry.h"
+#include "native_query_observer.h"
 static sc_menu_pose_recovery g_pose_recovery;
 static DWORD g_pose_recovery_user;
 #include "overlay_handoff.h"
@@ -1075,6 +1081,7 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
     }
     nr_try_hook(now);
     ne_try_hook(now);
+    qo_try_hook(now);
     /* Native UI owns the sticks even when replay playback still ticks physics.
      * Do not let replayed skater states change live foot/stance tracking. */
     {
@@ -1128,7 +1135,7 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
                 g_walking = walking;
                 log_text(walking ? "game: off the board -> walking (Dual Stick controls off)" : "game: on the board -> Dual Stick controls on");
             }
-            /* From your logs: 100 riding, 103 crouch, 200 / 201 in the air, 400-404 grinding, 504 off
+            /* From your logs: 100 riding, 103 crouch, 200 / 201 in the air, 400-499 and 701 grinding, 504 off
              * the board, 300 bail, 700 a short flicker when spawning. Air controls = 200-299 only
              * (grinds use the normal pop / flick controls), capped at 6 s. */
             int air_state = st_now >= 200 && st_now < 300;
@@ -1261,11 +1268,12 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
         }
         int state = g_local >= 0 ? (int)g_slots[g_local].state : 0;
         int spawned = g_now_ms - g_spawn_t < 1500.0;
-        /* Keep direct d for the tested regular route. Goofy True Foot uses
-         * one turn relative to takeoff because its d resets on the ground. */
+        /* Physical-foot layouts use the owned native animation frame once
+         * calibrated. Takeoff-relative tracking remains the unreadable fallback. */
+        int physical_feet=sc_physical_foot_layout(g_cfg.front_back,g_cfg.switch_flip);
         int physical_raw=-1,mirror_delta=-1;
         int stance_raw=motion_sw>=0?motion_sw:sw;
-        if(g_cfg.xl_layout && g_switch_src==4 && g_local>=0){
+        if(physical_feet && g_switch_src==4 && g_local>=0){
             physical_raw=nr_xl_physical_raw(g_slots[g_local].sel,g_cfg.goofy,native_sw,&mirror_delta);
             st->xl_absolute_raw=physical_raw;
             if(physical_raw>=0){st->game_mirror_known=1;st->game_mirror=mirror_delta;}
@@ -1274,7 +1282,7 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
         sw = sc_resolve_stance(&tracking,g_switch_src,g_cfg.goofy,g_cfg.switch_flip,
                                g_cfg.front_back,state,stance_raw,spawned,g_switched,g_now_ms);
         if(state==300 || state==700){sc_xl_absolute zero={0};xl_absolute=zero;}
-        if(g_cfg.xl_layout && g_switch_src==4 && g_cfg.switch_flip==3 && !g_cfg.front_back)
+        if(physical_feet && g_switch_src==4)
             sw=sc_xl_absolute_step(&xl_absolute,physical_raw,sw,g_now_ms);
         if (motion_sw >= 0 || g_cfg.xl_layout) {
             /* The game's turn flag resets at remount. Use the corrected
@@ -1282,7 +1290,7 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
              * frame, so a fakie input does not become a switch ollie. */
             if (native_sw >= 0) {st->game_switch_known=1;st->game_switch=sc_xl_output_frame(g_cfg.xl_layout,sw,motion.bias_valid?motion.bias:0,native_sw);}
         }
-        int agreement=g_cfg.xl_layout && user==g_xl_input_user && g_local>=0?
+        int agreement=physical_feet && g_switch_src==4 && user==g_xl_input_user && g_local>=0?
             sc_xl_agreement_cached(GetTickCount64(),g_xl_agreement_seen,g_xl_agreement_owner,g_slots[g_local].sel,
                 g_xl_agreement_profile,g_cfg.goofy,g_xl_agreement_hint,g_xl_agreement_native,native_sw):-1;
         nr_frame agreement_frame;
@@ -1295,7 +1303,7 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
             xl_absolute.valid=1;xl_absolute.stance=agreement;xl_absolute.pending=0;
             sw=agreement;
             if(g_cfg.xl_layout && native_sw>=0){st->game_switch_known=1;st->game_switch=native_sw;}
-            log_text(agreement?"XL stance: settled physical-foot frame and facing agree on SWITCH; retained foot jobs resynchronised":"XL stance: settled physical-foot frame and facing agree on REGULAR; retained foot jobs resynchronised");
+            log_text(agreement?"Physical feet: settled physical-foot frame and facing agree on SWITCH; retained foot jobs resynchronised":"XL stance: settled physical-foot frame and facing agree on REGULAR; retained foot jobs resynchronised");
         }
         if (g_state_log && tracking.landing_turn_ms >= 0)
             log_num("  stance turned in the air, ms before landing: ", (UINT64)tracking.landing_turn_ms);
@@ -1309,7 +1317,7 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
         }
         st->switched = sw;
     }
-    st->grind = g_local >= 0 && g_slots[g_local].state >= 400 && g_slots[g_local].state < 500;
+    st->grind = g_local >= 0 && sc_is_grind_state((int)g_slots[g_local].state);
     static INT64 freq;
     INT64 ticks = 0;
     if (!freq) QueryPerformanceFrequency(&freq);
@@ -1394,7 +1402,7 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
         if (g_cfg.enabled) dg_sticks(now_ms, raw_pad);
         int fired_now = g_cfg.enabled && (st->fired != before || st->d_log == 2);
         dg_trick(now_ms, st->fired != before ? st->last_name : "wind-up flick", fired_now, lst,
-                 lst == 103 || (lst >= 200 && lst < 300) || (lst >= 400 && lst < 500));
+                 lst == 103 || (lst >= 200 && lst < 300) || sc_is_grind_state((int)lst));
     }
     /* v3.3 STOCK INPUT RECORDER: with Dual Stick switched OFF (L3+R3) while riding, every change of
      * your real sticks / triggers / buttons is written to the log with the game's state, so the
@@ -1782,7 +1790,7 @@ static void setup(HMODULE self) {
     GetModuleFileNameW(0, exe, 519);
     if (!wieq(wbase(exe), "skate.exe")) return; /* only the game; stay a plain version.dll elsewhere */
 
-    log_text("---- Dual Stick Controls 6.5 GRIND EXITS AND HELD STANCE loaded (version.dll route)");
+    log_text("---- Dual Stick Controls 6.6 GRIND ENTRY AND FOOT CONTROLS loaded (version.dll route)");
     log_wide("process: ", exe);
     load_config(0);
     if (GetFileAttributesW(g_ini) == 0xFFFFFFFFu) log_text("no session_controls.ini found; using defaults");

@@ -1,6 +1,7 @@
 /* Exit through the game's named fakie timer. Never write stance, pose or transform flags. */
 #ifndef SC_FAKIE_EXIT_H
 #define SC_FAKIE_EXIT_H
+#include "physics_states.h"
 #include "native_menu_respawn.h"
 #include "native_pose_property.h"
 typedef struct {nr_frame frame;np_address provider,graph,model,node,page,value;unsigned key;float timer;} fke_sample;
@@ -34,7 +35,7 @@ static int fke_step(fke_state* s,int enabled,int mode,int state,int idle,int pro
  if(!enabled||!selector||!base){fke_state empty={0};*s=empty;return 0;}
  if(s->owner!=selector){fke_state empty={0};*s=empty;s->owner=selector;}
  int previous=s->previous;s->previous=state;
- if(((previous>=200&&previous<300)||(previous>=400&&previous<500))&&state>=100&&state<200)s->landing_until=now+1200;
+ if(((previous>=200&&previous<300)||sc_is_grind_state(previous))&&state>=100&&state<200)s->landing_until=now+1200;
  /* A requested manual, held trick setup or handplant outranks optional stance normalization. */
  if(protect){s->neutral=0;s->boost_until=0;return 0;}
  int automatic=mode==2&&s->landing_until>now;

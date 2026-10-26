@@ -64,3 +64,11 @@ __pycache__/
 !/releases/v6.5/*.zip
 !/releases/v6.5/*.json
 !/releases/v6.5/*.txt
+
+!/releases/v6.6/
+!/releases/v6.6/*.zip
+!/releases/v6.6/*.json
+!/releases/v6.6/*.txt
+
+!/test/data/
+!/test/data/dev4_physical_feet.csv

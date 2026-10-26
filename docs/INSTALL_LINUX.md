@@ -1,4 +1,4 @@
-Dual Stick Controls v6.5 — installation
+Dual Stick Controls v6.6 — installation
 
 1. Close Skate completely.
 2. Open the game folder containing Skate.exe.

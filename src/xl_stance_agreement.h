@@ -1,6 +1,9 @@
 #ifndef SC_XL_STANCE_AGREEMENT_H
 #define SC_XL_STANCE_AGREEMENT_H
 #include "native_menu_respawn.h"
+/* Both physical-foot layouts share foot ownership. XL only changes directions. */
+static int sc_physical_foot_layout(int front_back,int mode){return !front_back && mode==3;}
+
 typedef struct {
     nr_frame previous;
     double time,baseline_since,candidate_since;

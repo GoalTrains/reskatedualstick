@@ -15,7 +15,9 @@ int main(void){int count=0;
   s.air=s.takeoff=0;s.grind=1;sc_pad b=sc_translate(&c,&s,p,1010);assert(a.rx==b.rx&&b.ry==0&&!s.grind_pop);
   /* A fresh flat-side hold has no remembered end pressure to invent. */
   p=feet(&c,sw,foot?0:side,foot?0:-.2f,foot?side:0,foot?.2f:0);
-  b=sc_translate(&c,&s,p,1100);assert(sc_abs(b.rx)>=32750&&b.ry==0&&!s.grind_pop);
+  b=sc_translate(&c,&s,p,1100);
+  if(!foot)assert(sc_abs(b.rx)>=32750&&b.ry==0&&!s.grind_pop);
+  else assert(b.rx && (SC_SWFLIP(&c,&s)?-b.ry:b.ry)<=0 && !s.grind_pop); /* Rear angular motion now rotates from its entry anchor. */
   /* Radial selection is intentionally stock. Label it explicitly so a raw
      stick reversal here cannot be misdiagnosed as a stance/mapping change. */
   p.buttons=SC_DPAD_UP;b=sc_translate(&c,&s,p,1200);assert(s.radial_passthrough&&b.rx==p.rx&&b.ry==p.ry);

@@ -1,0 +1,22 @@
+v6.6 - Grind entry and foot controls
+Changes since v6.5
+
+- Fixes a pop-to-air timing issue that could turn a sideways foot setup into another ground gesture before takeoff. This targets inconsistent frontside tailslide entries and unexpected board rotation after the pop.
+- Applies the handoff to flick pops and release pops, including ollies and nollies. Release pops keep their full pop pulse, and stick steering no longer consumes the pending foot setup.
+- Corrects back-foot circular adjustments on a rail: circling the rear stick rotates in the same angular direction as front-foot circles, while preserving the initial entry pose and analog strength.
+- Keeps held sideways foot setups consistent through brief ground contact before a rail, instead of restarting them as a fresh ground flick or reversing the setup.
+- Recognizes Skate's additional native grind state, preventing controls from dropping out or switching to ground handling during that part of a grind.
+- Improves Left/Right Foot stance tracking by sharing the native physical-foot checks already used by XL/True Foot. Front/Back Foot keeps its separate role mapping.
+- Keeps the experimental native grind-target/alignment override disabled by default. Skate still chooses contact and lock-in.
+
+Setup and updating
+The post-pop handoff and rear-foot circular adjustment fixes apply with FOOT SETUP enabled, Air controls on, and single-stick flips BLOCKED. ALLOWED single-stick flips and other grind modes retain their existing behavior.
+
+Close Skate and replace version.dll beside Skate.exe. Keep your existing session_controls.ini and official ReSkate.dll. For a fresh install, use the included settings. Enable End > Custom > Grind setup > FOOT SETUP and block single-stick flips for dedicated two-foot positioning. Existing presets and Manual Catch preferences are preserved.
+
+Validation and remaining limits
+All 118 automated control regression programs pass, including 36,864 setup/pop combinations covering regular/goofy, normal/switch, swapped feet, switch modes, custom axis directions, both pop styles and stick steering. A replay of 22,166 recorded inputs produces identical output to the improved dev11 baseline for the tested flick-pop setup. Windows DLL loading and version forwarding pass; the packaged updater migration is checked separately.
+
+Local gameplay feedback reports improved grind feel. These checks do not guarantee every grind choice or every controller/setup in game. Skate's native contact/assist behavior can still change the resulting grind. Manual Catch behavior and its existing limitations are unchanged.
+
+Linux / Steam Deck uses the Windows DLL under Proton with WINEDLLOVERRIDES="version=n,b" %command%. This release has not been gameplay-tested on Linux/Steam Deck. macOS compatibility is unverified.

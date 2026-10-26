@@ -162,7 +162,7 @@ int NR_FIXTURE_MAIN(void){
  g_game_goofy=0;
  /* Native tick publishes the XL agreement independently of pose-reset flags. */
  /* Reported goofy override on a native regular profile must still collect XL evidence. */
- begin_respawn();g_nr_pending=0;g_native_respawn=0;g_cfg.xl_layout=1;g_cfg.goofy=1;g_game_goofy=0;
+ begin_respawn();g_nr_pending=0;g_native_respawn=0;g_cfg.xl_layout=1;g_cfg.front_back=0;g_cfg.switch_flip=3;g_cfg.goofy=1;g_game_goofy=0;
  g_xl_agreement=(sc_xl_agreement){0};g_xl_idle=1;flags(1,0);basis(0);
  float xl_position[3]={0,0,0},xl_forward[3]={0,0,1};memcpy(core+0x150,xl_forward,12);
  unsigned agreement_calls=calls;
@@ -185,7 +185,8 @@ int NR_FIXTURE_MAIN(void){
  native_clock+=201;assert(nr_xl_physical_raw((UINT64)selector,0,0,&mirror_delta)==-1);assert(writes==before_reads);
  /* All configured/native stance combinations collect the same checked bundle.
   * This is read-only; a manual override must never disable evidence. */
- for(int profile=0;profile<2;profile++)for(int native_profile=0;native_profile<2;native_profile++){
+ for(int layout=0;layout<2;layout++)for(int profile=0;profile<2;profile++)for(int native_profile=0;native_profile<2;native_profile++){
+  g_cfg.xl_layout=layout; /* Left/Right Foot and XL share the observer. */
   g_cfg.goofy=profile;g_game_goofy=native_profile;g_xl_agreement=(sc_xl_agreement){0};
   flags(1,0);basis(0);xl_forward[2]=1;memcpy(core+0x150,xl_forward,12);
   for(int i=0;i<30;i++){xl_position[2]+=.2f;memcpy(core+0x100,xl_position,12);native_clock+=40;tick();}
@@ -197,7 +198,8 @@ int NR_FIXTURE_MAIN(void){
   flags(0,0);assert(nr_xl_physical_raw((UINT64)selector,profile,0,&mirror_delta)==1 && mirror_delta==1);
  }
  assert(calls==agreement_calls);
- g_cfg.xl_layout=0;native_clock+=40;tick();assert(!g_xl_agreement_owner);
+ g_cfg.xl_layout=0;flags(1,0);basis(0);native_clock+=40;tick();assert(g_xl_frame_owner==(UINT64)selector);
+ g_cfg.front_back=1;native_clock+=40;tick();assert(!g_xl_agreement_owner && !g_xl_frame_owner);
  sc_pad steering={0},steered={0};steering.lt=255;steered.lx=-32768;
  nr_note_menu(g_now_ms,0,&steering,&steered);assert(g_xl_idle); /* Trigger steering is not held foot input. */
  steering.ry=-20000;nr_note_menu(g_now_ms,0,&steering,&steered);assert(!g_xl_idle);

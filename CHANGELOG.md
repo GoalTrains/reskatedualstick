@@ -1,3 +1,15 @@
+## v6.6 - Grind entry and foot controls
+
+- Fixes a pop-to-air timing issue that could turn a sideways foot setup into another ground gesture before takeoff. This targets inconsistent frontside tailslide entries and unexpected board rotation after the pop.
+- Applies the handoff to flick pops and release pops, including ollies and nollies. Release pops keep their full pop pulse, and stick steering no longer consumes the pending foot setup.
+- Corrects back-foot circular adjustments on a rail: circling the rear stick rotates in the same angular direction as front-foot circles, while preserving the initial entry pose and analog strength.
+- Keeps held sideways foot setups consistent through brief ground contact before a rail, instead of restarting them as a fresh ground flick or reversing the setup.
+- Recognizes Skate's additional native grind state, preventing controls from dropping out or switching to ground handling during that part of a grind.
+- Improves Left/Right Foot stance tracking by sharing the native physical-foot checks already used by XL/True Foot. Front/Back Foot keeps its separate role mapping.
+- Keeps the experimental native grind-target/alignment override disabled by default. Skate still chooses contact and lock-in.
+
+- Validation: 118 control regression programs and 36,864 setup combinations pass. The dev11 baseline is unchanged across 22,166 replayed inputs for the tested setup. Wider gameplay and Proton validation remain outstanding.
+
 ## v6.5 - Grind exits and held stance input
 
 - Makes held-input fakie protection consistent with the native settings hook: fresh owned manual/setup input temporarily enables effective Hold Fakie Stance, while release restores the normal compatibility override. Saved preferences, Hold Fakie Push, airborne coordinate compensation and reverts are unchanged. Gameplay validation pending.

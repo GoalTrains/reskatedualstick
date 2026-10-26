@@ -36,7 +36,7 @@ static int ne_store(UINT64 a,const void*p,unsigned n){
  * when this supported hook is unavailable; no curve changes in ordinary air. */
 static void ne_prepare(sc_state*s){
  s->entry_rail_target=0;
- if(!g_ne_hooked || g_ne_bad || !g_cfg.enabled || !g_user_enabled || !g_cfg.split_grinds ||
+ if(!g_ne_hooked || g_ne_bad || !g_cfg.enabled || !g_user_enabled || !g_cfg.split_grinds || !g_cfg.native_grind_entry ||
     g_cfg.one_foot_flips || !g_cfg.air_controls || g_ui_open || g_native_menu || g_paused || g_menu || g_walking ||
     g_local<0 || native_local_slot()!=g_local || g_slots[g_local].state!=201)return;
  nr_frame f;gt_sample target;DWORD state=0;
@@ -70,18 +70,20 @@ static void ne_target(UINT64 object,UINT64 output){
  if(__sync_lock_test_and_set(&g_ne_lock,1)){g_ne_previous(object,output);return;}
  DWORD saved_error=GetLastError();UINT64 now=GetTickCount64(),context=0;nr_frame f;
  int slot=native_local_slot();DWORD state=0;gt_sample target;float native_request_gate=5;
- int owned=slot>=0 && slot==g_local && g_ne.context &&
-   np_pointer(rd_copy,object+0x98,&context) && context==g_ne.context &&
+ int owned=slot>=0 && slot==g_local &&
+   np_pointer(rd_copy,object+0x98,&context) &&
    nr_read(g_slots[slot].sel,(UINT64)GetModuleHandleW(0),rd_copy,&f) &&
-   f.core==g_ne.core && f.context==context;
+   f.context==context;
  if(owned)g_ne_calls++;
- int eligible=owned && !g_ne_bad && g_cfg.enabled && g_user_enabled && g_cfg.split_grinds &&
+ int eligible=owned && f.core==g_ne.core && context==g_ne.context && !g_ne_bad && g_cfg.enabled && g_user_enabled && g_cfg.split_grinds && g_cfg.native_grind_entry &&
    !g_cfg.one_foot_flips && !g_ui_open && !g_native_menu && !g_paused && !g_menu && !g_walking &&
    g_ne.plan.active && rd_copy(context+0x1414,&state,4) &&
    sc_entry_fresh(now,g_ne.seen,state) &&
    /* Match the selector's own explicit-request branch (47fc5c7..5d7). */
    rd_copy(object+0xaec,&native_request_gate,4) && __builtin_isfinite(native_request_gate) && native_request_gate<5 &&
    (gt_read(f.core,rd_copy,&target)&2) && target.targeting_grind;
+ int observed_native_type=7;
+ if(owned)rd_copy(context+0x17d0,&observed_native_type,4);
  int old_type=7,applied=0;DWORD old_flags=0;BYTE old_cache[5];
  if(owned && !eligible)g_ne_cache.last=0;
  if(eligible && (g_ne.plan.type==1 || g_ne.plan.type==2) &&
@@ -133,10 +135,18 @@ static void ne_target(UINT64 object,UINT64 output){
    }
   }
  }
+ if(owned && !applied && g_grind_diag){
+  BYTE active=0;int selected=7;
+  ne_candidate_snapshot(object,observed_native_type,observed_native_type);
+  if(rd_copy(object+0xad0,&active,1) && active==1)rd_copy(object+0xad8,&selected,4);
+  g_ne_observation.qpc_us=rd_time();g_ne_observation.object=object;g_ne_observation.context=context;
+  g_ne_observation.requested=(DWORD)observed_native_type;g_ne_observation.accepted=(DWORD)selected;
+  g_ne_observation.selected_type=selected;g_ne_observation.yaw=g_ne_observation.pitch=0;
+ }
  __sync_lock_release(&g_ne_lock);SetLastError(original_error);
 }
 static void ne_try_hook(UINT64 now){
- if(g_ne_hooked || g_ne_bad || now<g_ne_next || !g_cfg.split_grinds)return;
+ if(g_ne_hooked || g_ne_bad || now<g_ne_next || (!g_grind_diag && (!g_cfg.split_grinds || !g_cfg.native_grind_entry)))return;
  g_ne_next=now+1000;UINT64 base=np_base();BYTE actual[16];
  static const BYTE prefix[16]={0x40,0x53,0x48,0x83,0xec,0x40,0x48,0x8b,0x81,0x98,0,0,0,0x48,0x8b,0xd9};
  if(!base || !rd_copy(base+0x47fc590,actual,16) || !bytes_equal(actual,prefix,16)){
@@ -158,7 +168,7 @@ static void ne_try_hook(UINT64 now){
  UINT64 before=__sync_val_compare_and_swap((volatile UINT64*)(base+0x47fc590),expected,replacement);
  VirtualProtect((void*)(base+0x47fc590),8,old,&unused);FlushInstructionCache(GetCurrentProcess(),(void*)(base+0x47fc590),8);
  if(before!=expected){g_ne_bad=1;log_text("native back-foot entry: competing hook; stick fallback retained");return;}
- g_ne_hooked=1;log_text("native back-foot entry: ordinary air selector hooked; explicit back-foot end with native candidate validation; experimental");
+ g_ne_hooked=1;log_text("native air selector: owned observations enabled; experimental requests still require NativeGrindEntry");
 }
 static void ne_publish(const sc_state*s,UINT64 now){
  if(__sync_lock_test_and_set(&g_ne_lock,1))return;
