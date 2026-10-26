@@ -1,0 +1,7 @@
+{
+    "name": "Dual_Stick_Controls_Lua",
+    "version_number": "0.2.0",
+    "website_url": "https://github.com/GoalTrains/reskatedualstick",
+    "description": "Testing build of the standalone Lua port of Dual Stick v6.6. Requires the ReSkate controller APIs.",
+    "dependencies": []
+}

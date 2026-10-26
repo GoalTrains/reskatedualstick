@@ -24,6 +24,10 @@ Not every trick keeps flipping or spinning while held; some settle into an angle
 
 v6.4 removes the v6.3 stick-speed override and corrects XL fakie airborne leg/board adjustment direction. Skate handles flip speed again; old `GestureSpeed` keys are ignored. Reverts are unchanged.
 
+## Lua testing port
+
+The standalone [Lua port](lua/README.md) includes the 6.6 control fixes and runs without the Dual Stick companion DLL once the proposed ReSkate controller APIs are available. It remains a testing candidate; see [validation and limits](lua/VALIDATION.md). The stable DLL downloads below remain separate.
+
 ## Stable download v6.6
 
 **v6.6 improves grind entry and foot controls.** It prevents sideways setups from becoming another ground gesture between pop and takeoff, corrects rear-stick rail circles, preserves setup through brief ground contact, and improves Left/Right Foot stance tracking. Existing settings and Manual Catch preferences are preserved.
