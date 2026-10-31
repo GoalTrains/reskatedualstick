@@ -18,6 +18,20 @@ int main(void){
  step(&s,4,1900,&r);assert(step(&s,4,2900,&r)==4 && !r);step(&s,0,3000,&r);assert(!r);
  assert(sc_camera_dpad_step(&s,8,3100,0,&r)==8 && !r);step(&s,0,3200,&r);assert(!r);
  step(&s,1,3300,&r);assert(step(&s,2,3310,&r)==2 && !r);
+ /* Push remains held and reaches Skate while either camera side is tapped. */
+ const unsigned pushes[]={0x1000,0x4000,0x5000};
+ for(unsigned pi=0;pi<3;pi++){
+  unsigned push=pushes[pi];
+  for(unsigned side=4;side<=8;side+=4){
+   sc_camera_dpad p={0};step(&p,push,4000,&r);
+   assert(step(&p,push|side,4010,&r)==push && !r);
+   assert(step(&p,push,4100,&r)==push && r==(side==4?1:-1));
+  }
+ }
+ {sc_camera_dpad p={0};step(&p,0,4000,&r);
+  step(&p,0x4004,4010,&r);step(&p,0x4004,4510,&r);
+  assert(step(&p,0x4000,4520,&r)==0x4000 && !r);
+  step(&p,0x4104,4600,&r);step(&p,0x4000,4650,&r);assert(!r);}
  assert(sc_camera_dpad_toggle(&s,-1,1,6500)==1);assert(sc_camera_dpad_toggle(&s,-1,1,6600)==0);
  assert(sc_camera_dpad_toggle(&s,1,1,6700)==1);assert(sc_camera_dpad_toggle(&s,1,1,8000)==0);
  assert(sc_camera_dpad_toggle(&s,-1,0,10000)==0);

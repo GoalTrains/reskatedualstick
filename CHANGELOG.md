@@ -1,3 +1,30 @@
+## v6.7 - New revert options and flip fixes
+
+New ways to revert
+- SLIDE + ROTATE: start a powerslide, then turn both sticks a little further. Works with matching or mirrored thumb circles.
+- FREE FOOT ARC: curve a stick through the unused direction for your stance, with the other stick centred. The stick and direction change with your layout and stance; the controls picture shows which arc to use. For Session-style controls this is right-stick TOP normally and left-stick BOTTOM in switch.
+- Find both under End > Custom > Reverts. The existing trigger options are still available. Keep your current settings and choose a new option when you want to try it.
+
+Control fixes
+- You can now turn with LT/RT while holding D-pad UP to place a session marker.
+- D-pad camera switching now works while holding either push button.
+- Corrects switch pop direction for Left/Right Foot controls, including goofy riders.
+- Corrects reversed flip directions in affected Session-style fakie/switch situations.
+- Fixes recorded cases where nollie or XL flip input changed direction as the wheels left the ground. Held flips now keep the intended input through takeoff.
+- Skips unnecessary settings rereads, reducing recurring work while the controller is being read. This is not a claim of lower controller-to-screen latency.
+
+Updating
+Close Skate and replace version.dll beside Skate.exe. Keep your existing session_controls.ini, saved presets and official ReSkate.dll. Fresh-install settings are included for new installs. End opens Dual Stick; Insert opens ReSkate.
+
+Testing and remaining issues
+132 automated control tests pass, including replays of the reported flip problems and checks across regular/goofy, normal/switch and the available layouts. Slide reverts have also been confirmed working in local gameplay. Some flip/shuv-it and manual-catch issues remain under investigation; wider gameplay confirmation is still needed for the latest flip fixes. Grabs have not been changed.
+
+Linux / Steam Deck uses the Windows DLL under Proton with:
+WINEDLLOVERRIDES="version=n,b" %command%
+This update has not been gameplay-tested on Linux / Steam Deck.
+
+The optional Windows updater is unchanged; existing updater users do not need to reinstall it.
+
 ## v6.6 - Grind entry and foot controls
 
 - Fixes a pop-to-air timing issue that could turn a sideways foot setup into another ground gesture before takeoff. This targets inconsistent frontside tailslide entries and unexpected board rotation after the pop.

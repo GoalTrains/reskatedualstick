@@ -208,7 +208,7 @@ static void ui_value(int item, WCHAR* out) {
     case UI_MANUALCATCH: v = g_cfg.manual_catch ? "ON" : "OFF"; break;
     case UI_STEER: v = g_cfg.stick_steer==2 ? "LEFT STICK" : g_cfg.stick_steer ? "FRONT FOOT" : "OFF"; break;
     case UI_XLEXTRAS: v=g_cfg.stick_steer==2 && g_cfg.one_foot_flips ? "ON" : g_cfg.stick_steer || g_cfg.one_foot_flips ? "CUSTOM" : "OFF";break;
-    case UI_REVERTS: v = g_cfg.revert_input == 2 ? "BOTH TRIGGERS" : g_cfg.revert_input == 1 ? "DOUBLE TAP" : "OFF"; break;
+    case UI_REVERTS: v = g_cfg.revert_input == 4 ? "FREE FOOT ARC" : g_cfg.revert_input == 3 ? "SLIDE + ROTATE" : g_cfg.revert_input == 2 ? "BOTH TRIGGERS" : g_cfg.revert_input == 1 ? "DOUBLE TAP" : "OFF"; break;
     case UI_WINDSTEER: v=g_cfg.prewind_steer?"LIGHT STEERS":"NORMAL";break;
     case UI_STEERANGLE:
     case UI_TAPWINDOW:
@@ -241,7 +241,7 @@ static const WCHAR* const k_ui_help[UI_COUNT] = {
     L"FLICK: crouch, then flick the other foot to pop. RELEASE: hold a full setup and release to pop; two-foot flicks also work. Both are translated into Skate flick-stick input.",
     L"BLOCKED: flip tricks need both feet - one stick on its own can still scoop shove-its, 360 shove-its and impossibles (a full circle over the top), but not sweep into a heelflip, kickflip or tre. ALLOWED: no limit.",
     L"OFF / FRONT FOOT / LEFT STICK: choose which stick steers with the other centred. Centre it before beginning a foot trick. A started scoop keeps its foot control through sideways angles. Triggers still turn.",
-    L"How to revert. BOTH TRIGGERS: squeeze LT + RT together (reverts towards the one pressed first). DOUBLE TAP: double-tap LT or RT. OFF.",
+    L"FREE FOOT ARC: use the unused arc for your stance and layout, with the other stick centred. Front/Back: right TOP normally, left BOTTOM in switch. Physical layouts follow the current foot jobs and direction settings. Centre to repeat. SLIDE + ROTATE remains available.",
     L"Crouch, then hold LT or RT before you pop: the skater winds up a spin that way (the game's prewind).",
     L"Click the front-foot stick for a frontflip or the back-foot stick for a backflip while foot-crouched or airborne. This option enables body flips. Centred R3 pumping and rail/lip exits are separate controls.",
     L"In the air and on rails, each foot moves its board end. On a rail or lip stall, pull front UP or back DOWN firmly, then flick the other foot. A pop foot already held in the stall can also prepare the trick; flick the opposite foot.",
@@ -306,7 +306,7 @@ static const UI_CARD k_cards[] = {
 #define UI_NCARDS ((int)(sizeof k_cards / sizeof k_cards[0]))
 static void ui_stick_pt(int cx, int cy, int r, float x, float y, int* px, int* py) { *px = cx + (int)(x * r); *py = cy - (int)(y * r); }
 static void ui_draw_card(HDC dc, const UI_CARD* cd, int x0, int y0, int w, int h, int k, HGDIOBJ small, HGDIOBJ bold, int goofy) {
-    int physical = cd==&k_cards[UI_CARD_PUMP] || cd==&k_cards[UI_CARD_SLIDE] || cd==&k_cards[UI_CARD_EXIT] || cd==&k_cards[UI_CARD_TOGGLE];
+    int physical = cd==&k_cards[UI_CARD_PUMP] || cd==&k_cards[UI_CARD_SLIDE] || cd==&k_cards[UI_CARD_EXIT] || cd==&k_cards[UI_CARD_TOGGLE] || (cd==&k_cards[UI_CARD_REVERT] && g_cfg.revert_input>=3);
     int swap_feet = !physical && !sc_menu_left_front(g_cfg.front_back,g_cfg.goofy,g_cfg.switch_flip,g_switched>0,g_cfg.feet_swapped);
     int mirror_x = !physical && (sc_menu_mirror_x(g_cfg.front_back,g_cfg.goofy,g_cfg.flip_x) != (g_switched>0 && g_cfg.switch_invert_x));
     int mirror_y = !physical && g_switched>0 && (g_cfg.switch_invert_y!=sc_menu_xl_card_y(g_cfg.xl_layout,g_switched>0));
@@ -318,7 +318,21 @@ static void ui_draw_card(HDC dc, const UI_CARD* cd, int x0, int y0, int w, int h
             cd==&k_cards[UI_CARD_OLLIE]?L"Hold back up; flick front down":L"Hold front down; flick back up\nXL calls this a fakie ollie";cd=&option;
     }
     if(cd==&k_cards[UI_CARD_REVERT]) {
-        option=*cd;option.note=g_cfg.revert_input==2?L"squeeze LT + RT":g_cfg.revert_input==1?L"double-tap LT or RT":L"Reverts disabled in settings";cd=&option;
+        option=*cd;option.note=g_cfg.revert_input==3?L"Powerslide; turn both sticks\n30 matching / 55 mirrored":g_cfg.revert_input==2?L"squeeze LT + RT":g_cfg.revert_input==1?L"double-tap LT or RT":L"Reverts disabled in settings";cd=&option;
+        if(g_cfg.revert_input==4){
+            sc_state* arc_state=&g_arc_ui_state;
+            int front=sc_menu_left_front(g_cfg.front_back,g_cfg.goofy,g_cfg.switch_flip,g_switched>0,g_cfg.feet_swapped);
+            sc_arc_contract arc=sc_revert_arc_contract(&g_cfg,arc_state,front);
+            option.note=arc.left?(arc.y>0?L"Left TOP arc; right centred":L"Left BOTTOM arc; right centred"):(arc.y>0?L"Right TOP arc; left centred":L"Right BOTTOM arc; left centred");
+            option.n=1;option.s[0]=(UI_STROKE){arc.left?0:1,1,85,arc.y>0?45:225,arc.y>0?-65:115,0,1,0};
+        }
+        if(g_cfg.revert_input==3){
+            option.n=4;
+            option.s[0]=(UI_STROKE){0,0,0,0,85,0,1,1};
+            option.s[1]=(UI_STROKE){1,0,0,0,-85,0,1,1};
+            option.s[2]=(UI_STROKE){0,1,85,90,125,0,2,0};
+            option.s[3]=(UI_STROKE){1,1,85,270,305,0,2,0};
+        }
     } else if(cd==&k_cards[UI_CARD_GRAB] && g_cfg.stock_grab_air) {
         option=*cd;option.note=L"LB / RB normally; stock ramp mode: LT / RT grab";cd=&option;
     }
@@ -514,7 +528,7 @@ static void ui_change(int item, int dir) {
         WCHAR val[3]={(WCHAR)('0'+v/10),(WCHAR)('0'+v%10),0};
         ui_set(L"StickSteeringAngleDegrees",val+(v<10));break;
     }
-    case UI_REVERTS: { int v = (g_cfg.revert_input + (dir < 0 ? 2 : 1)) % 3; ui_set(L"RevertInput", v == 2 ? L"2" : v == 1 ? L"1" : L"0"); break; }
+    case UI_REVERTS: { int v = (g_cfg.revert_input + (dir < 0 ? 4 : 1)) % 5; ui_set(L"RevertInput", v == 4 ? L"4" : v == 3 ? L"3" : v == 2 ? L"2" : v == 1 ? L"1" : L"0"); break; }
     case UI_TAPWINDOW:
     case UI_WINDTHRESH: {
         int v=item==UI_TAPWINDOW?(int)g_cfg.revert_ms:g_cfg.prewind_percent;

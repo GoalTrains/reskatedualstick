@@ -1,6 +1,7 @@
 #define PROPERTY_FIXTURE_MAIN property_fixture_main
 #include "native_property_poll.c"
 static int g_native_respawn=1;
+static int g_stance_flight,g_catch_diag;
 static int g_native_ground_respawn=1,g_game_goofy=0;
 static double g_now_ms;
 static unsigned char client[256],native_context[512],connection[128],manager[64];
@@ -199,7 +200,12 @@ int NR_FIXTURE_MAIN(void){
  }
  assert(calls==agreement_calls);
  g_cfg.xl_layout=0;flags(1,0);basis(0);native_clock+=40;tick();assert(g_xl_frame_owner==(UINT64)selector);
- g_cfg.front_back=1;native_clock+=40;tick();assert(!g_xl_agreement_owner && !g_xl_frame_owner);
+ g_cfg.front_back=1;native_clock+=40;tick();assert(g_xl_frame_owner==(UINT64)selector);
+ /* Front/Back observes checked frames for ground flip compensation without
+  * changing foot ownership or invoking native recovery. */
+ g_stance_flight=1;native_clock+=40;tick();assert(g_xl_frame_owner==(UINT64)selector && g_cfg.front_back==1 && calls==agreement_calls);
+ g_stance_flight=0;g_catch_diag=1;native_clock+=40;tick();assert(g_xl_frame_owner==(UINT64)selector && calls==agreement_calls);
+ g_catch_diag=0;native_clock+=40;tick();assert(g_xl_frame_owner==(UINT64)selector && calls==agreement_calls);
  sc_pad steering={0},steered={0};steering.lt=255;steered.lx=-32768;
  nr_note_menu(g_now_ms,0,&steering,&steered);assert(g_xl_idle); /* Trigger steering is not held foot input. */
  steering.ry=-20000;nr_note_menu(g_now_ms,0,&steering,&steered);assert(!g_xl_idle);

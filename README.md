@@ -5,6 +5,10 @@
 Play Skate with two foot sticks using **Session-style**, **Skater XL-style**, or your own **Custom** settings.
 The mod translates Skate's controls across two sticks; it does not replace the game's skating physics.
 
+## v6.7 update
+
+New Slide + Rotate and stance-aware Free Foot Arc reverts, marker trigger turning, camera changes while pushing, and recorded nollie/XL flip handoff fixes. Keep your existing INI when updating. [Update notes](docs/RELEASE_6.7.txt).
+
 ## D-pad camera controls (v6.2)
 
 Open **End > Custom > D-pad camera sides** to change the camera mapping (`DpadCameraSide=1` under `[SessionControls]`). Default is ON; an explicitly saved OFF setting is respected. While this option and Dual Stick are enabled, the mod makes Skate read **Switch side controls** as ON and **Dynamic side switching** as OFF. Saved gameplay preferences are retained and used again when the option or mod is disabled.
@@ -24,16 +28,16 @@ Not every trick keeps flipping or spinning while held; some settle into an angle
 
 v6.4 removes the v6.3 stick-speed override and corrects XL fakie airborne leg/board adjustment direction. Skate handles flip speed again; old `GestureSpeed` keys are ignored. Reverts are unchanged.
 
-## Stable download v6.6
+## Stable download v6.7
 
-**v6.6 improves grind entry and foot controls.** It prevents sideways setups from becoming another ground gesture between pop and takeoff, corrects rear-stick rail circles, preserves setup through brief ground contact, and improves Left/Right Foot stance tracking. Existing settings and Manual Catch preferences are preserved.
+**v6.7 adds new revert choices and fixes recorded flip-input problems.** It also restores trigger turning while placing markers and camera switching while pushing. Existing settings and Manual Catch preferences are preserved. See the [plain-language update notes](docs/RELEASE_6.7.txt).
 
 Fresh settings enable **FOOT SETUP**. With an existing INI, enable it under **Custom > Grind setup > FOOT SETUP** (`SplitGrindControls=1`). For dedicated two-foot setup, block single-stick flips. Each stick contributes to board position; deliberate front-foot input can lower the nose while keeping tail support.
 
 | Platform | Download |
 | --- | --- |
-| Windows | [Download Windows zip](https://github.com/GoalTrains/reskatedualstick/releases/download/6.6/Dual_Stick_Controls_v6.6.zip) |
-| Linux / Steam Deck (Proton) | [Download Linux / Steam Deck zip](https://github.com/GoalTrains/reskatedualstick/releases/download/6.6/Dual_Stick_Controls_v6.6_Linux.zip) |
+| Windows | [Download Windows zip](https://github.com/GoalTrains/reskatedualstick/releases/download/6.7/Dual_Stick_Controls_v6.7.zip) |
+| Linux / Steam Deck (Proton) | [Download Linux / Steam Deck zip](https://github.com/GoalTrains/reskatedualstick/releases/download/6.7/Dual_Stick_Controls_v6.7_Linux.zip) |
 
 [Release notes](docs/RELEASE_6.6.txt) · [Full changelog](CHANGELOG.md) · [Windows instructions](docs/INSTALL_WINDOWS.md) · [Linux instructions](docs/INSTALL_LINUX.md)
 
@@ -41,7 +45,7 @@ Changes since v6.5: pop-to-air handoff for flick/release pops, rear-foot rail ci
 
 ## Automatic updates (Windows)
 
-[Optional auto-updater download](https://github.com/GoalTrains/reskatedualstick/releases/download/6.6/Dual_Stick_Auto_Updater_Windows.zip). Copy its contents beside `ReSkateLauncher.exe`, then open **DualStickLauncher.exe** (or a shortcut to it) to check stable releases before the official launcher opens. Read the patch notes, then choose **Update now**, **Skip this release**, or **Disable update checks**.
+[Optional auto-updater download](https://github.com/GoalTrains/reskatedualstick/releases/download/6.7/Dual_Stick_Auto_Updater_Windows.zip). Copy its contents beside `ReSkateLauncher.exe`, then open **DualStickLauncher.exe** (or a shortcut to it) to check stable releases before the official launcher opens. Read the patch notes, then choose **Update now**, **Skip this release**, or **Disable update checks**.
 
 It preserves your INI, verifies download hashes, keeps the previous DLL, skips running games/newer local builds, and opens ReSkate even if GitHub is unavailable. It leaves the official launcher and its update settings unchanged. Opening ReSkateLauncher.exe directly bypasses this optional updater. [Details and opt-out](updater/README.md).
 

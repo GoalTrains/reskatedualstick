@@ -12,6 +12,7 @@ EXPORTS
     DisableThreadLibraryCalls
     GetTickCount64
     GetFileAttributesW
+    GetFileAttributesExW
     GetModuleHandleW
     VirtualProtect
     QueryPerformanceCounter

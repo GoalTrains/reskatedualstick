@@ -143,7 +143,9 @@ static void nr_client_tick(UINT64 client,UINT64 update) {
         /* A manual stance override changes physical stick ownership, not the
          * native frame contract. Keep collecting when Skate reports a different
          * configured stance; otherwise XL silently falls back after reverts. */
-        int xl_track=sc_physical_foot_layout(g_cfg.front_back,g_cfg.switch_flip) && g_user_enabled && g_cfg.enabled && !g_paused &&
+        /* Front/Back also needs the checked native frame for ground flip
+         * compensation. Physical foot ownership remains on its existing source. */
+        int xl_track=(g_cfg.front_back || sc_physical_foot_layout(g_cfg.front_back,g_cfg.switch_flip) || g_stance_flight || g_catch_diag) && g_user_enabled && g_cfg.enabled && !g_paused &&
             g_native_menu==0 && !g_menu && !g_ui_open && selector && g_local>=0 && g_slots[g_local].sel==selector;
         int xl_valid=xl_track && (valid || nr_read(selector,base,rd_copy,&frame));
         int hint=-1;
