@@ -1,0 +1,8 @@
+native-test/
+test/*.luau
+*.log
+*.zip
+tools/__pycache__/
+tools/source.pp.c
+package/
+dist/
