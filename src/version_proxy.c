@@ -14,6 +14,7 @@
 #include "controller_shortcuts.h"
 #include "pause_gate.h"
 #include "camera_dpad.h"
+#include "config_watch.h"
 
 typedef unsigned char BYTE;
 typedef unsigned short WORD;
@@ -53,6 +54,7 @@ __declspec(dllimport) BOOL WINAPI WritePrivateProfileSectionW(const WCHAR*, cons
 __declspec(dllimport) BOOL WINAPI DisableThreadLibraryCalls(HMODULE);
 __declspec(dllimport) UINT64 WINAPI GetTickCount64(void);
 __declspec(dllimport) DWORD WINAPI GetFileAttributesW(const WCHAR*);
+__declspec(dllimport) BOOL WINAPI GetFileAttributesExW(const WCHAR*,int,void*);
 __declspec(dllimport) BOOL WINAPI VirtualProtect(void*, UINT64, DWORD, DWORD*);
 __declspec(dllimport) BOOL WINAPI QueryPerformanceCounter(INT64*);
 __declspec(dllimport) void* WINAPI VirtualAlloc(void*, UINT64, DWORD, DWORD);
@@ -82,6 +84,7 @@ static HMODULE g_self;
 static WCHAR g_dir[520], g_ini[560], g_log[560];
 static sc_config g_cfg;
 static sc_state g_state[4];
+static sc_state g_arc_ui_state; /* only stance/frame fields are cached for the menu */
 #include "manual_catch.h"
 static sc_manual_catch g_manual_catch[4];
 static sc_controller_hold g_controller_hold[4];
@@ -135,6 +138,7 @@ static int g_state_log;            /* StateLog=1: log every skater state change 
 static int g_air_ms = 120;         /* AirDelayMs: state must be 'air' this long before air controls */
 static WORD g_prev_buttons[4];
 static UINT64 g_last_ini_check;
+static sc_config_watch g_config_watch;
 static int g_active;     /* inside Skate.exe with the import redirected */
 static int g_seen_state; /* logged the first translated poll */
 
@@ -197,9 +201,9 @@ static void load_config(int keep_runtime) {
     if (g_cfg.revert_ms <= 0) g_cfg.revert_ms=300;
     if (g_cfg.revert_ms < 100) g_cfg.revert_ms = 100;
     if (g_cfg.revert_ms > 600) g_cfg.revert_ms = 600;
-    /* v5.7: RevertInput = 0 off, 1 double tap, 2 squeeze both triggers (default) */
+    /* 0 off, 1 double tap, 2 both triggers (default), 3 powerslide + rotate. */
     g_cfg.revert_input = ini_int(L"RevertInput", 2);
-    if (g_cfg.revert_input < 0 || g_cfg.revert_input > 2) g_cfg.revert_input = 2;
+    if (g_cfg.revert_input < 0 || g_cfg.revert_input > 4) g_cfg.revert_input = 2;
     g_cfg.ps_flip = ini_int(L"PowerslideFlip", 0) != 0;
     g_cfg.revert_flip = ini_int(L"RevertFlip", 0) != 0;
     g_cfg.revert_sweep_ms = (float)ini_int(L"RevertSpinMs", 300);
@@ -1149,7 +1153,14 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
             }
         }
     }
-    if (now - g_last_ini_check > 2000) { g_last_ini_check = now; load_config(1); }
+    if (now - g_last_ini_check > 2000) {
+        g_last_ini_check = now;
+        /* WIN32_FILE_ATTRIBUTE_DATA is nine 32-bit fields; metadata replaces
+         * dozens of profile reads on polls where neither file nor stance changed. */
+        DWORD info[9]={0};int valid=GetFileAttributesExW(g_ini,0,info)!=0;
+        UINT64 written=((UINT64)info[6]<<32)|info[5],size=((UINT64)info[7]<<32)|info[8];
+        if(sc_config_needs_reload(&g_config_watch,valid,written,size,g_game_goofy))load_config(1);
+    }
     {
         static int was_owned;
         int owned = reskate_owns_input(now);
@@ -1273,7 +1284,7 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
         int physical_feet=sc_physical_foot_layout(g_cfg.front_back,g_cfg.switch_flip);
         int physical_raw=-1,mirror_delta=-1;
         int stance_raw=motion_sw>=0?motion_sw:sw;
-        if(physical_feet && g_switch_src==4 && g_local>=0){
+        if((physical_feet || g_cfg.front_back || g_stance_flight || g_catch_diag) && g_switch_src==4 && g_local>=0){
             physical_raw=nr_xl_physical_raw(g_slots[g_local].sel,g_cfg.goofy,native_sw,&mirror_delta);
             st->xl_absolute_raw=physical_raw;
             if(physical_raw>=0){st->game_mirror_known=1;st->game_mirror=mirror_delta;}
@@ -1365,6 +1376,11 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
     int catch_doing=catch_fresh && (g_catch_sample.valid&2)?g_catch_sample.doing_trick:-1;
     int catch_before=mc->phase,catch_feet=mc->requested;
     s->Gamepad = sc_manual_catch_translate_observed(&g_cfg,st,mc,s->Gamepad,now_ms,g_local>=0?(int)g_slots[g_local].state:-1,catch_trick_id,catch_doing);
+    if(g_cfg.enabled && !st->air && st->takeoff!=1 && !st->grind){
+        g_arc_ui_state.switched=st->switched;
+        g_arc_ui_state.game_mirror_known=st->game_mirror_known;
+        g_arc_ui_state.xl_absolute_raw=st->xl_absolute_raw;
+    }
     if(mc->phase!=catch_before || mc->requested!=catch_feet) {
         if(mc->phase==2)log_text(g_cfg.manual_catch_replay?"manual catch EXPERIMENT: repeating captured game-stick flick until fresh L3/R3":mc->candidate_kind==3?"manual catch: new airborne trick recognized; endpoint held; waiting for fresh L3/R3":mc->candidate_kind==2?"manual catch: scoop endpoint held automatically; waiting for fresh L3/R3":"manual catch: native flip input held automatically; waiting for fresh L3/R3");
         else if(mc->phase==3)log_text(mc->requested==3?"manual catch: BOTH feet requested; shared held-flip input released":
@@ -1518,6 +1534,12 @@ static void process_inner(DWORD user, XINPUT_STATE* s, UINT64* timing) {
                 g_cfg.revert_shape = k_rv_shapes[g_rv_calib_i / 4]; g_cfg.revert_sweep_ms = (float)k_rv_speeds[g_rv_calib_i % 4];
             }
         }
+        else if (st->d_log == 13) {
+            WPUT("  revert: free-foot arc, ");WPUT(st->top_revert.owner_left?"LEFT ":"RIGHT ");
+            WPUT(st->top_revert.owner_y>0?"TOP, ":"BOTTOM, ");
+            WPUT(st->d_log_a>0?"clockwise":"counterclockwise");
+        }
+        else if (st->d_log == 12) { WPUT("  revert: powerslide + stick rotation, "); WPUT(st->d_log_a>0?"clockwise":"counterclockwise"); }
         else if (st->d_log == 10) { WPUT("  stock grab-air: physical sticks and analogue trigger grabs until landing"); }
         else if (st->d_log == 11) { WPUT("  stock ramp approach: early physical stock controls; until landing or approach expires"); }
         else if (st->d_log == 7) { WPUT("  grind / lip exit: "); WPUT(st->d_log_b < 0 ? "DOWN (tilted stick click)" : st->d_log_b > 0 ? "UP (tilted stick click)" : st->d_log_a > 0 ? "right (R3)" : "left (L3)"); }
@@ -1790,7 +1812,7 @@ static void setup(HMODULE self) {
     GetModuleFileNameW(0, exe, 519);
     if (!wieq(wbase(exe), "skate.exe")) return; /* only the game; stay a plain version.dll elsewhere */
 
-    log_text("---- Dual Stick Controls 6.6 GRIND ENTRY AND FOOT CONTROLS loaded (version.dll route)");
+    log_text("---- Dual Stick Controls 6.7 REVERT OPTIONS AND FLIP FIXES loaded (version.dll route)");
     log_wide("process: ", exe);
     load_config(0);
     if (GetFileAttributesW(g_ini) == 0xFFFFFFFFu) log_text("no session_controls.ini found; using defaults");

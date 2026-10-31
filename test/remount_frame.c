@@ -29,10 +29,11 @@ int main(void) {
         sc_translate(&feet,&state,pad,1000);
         if(sw)pad.ly=-32767;else pad.ry=-32767;
         sc_pad held=sc_translate(&feet,&state,pad,1100);
-        assert(state.feet_map_left==!sw && held.ry<-30000);
+        int native_sign=sw?-1:1;
+        assert(state.feet_map_left==!sw && held.ry*native_sign<-30000);
         if(sw)pad.ry=32767;else pad.ly=32767;
         sc_pad flick=sc_translate(&feet,&state,pad,1200);
-        assert(flick.ry>30000);
+        assert(flick.ry*native_sign>30000);
     }
     puts("PASS: left-up setup/right-down flick preserves existing switch output; remount uses native input frame separately from corrected riding direction; disabled/unknown routes unchanged");
 }

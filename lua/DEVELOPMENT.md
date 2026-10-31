@@ -13,3 +13,7 @@ The SDK changes are in the separate ReSkate fork branch. That branch contains on
 ## Regeneration from this repository
 
 Set CLANG to clang and LUAU_WEB_ROOT to an existing luau-web package directory. The validator is an external development dependency and is never included in the plugin ZIP. Run tools/build_source.py, tools/port_tests.py <repository-root> <this-folder>/test, tools/native_compare.py <repository-root> <this-folder>/native-test <clang>, then tools/run_port_tests.mjs, tools/compare_port.mjs and tools/test_runtime.mjs. build_source.py reads the repository src/ headers, replaces the gesture catalog with an empty stub and includes no native memory readers. Native expectations are regenerated each run. The test converter expands C macros and escapes Lua reserved identifiers.
+
+## Source baseline after syncing main
+
+This PR ports the released 6.6 controls. Main now contains DLL release 6.7; its new revert/flip behavior is outside this PR. To regenerate, use a separate checkout of tag 6.6 and set DUAL_STICK_SOURCE_ROOT to it. Pass that same checkout as the source-root argument to port_tests.py and native_compare.py. build_source.py refuses a different version marker rather than silently changing the Lua baseline. The Lua runtime and existing regression fixtures retain 6.6 behavior.

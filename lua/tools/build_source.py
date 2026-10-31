@@ -1,7 +1,10 @@
 from pathlib import Path
 import re,subprocess,os
 P=Path(__file__).resolve().parent
-S=P.parents[1]/'src'
+SOURCE_ROOT=Path(os.environ.get('DUAL_STICK_SOURCE_ROOT',P.parents[1]))
+S=SOURCE_ROOT/'src'
+if '6.6 GRIND ENTRY AND FOOT CONTROLS' not in (S/'version_proxy.c').read_text():
+ raise SystemExit('This Lua port targets 6.6. Set DUAL_STICK_SOURCE_ROOT to a checkout of tag 6.6 before regenerating.')
 def own(name): return re.sub(r'^#include[^\n]*','', (S/name).read_text(),flags=re.M)
 def function(name,s):
  a=s.index('static int '+name+'(');b=s.index('{',a);depth=1;i=b+1

@@ -169,9 +169,10 @@ static void test_late_manual(void) {
     p.ly=0; sc_translate(&c,&s,p,1080); sc_translate(&c,&s,p,1096);
     /* In switch left is now the back foot; release unlocked its new job. */
     p.ly=-32767; sc_pad crouch=sc_translate(&c,&s,p,1200);
-    assert(sc_axis(crouch.ry)<-0.8f);
+    /* The fresh switch gesture uses the native mirrored input frame. */
+    assert(sc_axis(crouch.ry)>0.8f);
     p.ry=32767; sc_pad pop=sc_translate(&c,&s,p,1320);
-    assert(sc_axis(pop.ry)>0.8f);
+    assert(sc_axis(pop.ry)<-0.8f);
     puts("PASS: late stance correction preserves manual, then swaps foot jobs");
 }
 

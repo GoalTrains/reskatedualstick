@@ -14,10 +14,12 @@ static void mapping(int switched) {
     sc_translate(&c,&s,p,1000);
     if(switched)p.ry=-32767;else p.ly=-32767;
     sc_pad crouch=sc_translate(&c,&s,p,1020);
-    assert(s.feet_map_left==switched && crouch.ry<-30000);
+    /* Switch output is expressed in Skate's mirrored native input frame. */
+    int native_sign=switched?-1:1;
+    assert(s.feet_map_left==switched && crouch.ry*native_sign<-30000);
     if(switched)p.ly=32767;else p.ry=32767;
     sc_pad pop=sc_translate(&c,&s,p,1100);
-    assert(pop.ry>30000);
+    assert(pop.ry*native_sign>30000);
 }
 int main(void) {
     assert(sw(100,0,45340000)==0);

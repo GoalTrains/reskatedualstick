@@ -72,3 +72,8 @@ __pycache__/
 
 !/test/data/
 !/test/data/dev4_physical_feet.csv
+
+!/releases/v6.7/
+!/releases/v6.7/*.zip
+!/releases/v6.7/*.json
+!/releases/v6.7/*.txt

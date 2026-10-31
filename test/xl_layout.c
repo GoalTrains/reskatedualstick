@@ -44,10 +44,11 @@ int main(void){
   sc_translate(&c,&s,p,2500);foot(&p,setup_left,0,setup_y);sc_translate(&c,&s,p,2600);sc_translate(&c,&s,p,2750);
   foot(&p,!setup_left,0,flick_y);out=sc_translate(&c,&s,p,2800);assert(s.grind_pop);
   assert((front?1:-1)*out.ry*outgoing_sign<-20000);
-  /* Old physical layout still uses front UP and back DOWN. */
+  /* Left/Right still uses physical front UP/back DOWN; native switch output
+   * now receives the same frame compensation as XL. */
   c.xl_layout=0;c.pop_on_release=1;s=(sc_state){0};s.switched=sw;s.game_crouch=-1;p=(sc_pad){0};
   sc_translate(&c,&s,p,3000);foot(&p,setup_left,0,front?32767:-32768);out=sc_translate(&c,&s,p,3100);
-  assert(front?out.ry>30000:out.ry<-30000);
+  assert(out.ry*(front?1:-1)*(sw?-1:1)>30000);
  }
  for(int kind=0;kind<3;kind++){
   int fb,mode,xl;sc_menu_choose_input_layout(kind,&fb,&mode,&xl);assert(sc_menu_input_layout_kind(fb,mode,xl)==kind);

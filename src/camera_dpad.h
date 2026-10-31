@@ -3,6 +3,9 @@
 #ifndef SC_CAMERA_DPAD_H
 #define SC_CAMERA_DPAD_H
 #define SC_CAMERA_DPAD_HOLD_MS 500.0
+/* A/X are push buttons. They may accompany a camera tap; other button
+ * chords still belong to native D-pad actions and must cancel the tap. */
+#define SC_CAMERA_DPAD_PUSH_BUTTONS 0x5000u
 typedef struct {
     unsigned short previous,blocked;
     double started[2];
@@ -26,11 +29,11 @@ static unsigned short sc_camera_dpad_step(sc_camera_dpad* s,unsigned short butto
         if(buttons&bit) {
             if(s->blocked&bit){out|=bit;continue;}
             if(!(s->previous&bit)){s->started[i]=now;s->active|=mask;}
-            if(buttons&~bit)s->cancelled|=mask;
+            if(buttons&~(bit|SC_CAMERA_DPAD_PUSH_BUTTONS))s->cancelled|=mask;
             if((s->active&mask) && now-s->started[i]>=SC_CAMERA_DPAD_HOLD_MS)s->held|=mask;
             if(s->held&mask)out|=bit;
         } else if(s->previous&bit) {
-            if((s->active&mask) && !(s->held&mask) && !(s->cancelled&mask) && !(buttons&~bit) && now-s->started[i]<SC_CAMERA_DPAD_HOLD_MS)
+            if((s->active&mask) && !(s->held&mask) && !(s->cancelled&mask) && !(buttons&~(bit|SC_CAMERA_DPAD_PUSH_BUTTONS)) && now-s->started[i]<SC_CAMERA_DPAD_HOLD_MS)
                 *request=i?-1:1;
             s->active&=~mask;s->held&=~mask;s->cancelled&=~mask;
         }
